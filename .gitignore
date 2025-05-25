@@ -1,0 +1,29 @@
+# Node modules (backend y frontend)
+node_modules/
+package-lock.json
+
+backend/node_modules/
+backend/package-lock.json
+
+# Prisma
+.prisma/
+.env
+.env.local
+.env.*.local
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Output / Build
+dist/
+build/
+.next/
+out/
+
+# Sistema operativo / IDEs
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
