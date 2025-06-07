@@ -29,3 +29,5 @@ out/
 Thumbs.db
 .vscode/
 .idea/
+
+/generated/prisma
