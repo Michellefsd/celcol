@@ -1,25 +1,29 @@
 'use client';
 
-import { useEffect, useState, ChangeEvent } from 'react';
+import { useEffect, useState, ChangeEvent, ReactNode } from 'react';
 
-type FieldOption = {
+export type FieldOption = {
   value: string;
   label: string;
 };
 
-type Field = {
+export type Field = {
   name: string;
   label: string;
   type: string;
   options?: FieldOption[];
 };
 
-type CrudManagerProps<T extends { id: number }> = {
+export type CrudConfig<T extends { id: number }> = {
   title: string;
   endpoint: string;
   columns: (keyof T)[];
   formFields: Field[];
   onAfterCreate?: (created: T) => void;
+  onBeforeSubmit?: (form: Partial<T>) => string | null;
+  extraActions?: (item: T) => ReactNode;
+  onEditLabel?: (item: T) => string;
+  onEditClick?: (item: T) => void;
 };
 
 export default function CrudManager<T extends { id: number }>({
@@ -28,7 +32,11 @@ export default function CrudManager<T extends { id: number }>({
   columns,
   formFields,
   onAfterCreate,
-}: CrudManagerProps<T>) {
+  onBeforeSubmit,
+  extraActions,
+  onEditLabel,
+  onEditClick,
+}: CrudConfig<T>) {
   const [data, setData] = useState<T[]>([]);
   const [editing, setEditing] = useState<T | null>(null);
   const [form, setForm] = useState<Partial<T>>({});
@@ -66,6 +74,14 @@ export default function CrudManager<T extends { id: number }>({
   };
 
   const handleSubmit = async () => {
+    if (onBeforeSubmit) {
+      const errorMessage = onBeforeSubmit(form);
+      if (errorMessage) {
+        alert(errorMessage);
+        return;
+      }
+    }
+
     const method = editing ? 'PUT' : 'POST';
     const url = editing ? `${endpoint}/${editing.id}` : endpoint;
 
@@ -116,27 +132,27 @@ export default function CrudManager<T extends { id: number }>({
   const renderValue = (item: T, key: keyof T): string => {
     const value = item[key];
 
-if (Array.isArray(value)) {
-  return value
-    .map((v) => {
-      if (
-        typeof v === 'object' &&
-        v !== null &&
-        'propietario' in v &&
-        typeof v.propietario === 'object' &&
-        v.propietario !== null
-      ) {
-        const p = v.propietario as {
-          nombreEmpresa?: string;
-          nombre?: string;
-          apellido?: string;
-        };
-        return p.nombreEmpresa || `${p.nombre ?? ''} ${p.apellido ?? ''}`.trim();
-      }
-      return '';
-    })
-    .join(', ');
-}
+    if (Array.isArray(value)) {
+      return value
+        .map((v) => {
+          if (
+            typeof v === 'object' &&
+            v !== null &&
+            'propietario' in v &&
+            typeof v.propietario === 'object' &&
+            v.propietario !== null
+          ) {
+            const p = v.propietario as {
+              nombreEmpresa?: string;
+              nombre?: string;
+              apellido?: string;
+            };
+            return p.nombreEmpresa || `${p.nombre ?? ''} ${p.apellido ?? ''}`.trim();
+          }
+          return '';
+        })
+        .join(', ');
+    }
 
     if (value instanceof Date) return value.toLocaleDateString();
     if (typeof value === 'boolean') return value ? 'Sí' : 'No';
@@ -176,13 +192,16 @@ if (Array.isArray(value)) {
                   </td>
                 ))}
                 <td className="border px-2 py-1 flex gap-2">
-                  <button onClick={() => openModal(item)}>✏️</button>
+                  <button onClick={() => onEditClick ? onEditClick(item) : openModal(item)}>
+                    ✏️ {onEditLabel ? onEditLabel(item) : ''}
+                  </button>
                   <button
                     onClick={() => handleDelete(item.id)}
                     className="text-red-600"
                   >
                     🗑️
                   </button>
+                  {extraActions && extraActions(item)}
                 </td>
               </tr>
             ))}

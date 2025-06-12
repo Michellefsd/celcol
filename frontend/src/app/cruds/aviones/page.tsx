@@ -1,6 +1,6 @@
 'use client';
 
-import CrudManager from '@/components/CrudManager';
+import CrudManager, { CrudConfig } from '@/components/CrudManager';
 import AsignarPropietariosModal from '@/components/Asignaciones/AsignarPropietarios';
 import { useEffect, useState } from 'react';
 
@@ -14,7 +14,14 @@ type Avion = {
   vencimientoMatricula?: string;
   vencimientoSeguro?: string;
   certificadoMatricula?: string;
-  propietarios?: { nombreEmpresa?: string; nombre?: string; apellido?: string }[];
+  propietarios?: {
+    propietario: {
+      id: number;
+      nombreEmpresa?: string;
+      nombre?: string;
+      apellido?: string;
+    };
+  }[];
 };
 
 type PropietarioBackend = {
@@ -29,16 +36,20 @@ type PropietarioOption = {
   label: string;
 };
 
+type AvionConPropietarios = {
+  propietarios?: { propietario: { id: number } }[];
+};
+
 export default function AvionesPage() {
   const [propietarios, setPropietarios] = useState<PropietarioOption[]>([]);
-  const [avionIdParaAsignar, setAvionIdParaAsignar] = useState<number | null>(null);
+  const [asignacionInfo, setAsignacionInfo] = useState<{
+    avionId: number;
+    seleccionados: string[];
+  } | null>(null);
 
   useEffect(() => {
     fetch('http://localhost:3001/propietarios')
-      .then(res => {
-        if (!res.ok) throw new Error('Error al obtener propietarios');
-        return res.json();
-      })
+      .then(res => res.json())
       .then((data: PropietarioBackend[]) => {
         const options = data.map((p): PropietarioOption => ({
           value: p.id.toString(),
@@ -52,40 +63,63 @@ export default function AvionesPage() {
       });
   }, []);
 
+  const abrirModalConPropietarios = async (avionId: number) => {
+    try {
+      const res = await fetch(`http://localhost:3001/aviones/${avionId}`);
+      const data: AvionConPropietarios = await res.json();
+      const seleccionados =
+        data.propietarios?.map((p) => p.propietario.id.toString()) ?? [];
+      setAsignacionInfo({ avionId, seleccionados });
+    } catch (err) {
+      console.error('Error al obtener propietarios del avión', err);
+    }
+  };
+
+  const config: CrudConfig<Avion> = {
+    title: 'Aviones',
+    endpoint: 'http://localhost:3001/aviones',
+    columns: [
+      'marca',
+      'modelo',
+      'numeroSerie',
+      'matricula',
+      'horasDesdeNuevo',
+      'vencimientoMatricula',
+      'vencimientoSeguro',
+      'certificadoMatricula',
+      'propietarios'
+    ],
+    formFields: [
+      { name: 'marca', label: 'Marca', type: 'text' },
+      { name: 'modelo', label: 'Modelo', type: 'text' },
+      { name: 'numeroSerie', label: 'Número de Serie', type: 'text' },
+      { name: 'matricula', label: 'Matrícula', type: 'text' },
+      { name: 'horasDesdeNuevo', label: 'Horas desde nuevo', type: 'number' },
+      { name: 'vencimientoMatricula', label: 'Venc. Matrícula', type: 'date' },
+      { name: 'vencimientoSeguro', label: 'Venc. Seguro', type: 'date' },
+      { name: 'certificadoMatricula', label: 'Certificado de Matrícula', type: 'text' }
+    ],
+    onAfterCreate: (avion) => abrirModalConPropietarios(avion.id),
+    extraActions: (avion) => (
+      <button
+        onClick={() => abrirModalConPropietarios(avion.id)}
+        className="text-sm text-blue-600 underline"
+      >
+        Editar propietarios
+      </button>
+    )
+  };
+
   return (
     <>
-      <CrudManager<Avion>
-        title="Aviones"
-        endpoint="http://localhost:3001/aviones"
-        columns={[
-          'marca',
-          'modelo',
-          'numeroSerie',
-          'matricula',
-          'horasDesdeNuevo',
-          'vencimientoMatricula',
-          'vencimientoSeguro',
-          'certificadoMatricula',
-          'propietarios'
-        ]}
-        formFields={[
-          { name: 'marca', label: 'Marca', type: 'text' },
-          { name: 'modelo', label: 'Modelo', type: 'text' },
-          { name: 'numeroSerie', label: 'Número de Serie', type: 'text' },
-          { name: 'matricula', label: 'Matrícula', type: 'text' },
-          { name: 'horasDesdeNuevo', label: 'Horas desde nuevo', type: 'number' },
-          { name: 'vencimientoMatricula', label: 'Venc. Matrícula', type: 'date' },
-          { name: 'vencimientoSeguro', label: 'Venc. Seguro', type: 'date' },
-          { name: 'certificadoMatricula', label: 'Certificado de Matrícula', type: 'text' }
-        ]}
-        onAfterCreate={(nuevoAvion) => setAvionIdParaAsignar(nuevoAvion.id)}
-      />
+      <CrudManager {...config} />
 
-      {avionIdParaAsignar && (
+      {asignacionInfo && (
         <AsignarPropietariosModal
-          avionId={avionIdParaAsignar}
+          avionId={asignacionInfo.avionId}
+          propietariosSeleccionados={asignacionInfo.seleccionados}
           propietarios={propietarios}
-          onClose={() => setAvionIdParaAsignar(null)}
+          onClose={() => setAsignacionInfo(null)}
         />
       )}
     </>
