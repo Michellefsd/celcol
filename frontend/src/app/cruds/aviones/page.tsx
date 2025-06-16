@@ -1,7 +1,7 @@
 'use client';
 
 import CrudManager, { CrudConfig } from '@/components/CrudManager';
-import AsignarPropietariosModal from '@/components/Asignaciones/AsignarPropietarios';
+import AsignarPropietariosAvionModal from '@/components/Asignaciones/AsignarPropietariosAvion';
 import { useEffect, useState } from 'react';
 
 type Avion = {
@@ -115,7 +115,7 @@ export default function AvionesPage() {
       <CrudManager {...config} />
 
       {asignacionInfo && (
-        <AsignarPropietariosModal
+        <AsignarPropietariosAvionModal
           avionId={asignacionInfo.avionId}
           propietariosSeleccionados={asignacionInfo.seleccionados}
           propietarios={propietarios}

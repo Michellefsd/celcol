@@ -17,8 +17,8 @@ export type Field = {
 export type CrudConfig<T extends { id: number }> = {
   title: string;
   endpoint: string;
-  columns: (keyof T)[];
-  formFields: Field[];
+  columns: (keyof T)[]; // columnas a mostrar
+  formFields: Field[]; // campos del formulario
   onAfterCreate?: (created: T) => void;
   onBeforeSubmit?: (form: Partial<T>) => string | null;
   extraActions?: (item: T) => ReactNode;
@@ -124,10 +124,21 @@ export default function CrudManager<T extends { id: number }>({
     setShowModal(true);
   };
 
-  const getStringField = (name: string): string => {
-    const value = form[name as keyof T];
-    return typeof value === 'string' ? value : '';
-  };
+const getStringField = (name: string): string => {
+  const value = form[name as keyof T];
+
+  if (typeof value === 'string') return value;
+
+  if (typeof value === 'object' && value !== null) {
+    const v = value as { nombreEmpresa?: string; nombre?: string; apellido?: string };
+
+    if (v.nombreEmpresa) return v.nombreEmpresa;
+    if (v.nombre || v.apellido) return `${v.nombre ?? ''} ${v.apellido ?? ''}`.trim();
+  }
+
+  return '';
+};
+
 
   const renderValue = (item: T, key: keyof T): string => {
     const value = item[key];
@@ -139,20 +150,28 @@ export default function CrudManager<T extends { id: number }>({
             typeof v === 'object' &&
             v !== null &&
             'propietario' in v &&
-            typeof v.propietario === 'object' &&
-            v.propietario !== null
+            typeof v.propietario === 'object'
           ) {
-            const p = v.propietario as {
-              nombreEmpresa?: string;
-              nombre?: string;
-              apellido?: string;
-            };
+            const p = v.propietario;
             return p.nombreEmpresa || `${p.nombre ?? ''} ${p.apellido ?? ''}`.trim();
           }
           return '';
         })
         .join(', ');
     }
+
+    // 👇 NUEVO: muestra nombre del propietario si viene anidado directamente
+    if (
+      typeof value === 'object' &&
+      value !== null &&
+      ('nombreEmpresa' in value || 'nombre' in value || 'apellido' in value)
+    ) {
+        if (typeof value === 'object' && value !== null) {
+        const p = value as { nombreEmpresa?: string; nombre?: string; apellido?: string };
+      
+        if (p.nombreEmpresa) return p.nombreEmpresa;
+        if (p.nombre || p.apellido) return `${p.nombre ?? ''} ${p.apellido ?? ''}`.trim();
+}    }
 
     if (value instanceof Date) return value.toLocaleDateString();
     if (typeof value === 'boolean') return value ? 'Sí' : 'No';
