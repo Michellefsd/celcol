@@ -78,7 +78,7 @@ export default function PropietarioDetallePage() {
           <ul className="list-disc ml-6">
             {aviones.map((avion) => (
               <li key={avion.id}>
-                <Link className="text-blue-600 underline" href={`/aviones/${avion.id}`}>
+                <Link className="text-blue-600 underline" href={`/cruds/aviones/${avion.id}`}>
                   {avion.marca} {avion.modelo} — Matrícula: {avion.matricula}
                 </Link>
               </li>
