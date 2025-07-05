@@ -1,0 +1,203 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum EstadoFactura {
+  NO_ENVIADA
+  ENVIADA
+  COBRADA
+}
+
+enum Estado {
+  ACTIVO
+  DESINSTALADO
+  MANTENIMIENTO
+}
+
+enum TipoPropietario {
+  PERSONA
+  INSTITUCION
+}
+
+model Avion {
+  id                    Int                  @id @default(autoincrement())
+  marca                 String
+  modelo                String
+  numeroSerie           String?
+  matricula             String               @unique
+  horasDesdeNuevo       Float?
+  vencimientoMatricula  DateTime?
+  vencimientoSeguro     DateTime?
+  certificadoMatricula  String?
+  propietarios          AvionPropietario[]
+  ordenesTrabajo        OrdenTrabajo[]
+  ComponenteAvion       ComponenteAvion[]
+}
+
+model ComponenteAvion {
+  id            Int      @id @default(autoincrement())
+  tipo          String
+  marca         String?
+  modelo        String?   
+  numeroSerie   String?
+  estado        Estado  @default(ACTIVO)
+  TSN           Float?
+  TSO           Float?         /// pasa automaticamenr=te a TSN cuando se edita ////
+  TBOFecha      DateTime?
+  TBOHoras      Int?
+  avion         Avion    @relation(fields: [avionId], references: [id])
+  avionId       Int
+}
+
+model ComponenteExterno {
+  id              Int       @id @default(autoincrement())
+  marca           String
+  modelo          String
+  numeroSerie     String
+  numeroParte     String?  
+  TSN             Float?
+  TSO             Float?
+  TBOFecha        DateTime?
+  TBOHoras        Int?
+  archivo8130     String?
+  propietario     Propietario @relation(fields: [propietarioId], references: [id])
+  propietarioId   Int
+  ordenesTrabajo  OrdenTrabajo[]
+}
+
+model Propietario {
+  id             Int                 @id @default(autoincrement())
+  tipoPropietario TipoPropietario   @default(PERSONA)
+  nombre         String?
+  apellido       String?
+  nombreEmpresa  String?
+  rut            String?
+  email          String?
+  telefono       String?
+  direccion      String?
+  aviones        AvionPropietario[]
+  componentes    ComponenteExterno[]
+}
+
+model AvionPropietario {
+  id            Int         @id @default(autoincrement())
+  avion         Avion       @relation(fields: [avionId], references: [id])
+  avionId       Int
+  propietario   Propietario @relation(fields: [propietarioId], references: [id])
+  propietarioId Int
+}
+
+model Empleado {
+  id                Int                  @id @default(autoincrement())
+  nombre            String
+  apellido          String
+  email             String?
+  telefono          String
+  esCertificador    Boolean @default(false)
+  esTecnico         Boolean @default(false)
+  direccion         String?
+  tipoLicencia      String?
+  numeroLicencia    String?
+  vencimientoLicencia DateTime?
+  fechaAlta         DateTime?
+  horasTrabajadas   Float                @default(0)
+  registrosTrabajo  RegistroDeTrabajo[]
+  ordenesAsignadas  EmpleadoAsignado[]
+}
+
+model Herramienta {
+  id                   Int       @id @default(autoincrement())
+  nombre               String
+  tipo                 String?
+  marca                String?
+  modelo               String?
+  numeroSerie          String?
+  fechaIngreso         DateTime?
+  fechaVencimiento     DateTime?  /////////DESPLEGAR ALERTA DOS MESES ANTES Y NO ELEGIBLE EN ot PASADA LA FECHA////////
+  certificadoCalibracion String? //////////////ARCHIVO////////////////////////////
+  archivo8130          String?
+  ordenesAsignadas     OrdenHerramienta[]
+}
+
+model Stock {
+  id                 Int             @id @default(autoincrement())
+  nombre             String
+  tipoProducto       String?
+  codigoBarras       String?
+  notasInternas      String?
+  marca              String?
+  modelo             String?
+  numeroSerie        String?         // opcional: usar solo si aplica
+  puedeSerVendido    Boolean         @default(false)
+  puedeSerComprado   Boolean         @default(false)
+  precioVenta        Float           @default(0)
+  coste              Float           @default(0)
+  unidadMedida       String?
+  cantidad           Int
+  stockMinimo        Int             /////////// alerta cuanto cantidad igual o menor que stock minimo ////////
+  fechaIngreso       DateTime        @default(now())
+  ordenesUsadas      OrdenStock[]
+  imagen             String?         // a futuro,
+  archivoFactura     String          ////////ARCHIVO/////////////////////////////
+}
+
+
+model OrdenTrabajo {
+  id                Int       @id @default(autoincrement())
+  fechaApertura     DateTime  @default(now())
+  avion             Avion?   @relation(fields: [avionId], references: [id])
+  avionId           Int?
+  componente        ComponenteExterno? @relation(fields: [componenteId], references: [id])
+  componenteId      Int?
+  solicitud         String
+  OTsolicitud       String?
+  solicitudFirma    String?  ////ARCHIVO /////////    
+  danosPrevios      String?
+  accionTomada      String?
+  numeroFactura     String? @unique
+  estadoFactura     EstadoFactura @default(NO_ENVIADA)
+  empleadosAsignados EmpleadoAsignado[]
+  registrosTrabajo  RegistroDeTrabajo[]
+  herramientas      OrdenHerramienta[]
+  stockAsignado     OrdenStock[]
+}   /////////////cuando la orden se cierre solo sera editable el estadoFactura ////////////
+
+model EmpleadoAsignado {
+  id          Int           @id @default(autoincrement())
+  orden       OrdenTrabajo  @relation(fields: [ordenId], references: [id])
+  ordenId     Int
+  empleado    Empleado      @relation(fields: [empleadoId], references: [id])
+  empleadoId  Int
+}
+
+model OrdenStock {
+  id              Int       @id @default(autoincrement())
+  orden           OrdenTrabajo @relation(fields: [ordenId], references: [id])
+  ordenId         Int
+  stock           Stock     @relation(fields: [stockId], references: [id])
+  stockId         Int
+  cantidadUtilizada Int
+}
+
+model OrdenHerramienta {
+  id               Int        @id @default(autoincrement())
+  orden            OrdenTrabajo @relation(fields: [ordenId], references: [id])
+  ordenId          Int
+  herramienta      Herramienta  @relation(fields: [herramientaId], references: [id])
+  herramientaId    Int
+}
+
+model RegistroDeTrabajo {
+  id           Int            @id @default(autoincrement())
+  orden        OrdenTrabajo   @relation(fields: [ordenId], references: [id])
+  ordenId      Int
+  empleado     Empleado       @relation(fields: [empleadoId], references: [id])
+  empleadoId   Int
+  fecha        DateTime
+  horas        Float
+}
