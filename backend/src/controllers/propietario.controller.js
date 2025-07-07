@@ -4,10 +4,10 @@ const prisma = new PrismaClient();
 // CREATE
 exports.crearPropietario = async (req, res) => {
   try {
-    const propietario = await prisma.Propietario.create({
+    const nuevo = await prisma.propietario.create({
       data: req.body
     });
-    res.json(propietario);
+    res.status(201).json(nuevo);
   } catch (error) {
     console.error('Error al crear propietario:', error);
     res.status(500).json({ error: 'Error al crear el propietario' });
@@ -17,15 +17,15 @@ exports.crearPropietario = async (req, res) => {
 // READ ALL
 exports.listarPropietarios = async (req, res) => {
   try {
-    const propietarios = await prisma.Propietario.findMany();
-    res.json(propietarios);
+    const lista = await prisma.propietario.findMany();
+    res.json(lista);
   } catch (error) {
     console.error('Error al obtener propietarios:', error);
     res.status(500).json({ error: 'Error al obtener propietarios' });
   }
 };
 
-// READ ONE con relaciones completas
+// READ ONE (con relaciones)
 exports.obtenerPropietario = async (req, res) => {
   const id = parseInt(req.params.id);
   try {
@@ -33,9 +33,7 @@ exports.obtenerPropietario = async (req, res) => {
       where: { id },
       include: {
         aviones: {
-          include: {
-            avion: true
-          }
+          include: { avion: true }
         },
         componentes: true
       }
@@ -45,8 +43,8 @@ exports.obtenerPropietario = async (req, res) => {
       return res.status(404).json({ error: 'Propietario no encontrado' });
     }
 
-    // Aplanamos los aviones desde la relación intermedia
-    const aviones = propietario.aviones.map((rel) => rel.avion);
+    // Extraer los aviones de la tabla intermedia
+    const aviones = propietario.aviones.map(rel => rel.avion);
 
     res.json({
       ...propietario,
@@ -63,12 +61,13 @@ exports.obtenerPropietario = async (req, res) => {
 exports.actualizarPropietario = async (req, res) => {
   const id = parseInt(req.params.id);
   try {
-    const propietario = await prisma.Propietario.update({
+    const actualizado = await prisma.propietario.update({
       where: { id },
       data: req.body
     });
-    res.json(propietario);
+    res.json(actualizado);
   } catch (error) {
+    console.error('Error al actualizar propietario:', error);
     res.status(500).json({ error: 'Error al actualizar el propietario' });
   }
 };
@@ -77,9 +76,10 @@ exports.actualizarPropietario = async (req, res) => {
 exports.eliminarPropietario = async (req, res) => {
   const id = parseInt(req.params.id);
   try {
-    await prisma.Propietario.delete({ where: { id } });
+    await prisma.propietario.delete({ where: { id } });
     res.json({ mensaje: 'Propietario eliminado' });
   } catch (error) {
+    console.error('Error al eliminar propietario:', error);
     res.status(500).json({ error: 'Error al eliminar el propietario' });
   }
 };

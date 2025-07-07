@@ -30,7 +30,7 @@ model Avion {
   modelo                String
   numeroSerie           String?
   matricula             String               @unique
-  horasDesdeNuevo       Float?
+  TSN                   Float?
   vencimientoMatricula  DateTime?
   vencimientoSeguro     DateTime?
   certificadoMatricula  String?
@@ -56,6 +56,7 @@ model ComponenteAvion {
 
 model ComponenteExterno {
   id              Int       @id @default(autoincrement())
+  tipo            String?
   marca           String
   modelo          String
   numeroSerie     String
@@ -119,7 +120,7 @@ model Herramienta {
   numeroSerie          String?
   fechaIngreso         DateTime?
   fechaVencimiento     DateTime?  /////////DESPLEGAR ALERTA DOS MESES ANTES Y NO ELEGIBLE EN ot PASADA LA FECHA////////
-  certificadoCalibracion String? //////////////ARCHIVO////////////////////////////
+  certificadoCalibracion String?
   archivo8130          String?
   ordenesAsignadas     OrdenHerramienta[]
 }
@@ -142,8 +143,8 @@ model Stock {
   stockMinimo        Int             /////////// alerta cuanto cantidad igual o menor que stock minimo ////////
   fechaIngreso       DateTime        @default(now())
   ordenesUsadas      OrdenStock[]
-  imagen             String?         // a futuro,
-  archivoFactura     String          ////////ARCHIVO/////////////////////////////
+  imagen             String?         
+  archivoFactura     String?         
 }
 
 

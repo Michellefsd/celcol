@@ -15,7 +15,6 @@ export default function AgregarComponenteModal({
   onClose,
   onSaved,
 }: Props) {
-  const [tipo, setTipo] = useState('');
   const [marca, setMarca] = useState('');
   const [modelo, setModelo] = useState('');
   const [numeroSerie, setNumeroSerie] = useState('');
@@ -42,7 +41,6 @@ export default function AgregarComponenteModal({
       body.append('marca', marca);
       body.append('modelo', modelo);
       body.append('numeroSerie', numeroSerie);
-      if (tipo) body.append('tipo', tipo);
       if (numeroParte) body.append('numeroParte', numeroParte);
       if (TSN) body.append('TSN', TSN);
       if (TSO) body.append('TSO', TSO);
@@ -72,7 +70,6 @@ export default function AgregarComponenteModal({
 
         {error && <p className="text-red-600 text-sm">{error}</p>}
 
-        <input className="input" placeholder="Tipo" value={tipo} onChange={(e) => setTipo(e.target.value)} />
         <input className="input" placeholder="Marca" value={marca} onChange={(e) => setMarca(e.target.value)} />
         <input className="input" placeholder="Modelo" value={modelo} onChange={(e) => setModelo(e.target.value)} />
         <input className="input" placeholder="Número de serie" value={numeroSerie} onChange={(e) => setNumeroSerie(e.target.value)} />

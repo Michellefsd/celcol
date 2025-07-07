@@ -26,3 +26,23 @@ celcol/
 ├── backend/        # API en Express + Prisma + PostgreSQL
 └── .gitignore
 ```
+
+
+
+
+
+
+
+📦 Local PostgreSQL Docker Setup
+Contenedor: celcol-db
+Comando para crear:
+
+docker run --name celcol-db \
+  -e POSTGRES_USER=postgres \
+  -e POSTGRES_PASSWORD=1234 \
+  -e POSTGRES_DB=celcol \
+  -p 5432:5432 \
+  -d postgres
+
+
+DATABASE_URL="postgresql://postgres:1234@localhost:5432/celcol?schema=public"

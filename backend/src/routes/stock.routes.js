@@ -1,20 +1,21 @@
 const express = require('express');
 const router = express.Router();
 const controlador = require('../controllers/stock.controller');
+const { uploadStock } = require('../../middleware/upload.middleware');
 
-// Obtener todos los productos
+// Crear producto de stock con imagen y factura
+router.post('/', uploadStock, controlador.crearStock);
+
+// Actualizar producto de stock (también puede incluir archivos)
+router.put('/:id', uploadStock, controlador.actualizarStock);
+
+// Obtener todos los productos de stock
 router.get('/', controlador.listarStock);
 
-// Obtener uno por ID
+// Obtener un producto por ID
 router.get('/:id', controlador.obtenerStock);
 
-// Crear producto
-router.post('/', controlador.crearStock);
-
-// Actualizar producto
-router.put('/:id', controlador.actualizarStock);
-
-// Eliminar producto
+// Eliminar un producto de stock
 router.delete('/:id', controlador.eliminarStock);
 
 module.exports = router;

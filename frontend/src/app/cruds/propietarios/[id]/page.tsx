@@ -16,9 +16,16 @@ interface Avion {
 
 interface ComponenteExterno {
   id: number;
+  tipo: string;
   marca: string;
   modelo: string;
   numeroSerie: string;
+  numeroParte?: string;
+  TSN?: number;
+  TSO?: number;
+  TBOFecha?: string;
+  TBOHoras?: number;
+  archivo8130?: string;
 }
 
 interface Propietario {
@@ -27,6 +34,10 @@ interface Propietario {
   nombre?: string;
   apellido?: string;
   nombreEmpresa?: string;
+  rut?: string;
+  telefono?: string;
+  email?: string;
+  direccion?: string;
 }
 
 export default function PropietarioDetallePage() {
@@ -62,14 +73,17 @@ export default function PropietarioDetallePage() {
 
   return (
     <div className="p-6 space-y-8">
-      <h1 className="text-2xl font-bold">Detalle de Propietario</h1>
-
-      {/* DATOS GENERALES */}
-      <section>
-        <h2 className="text-xl font-semibold mb-2">Datos generales</h2>
-        <p><strong>Tipo:</strong> {propietario.tipo}</p>
-        <p><strong>Nombre:</strong> {nombre}</p>
-      </section>
+      {/* CARD de presentación */}
+      <div className="border p-4 rounded shadow bg-white">
+        <h1 className="text-2xl font-bold mb-2">{nombre}</h1>
+        <div className="text-sm space-y-1">
+          <p><strong>Tipo:</strong> {propietario.tipo === 'ORGANIZACION' ? 'Organización' : 'Persona'}</p>
+          {propietario.tipo === 'ORGANIZACION' && <p><strong>RUT:</strong> {propietario.rut}</p>}
+          {propietario.telefono && <p><strong>Teléfono:</strong> {propietario.telefono}</p>}
+          {propietario.email && <p><strong>Email:</strong> {propietario.email}</p>}
+          {propietario.direccion && <p><strong>Dirección:</strong> {propietario.direccion}</p>}
+        </div>
+      </div>
 
       {/* AVIONES ASOCIADOS */}
       <section>
@@ -99,11 +113,34 @@ export default function PropietarioDetallePage() {
           </button>
         </div>
         {componentes.length > 0 ? (
-          <ul className="space-y-2 mt-2">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
             {componentes.map((c) => (
-              <li key={c.id} className="flex justify-between items-center bg-gray-100 px-4 py-2 rounded">
-                <span>{c.marca} {c.modelo} — Nº Serie: {c.numeroSerie}</span>
-                <div className="space-x-2">
+              <div key={c.id} className="flex justify-between items-start bg-gray-100 px-4 py-3 rounded">
+                <div className="text-sm grid grid-cols-2 gap-x-6 gap-y-1">
+                  <p><strong>Tipo:</strong> {c.tipo ?? '—'}</p>
+                  <p><strong>Marca:</strong> {c.marca}</p>
+                  <p><strong>Modelo:</strong> {c.modelo}</p>
+                  <p><strong>N° Serie:</strong> {c.numeroSerie}</p>
+                  {c.numeroParte && <p><strong>N° Parte:</strong> {c.numeroParte}</p>}
+                  <p><strong>TSN:</strong> {c.TSN ?? '—'}</p>
+                  <p><strong>TSO:</strong> {c.TSO ?? '—'}</p>
+                  <p><strong>TBO (Horas):</strong> {c.TBOHoras ?? '—'}</p>
+                  <p><strong>TBO (Fecha):</strong> {c.TBOFecha ? c.TBOFecha.slice(0, 10) : '—'}</p>
+                  {c.archivo8130 && (
+                    <p className="col-span-2">
+                      <strong>8130:</strong>{' '}
+                      <a
+                        href={`http://localhost:3001/${c.archivo8130}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 underline"
+                      >
+                        Ver archivo
+                      </a>
+                    </p>
+                  )}
+                </div>
+                <div className="space-x-2 ml-4 mt-2">
                   <AccionBoton
                     label="Editar"
                     color="blue"
@@ -123,9 +160,9 @@ export default function PropietarioDetallePage() {
                     }}
                   />
                 </div>
-              </li>
+              </div>
             ))}
-          </ul>
+          </div>
         ) : <p className="mt-2">No hay componentes asignados</p>}
       </section>
 

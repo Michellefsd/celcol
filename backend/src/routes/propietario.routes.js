@@ -1,12 +1,20 @@
 const express = require('express');
 const router = express.Router();
-const controller = require('../controllers/propietario.controller');
+const controlador = require('../controllers/propietario.controller');
 
-router.get('/', controller.listarPropietarios);
-router.post('/', controller.crearPropietario);
-router.get('/:id', controller.obtenerPropietario);
-router.put('/:id', controller.actualizarPropietario);
-router.delete('/:id', controller.eliminarPropietario);
+// Crear propietario
+router.post('/', controlador.crearPropietario);
 
+// Obtener todos los propietarios
+router.get('/', controlador.listarPropietarios);
+
+// Obtener un propietario por ID (con aviones y componentes)
+router.get('/:id', controlador.obtenerPropietario);
+
+// Actualizar propietario
+router.put('/:id', controlador.actualizarPropietario);
+
+// Eliminar propietario
+router.delete('/:id', controlador.eliminarPropietario);
 
 module.exports = router;

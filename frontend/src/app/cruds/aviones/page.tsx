@@ -10,7 +10,7 @@ type Avion = {
   modelo: string;
   numeroSerie?: string;
   matricula: string;
-  horasDesdeNuevo?: number;
+  TSN?: number;
   vencimientoMatricula?: string;
   vencimientoSeguro?: string;
   certificadoMatricula?: string;
@@ -81,9 +81,9 @@ export default function AvionesPage() {
     columns: [
       'marca',
       'modelo',
-      'numeroSerie',
       'matricula',
-      'horasDesdeNuevo',
+      'numeroSerie',
+      'TSN',
       'vencimientoMatricula',
       'vencimientoSeguro',
       'certificadoMatricula',
@@ -92,9 +92,9 @@ export default function AvionesPage() {
     formFields: [
       { name: 'marca', label: 'Marca', type: 'text' },
       { name: 'modelo', label: 'Modelo', type: 'text' },
-      { name: 'numeroSerie', label: 'Número de Serie', type: 'text' },
       { name: 'matricula', label: 'Matrícula', type: 'text' },
-      { name: 'horasDesdeNuevo', label: 'Horas desde nuevo', type: 'number' },
+      { name: 'numeroSerie', label: 'Número de Serie', type: 'text' },
+      { name: 'TSN', label: 'TSN', type: 'number' },
       { name: 'vencimientoMatricula', label: 'Venc. Matrícula', type: 'date' },
       { name: 'vencimientoSeguro', label: 'Venc. Seguro', type: 'date' },
       { name: 'certificadoMatricula', label: 'Certificado de Matrícula', type: 'text' }

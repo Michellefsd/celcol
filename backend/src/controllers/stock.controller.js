@@ -5,40 +5,42 @@ const prisma = new PrismaClient();
 exports.crearStock = async (req, res) => {
   try {
     const {
-      nombre, tipoProducto, informacionGeneral, referenciaInterna,
-      codigoBarras, tipoCodigoBarras, notasInternas,
+      nombre, tipoProducto, codigoBarras, notasInternas,
       marca, modelo, numeroSerie,
       puedeSerVendido, puedeSerComprado,
-      precioVenta, coste, impuestoCliente,
-      unidadMedida, unidadMedidaCompra,
-      cantidad, fechaIngreso
+      precioVenta, coste,
+      unidadMedida, cantidad, stockMinimo, fechaIngreso
     } = req.body;
 
-    const stock = await prisma.stock.create({
+    const archivos = req.files;
+
+    if (!nombre || !cantidad || !stockMinimo) {
+      return res.status(400).json({ error: 'Faltan campos obligatorios: nombre, cantidad o stockMinimo' });
+    }
+
+    const producto = await prisma.stock.create({
       data: {
         nombre,
-        tipoProducto,
-        informacionGeneral,
-        referenciaInterna,
-        codigoBarras,
-        tipoCodigoBarras,
-        notasInternas,
-        marca,
-        modelo,
-        numeroSerie,
-        puedeSerVendido: !!puedeSerVendido,
-        puedeSerComprado: !!puedeSerComprado,
+        tipoProducto: tipoProducto || null,
+        codigoBarras: codigoBarras || null,
+        notasInternas: notasInternas || null,
+        marca: marca || null,
+        modelo: modelo || null,
+        numeroSerie: numeroSerie || null,
+        puedeSerVendido: puedeSerVendido === 'true',
+        puedeSerComprado: puedeSerComprado === 'true',
         precioVenta: parseFloat(precioVenta) || 0,
         coste: parseFloat(coste) || 0,
-        impuestoCliente,
-        unidadMedida,
-        unidadMedidaCompra,
+        unidadMedida: unidadMedida || null,
         cantidad: parseInt(cantidad),
+        stockMinimo: parseInt(stockMinimo),
         fechaIngreso: fechaIngreso ? new Date(fechaIngreso) : undefined,
+        imagen: archivos?.imagen?.[0]?.path ?? null,
+        archivoFactura: archivos?.archivoFactura?.[0]?.path ?? null,
       },
     });
 
-    res.status(201).json(stock);
+    res.status(201).json(producto);
   } catch (error) {
     console.error('Error al crear producto de stock:', error);
     res.status(500).json({ error: 'Error al crear producto de stock' });
@@ -74,41 +76,39 @@ exports.actualizarStock = async (req, res) => {
   const id = parseInt(req.params.id);
   try {
     const {
-      nombre, tipoProducto, informacionGeneral, referenciaInterna,
-      codigoBarras, tipoCodigoBarras, notasInternas,
+      nombre, tipoProducto, codigoBarras, notasInternas,
       marca, modelo, numeroSerie,
       puedeSerVendido, puedeSerComprado,
-      precioVenta, coste, impuestoCliente,
-      unidadMedida, unidadMedidaCompra,
-      cantidad, fechaIngreso
+      precioVenta, coste,
+      unidadMedida, cantidad, stockMinimo, fechaIngreso
     } = req.body;
 
-    const item = await prisma.stock.update({
+    const archivos = req.files;
+
+    const producto = await prisma.stock.update({
       where: { id },
       data: {
         nombre,
-        tipoProducto,
-        informacionGeneral,
-        referenciaInterna,
-        codigoBarras,
-        tipoCodigoBarras,
-        notasInternas,
-        marca,
-        modelo,
-        numeroSerie,
-        puedeSerVendido: !!puedeSerVendido,
-        puedeSerComprado: !!puedeSerComprado,
+        tipoProducto: tipoProducto || null,
+        codigoBarras: codigoBarras || null,
+        notasInternas: notasInternas || null,
+        marca: marca || null,
+        modelo: modelo || null,
+        numeroSerie: numeroSerie || null,
+        puedeSerVendido: puedeSerVendido === 'true',
+        puedeSerComprado: puedeSerComprado === 'true',
         precioVenta: parseFloat(precioVenta) || 0,
         coste: parseFloat(coste) || 0,
-        impuestoCliente,
-        unidadMedida,
-        unidadMedidaCompra,
+        unidadMedida: unidadMedida || null,
         cantidad: parseInt(cantidad),
+        stockMinimo: parseInt(stockMinimo),
         fechaIngreso: fechaIngreso ? new Date(fechaIngreso) : undefined,
+        ...(archivos?.imagen?.[0] && { imagen: archivos.imagen[0].path }),
+        ...(archivos?.archivoFactura?.[0] && { archivoFactura: archivos.archivoFactura[0].path }),
       },
     });
 
-    res.json(item);
+    res.json(producto);
   } catch (error) {
     console.error('Error al actualizar producto de stock:', error);
     res.status(500).json({ error: 'Error al actualizar el producto' });
