@@ -1,5 +1,7 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
+const fs = require('fs');
+const path = require('path');
 
 // LISTAR
 exports.listarComponentesExternos = async (req, res) => {
@@ -30,7 +32,7 @@ exports.crearComponenteExterno = async (req, res) => {
       propietarioId,
     } = req.body;
 
-    const archivo = req.file; // ← este llega por uploadComponenteExterno
+    const archivo = req.file;
 
     if (!marca || !modelo || !numeroSerie || !propietarioId) {
       return res.status(400).json({ error: 'Faltan campos obligatorios' });
@@ -112,6 +114,12 @@ exports.actualizarComponenteExterno = async (req, res) => {
     };
 
     if (archivo) {
+      const componenteActual = await prisma.componenteExterno.findUnique({ where: { id } });
+
+      if (componenteActual?.archivo8130 && fs.existsSync(componenteActual.archivo8130)) {
+        fs.unlinkSync(componenteActual.archivo8130);
+      }
+
       data.archivo8130 = archivo.path;
     }
 
@@ -127,7 +135,7 @@ exports.actualizarComponenteExterno = async (req, res) => {
   }
 };
 
-// SUBIR ARCHIVO 8130 (por separado)
+// SUBIR ARCHIVO 8130 (por separado y reemplazando si ya existe)
 exports.subirArchivo8130 = async (req, res) => {
   const componenteId = parseInt(req.params.componenteId);
   const archivo = req.file;
@@ -137,6 +145,18 @@ exports.subirArchivo8130 = async (req, res) => {
   }
 
   try {
+    const componente = await prisma.componenteExterno.findUnique({
+      where: { id: componenteId }
+    });
+
+    if (!componente) {
+      return res.status(404).json({ error: 'Componente externo no encontrado' });
+    }
+
+    if (componente.archivo8130 && fs.existsSync(componente.archivo8130)) {
+      fs.unlinkSync(componente.archivo8130);
+    }
+
     const actualizado = await prisma.componenteExterno.update({
       where: { id: componenteId },
       data: { archivo8130: archivo.path },
@@ -149,11 +169,7 @@ exports.subirArchivo8130 = async (req, res) => {
   }
 };
 
-const fs = require('fs');
-const path = require('path');
-
-// Eliminar componente externo y su archivo asociado  
-
+// ELIMINAR COMPONENTE
 exports.eliminarComponenteExterno = async (req, res) => {
   const id = parseInt(req.params.id);
   try {
@@ -163,7 +179,6 @@ exports.eliminarComponenteExterno = async (req, res) => {
       return res.status(404).json({ error: 'Componente externo no encontrado' });
     }
 
-    // Eliminar archivo físico si existe
     if (componente.archivo8130) {
       const rutaCompleta = path.join(__dirname, '../../', componente.archivo8130);
       fs.unlink(rutaCompleta, (err) => {
@@ -171,7 +186,6 @@ exports.eliminarComponenteExterno = async (req, res) => {
       });
     }
 
-    // Eliminar componente de la base de datos
     await prisma.componenteExterno.delete({ where: { id } });
 
     res.json({ mensaje: 'Componente externo y archivo eliminado' });

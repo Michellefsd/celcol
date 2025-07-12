@@ -22,7 +22,7 @@ export default function EmpleadosPage() {
   return (
     <CrudManager<Empleado>
       title="Empleados"
-      endpoint="http://localhost:3001/empleados"
+      endpoint="http://localhost:3001/personal"
       columns={[
         'nombre', 'apellido', 'telefono', 'email', 'esCertificador', 
         'esTecnico', 'direccion', 'tipoLicencia', 'numeroLicencia', 

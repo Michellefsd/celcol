@@ -47,7 +47,7 @@ export default function ComponentesExternosPage() {
 
   const config: CrudConfig<Componente> = {
     title: 'Componentes Externos',
-    endpoint: 'http://localhost:3001/cruds/componentes',
+    endpoint: 'http://localhost:3001/componentes',
     columns: ['nombre', 'tipo', 'numeroSerie', 'tboHoras', 'tboFecha', 'propietario'],
     formFields: [
       { name: 'nombre', label: 'Nombre', type: 'text' },

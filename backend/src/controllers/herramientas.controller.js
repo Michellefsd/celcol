@@ -2,7 +2,7 @@ const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const path = require('path');
 
-// 📄 LISTAR TODAS
+// LISTAR TODAS
 exports.listarHerramientas = async (req, res) => {
   try {
     const herramientas = await prisma.herramienta.findMany();
@@ -13,7 +13,7 @@ exports.listarHerramientas = async (req, res) => {
   }
 };
 
-// 📄 OBTENER POR ID
+// OBTENER POR ID
 exports.obtenerHerramienta = async (req, res) => {
   const { id } = req.params;
   try {
@@ -30,7 +30,7 @@ exports.obtenerHerramienta = async (req, res) => {
   }
 };
 
-// ✅ CREAR HERRAMIENTA
+// CREAR HERRAMIENTA
 exports.crearHerramienta = async (req, res) => {
   try {
     const {
@@ -59,7 +59,6 @@ exports.crearHerramienta = async (req, res) => {
         fechaIngreso: fechaIngreso ? new Date(fechaIngreso) : null,
         fechaVencimiento: fechaVencimiento ? new Date(fechaVencimiento) : null,
         certificadoCalibracion: archivos.certificadoCalibracion?.[0]?.path || null,
-        archivo8130: archivos.archivo8130?.[0]?.path || null,
       },
     });
 
@@ -70,7 +69,9 @@ exports.crearHerramienta = async (req, res) => {
   }
 };
 
-// ✏️ ACTUALIZAR HERRAMIENTA
+const fs = require('fs');
+
+// ACTUALIZAR HERRAMIENTA
 exports.actualizarHerramienta = async (req, res) => {
   const { id } = req.params;
 
@@ -91,6 +92,20 @@ exports.actualizarHerramienta = async (req, res) => {
 
     const archivos = req.files || {};
 
+    const herramientaActual = await prisma.herramienta.findUnique({
+      where: { id: parseInt(id) }
+    });
+
+    if (!herramientaActual) {
+      return res.status(404).json({ error: 'Herramienta no encontrada' });
+    }
+
+    const nuevoCertificado = archivos.certificadoCalibracion?.[0]?.path;
+
+    if (nuevoCertificado && herramientaActual.certificadoCalibracion && fs.existsSync(herramientaActual.certificadoCalibracion)) {
+      fs.unlinkSync(herramientaActual.certificadoCalibracion);
+    }
+
     const herramienta = await prisma.herramienta.update({
       where: { id: parseInt(id) },
       data: {
@@ -101,8 +116,7 @@ exports.actualizarHerramienta = async (req, res) => {
         numeroSerie: numeroSerie || null,
         fechaIngreso: fechaIngreso ? new Date(fechaIngreso) : null,
         fechaVencimiento: fechaVencimiento ? new Date(fechaVencimiento) : null,
-        certificadoCalibracion: archivos.certificadoCalibracion?.[0]?.path || undefined,
-        archivo8130: archivos.archivo8130?.[0]?.path || undefined,
+        certificadoCalibracion: nuevoCertificado || herramientaActual.certificadoCalibracion,
       },
     });
 
@@ -113,7 +127,7 @@ exports.actualizarHerramienta = async (req, res) => {
   }
 };
 
-// 🗑️ ELIMINAR HERRAMIENTA
+// ELIMINAR HERRAMIENTA
 exports.eliminarHerramienta = async (req, res) => {
   const { id } = req.params;
   try {
@@ -124,28 +138,5 @@ exports.eliminarHerramienta = async (req, res) => {
   } catch (error) {
     console.error('Error al eliminar herramienta:', error);
     res.status(500).json({ error: 'Error al eliminar la herramienta' });
-  }
-};
-
-// 📤 SUBIR SOLO archivo8130 (uso separado)
-exports.subirArchivo8130 = async (req, res) => {
-  const { herramientaId } = req.params;
-  const archivo = req.file;
-
-  if (!archivo) {
-    return res.status(400).json({ error: 'No se recibió ningún archivo' });
-  }
-
-  try {
-    const herramienta = await prisma.herramienta.update({
-      where: { id: parseInt(herramientaId) },
-      data: {
-        archivo8130: archivo.path,
-      },
-    });
-    res.json(herramienta);
-  } catch (error) {
-    console.error('Error al subir archivo8130:', error);
-    res.status(500).json({ error: 'Error al subir el archivo8130' });
   }
 };

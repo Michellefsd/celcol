@@ -1,6 +1,6 @@
 'use client';
 
-import { ChangeEvent, useState } from 'react';
+import { useState } from 'react';
 
 interface Props {
   open: boolean;
@@ -8,53 +8,51 @@ interface Props {
   onSaved?: () => void;
 }
 
-export default function AgregarHerramientaModal({
-  open,
-  onClose,
-  onSaved,
-}: Props) {
-  const [nombre, setNombre] = useState('');
-  const [tipo, setTipo] = useState('');
-  const [marca, setMarca] = useState('');
-  const [modelo, setModelo] = useState('');
-  const [numeroSerie, setNumeroSerie] = useState('');
-  const [fechaIngreso, setFechaIngreso] = useState('');
-  const [fechaVencimiento, setFechaVencimiento] = useState('');
-  const [certificadoCalibracion, setCertificadoCalibracion] = useState('');
-  const [archivo8130, setArchivo8130] = useState<File | null>(null);
+export default function AsignarHerramientasModal({ open, onClose, onSaved }: Props) {
+  const [formData, setFormData] = useState({
+    nombre: '',
+    tipo: '',
+    marca: '',
+    modelo: '',
+    numeroSerie: '',
+    fechaIngreso: '',
+    fechaVencimiento: '',
+    certificadoCalibracion: null as File | null,
+  });
+
   const [error, setError] = useState('');
 
-  const handleFile = (e: ChangeEvent<HTMLInputElement>) =>
-    setArchivo8130(e.target.files?.[0] ?? null);
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, type, value, files } = e.target;
 
-  const guardar = async () => {
-    if (!nombre || !tipo || !marca || !modelo) {
-      setError('Faltan campos obligatorios');
+    if (type === 'file') {
+      setFormData(prev => ({ ...prev, [name]: files?.[0] || null }));
+    } else {
+      setFormData(prev => ({ ...prev, [name]: value }));
+    }
+  };
+
+  const handleSubmit = async () => {
+    if (!formData.nombre.trim()) {
+      setError('El campo "nombre" es obligatorio');
       return;
     }
 
-    try {
-      const form = new FormData();
-      form.append('nombre', nombre);
-      form.append('tipo', tipo);
-      form.append('marca', marca);
-      form.append('modelo', modelo);
-      form.append('numeroSerie', numeroSerie);
-      form.append('fechaIngreso', fechaIngreso);
-      form.append('fechaVencimiento', fechaVencimiento);
-      form.append('certificadoCalibracion', certificadoCalibracion);
-      if (archivo8130) form.append('archivo8130', archivo8130);
+    const data = new FormData();
+    Object.entries(formData).forEach(([key, value]) => {
+      if (value) data.append(key, value as any);
+    });
 
-      const res = await fetch('http://localhost:3001/herramientas', {
-        method: 'POST',
-        body: form,
-      });
-      if (!res.ok) throw new Error('Error al guardar');
+    const res = await fetch('http://localhost:3001/herramientas', {
+      method: 'POST',
+      body: data,
+    });
 
+    if (res.ok) {
       onSaved?.();
       onClose();
-    } catch (err) {
-      setError((err as Error).message);
+    } else {
+      setError('Error al guardar');
     }
   };
 
@@ -62,23 +60,56 @@ export default function AgregarHerramientaModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl space-y-4">
+      <div className="bg-white p-6 rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto space-y-3">
         <h2 className="text-xl font-semibold">Agregar herramienta</h2>
+
         <div className="space-y-2">
-          <input className="input" placeholder="Nombre" value={nombre} onChange={(e) => setNombre(e.target.value)} />
-          <input className="input" placeholder="Tipo" value={tipo} onChange={(e) => setTipo(e.target.value)} />
-          <input className="input" placeholder="Marca" value={marca} onChange={(e) => setMarca(e.target.value)} />
-          <input className="input" placeholder="Modelo" value={modelo} onChange={(e) => setModelo(e.target.value)} />
-          <input className="input" placeholder="Número de serie" value={numeroSerie} onChange={(e) => setNumeroSerie(e.target.value)} />
-          <input className="input" type="date" value={fechaIngreso} onChange={(e) => setFechaIngreso(e.target.value)} />
-          <input className="input" type="date" value={fechaVencimiento} onChange={(e) => setFechaVencimiento(e.target.value)} />
-          <input className="input" placeholder="Certificado de calibración" value={certificadoCalibracion} onChange={(e) => setCertificadoCalibracion(e.target.value)} />
-          <input type="file" accept="application/pdf" onChange={handleFile} />
-          {error && <p className="text-sm text-red-600">{error}</p>}
+          <div>
+            <label className="text-sm">Nombre</label>
+            <input name="nombre" value={formData.nombre} onChange={handleChange} className="input" />
+          </div>
+
+          <div>
+            <label className="text-sm">Tipo</label>
+            <input name="tipo" value={formData.tipo} onChange={handleChange} className="input" />
+          </div>
+
+          <div>
+            <label className="text-sm">Marca</label>
+            <input name="marca" value={formData.marca} onChange={handleChange} className="input" />
+          </div>
+
+          <div>
+            <label className="text-sm">Modelo</label>
+            <input name="modelo" value={formData.modelo} onChange={handleChange} className="input" />
+          </div>
+
+          <div>
+            <label className="text-sm">Número de serie</label>
+            <input name="numeroSerie" value={formData.numeroSerie} onChange={handleChange} className="input" />
+          </div>
+
+          <div>
+            <label className="text-sm">Fecha de ingreso</label>
+            <input name="fechaIngreso" type="date" value={formData.fechaIngreso} onChange={handleChange} className="input" />
+          </div>
+
+          <div>
+            <label className="text-sm">Fecha de vencimiento</label>
+            <input name="fechaVencimiento" type="date" value={formData.fechaVencimiento} onChange={handleChange} className="input" />
+          </div>
+
+          <div>
+            <label className="text-sm">Certificado de calibración (PDF)</label>
+            <input name="certificadoCalibracion" type="file" accept="application/pdf" onChange={handleChange} className="input" />
+          </div>
+
+          {error && <p className="text-red-600 text-sm">{error}</p>}
         </div>
-        <div className="flex justify-end gap-2">
+
+        <div className="flex justify-end gap-2 pt-2">
           <button className="btn-outline" onClick={onClose}>Cancelar</button>
-          <button className="btn-primary" onClick={guardar}>Guardar</button>
+          <button className="btn-primary" onClick={handleSubmit}>Guardar</button>
         </div>
       </div>
     </div>

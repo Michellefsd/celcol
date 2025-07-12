@@ -97,7 +97,7 @@ export default function AvionesPage() {
       { name: 'TSN', label: 'TSN', type: 'number' },
       { name: 'vencimientoMatricula', label: 'Venc. Matrícula', type: 'date' },
       { name: 'vencimientoSeguro', label: 'Venc. Seguro', type: 'date' },
-      { name: 'certificadoMatricula', label: 'Certificado de Matrícula', type: 'text' }
+      { name: 'certificadoMatricula', label: 'Certificado de Matrícula', type: 'file' }
     ],
     onAfterCreate: (avion) => abrirModalConPropietarios(avion.id),
     extraActions: (avion) => (

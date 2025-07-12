@@ -1,13 +1,18 @@
 const express = require('express');
 const cors = require('cors');
-const path = require('path'); // ← ESTA LÍNEA FALTABA
+const path = require('path');
+const { PrismaClient } = require('@prisma/client');
 
 const app = express();
 
 app.use(cors());
 app.use(express.json());
 
-// Rutas
+const prisma = new PrismaClient({
+  log: ['query', 'info', 'warn', 'error'],
+});
+
+// === RUTAS ===
 
 const propietarioRoutes = require('./src/routes/propietario.routes');
 app.use('/propietarios', propietarioRoutes);
@@ -17,7 +22,6 @@ app.use('/aviones', avionRoutes);
 
 const componentesAvionRoutes = require('./src/routes/avionComponente.routes');
 app.use('/componentes-avion', componentesAvionRoutes);
-
 
 const stockRoutes = require('./src/routes/stock.routes');
 app.use('/stock', stockRoutes);
@@ -31,10 +35,10 @@ app.use('/personal', personalRoutes);
 const componentesRoutes = require('./src/routes/componenteExterno.routes');
 app.use('/componentes', componentesRoutes);
 
+// Archivos subidos
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-
-//  FIN de RUtas
+// === FIN de Rutas ===
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {

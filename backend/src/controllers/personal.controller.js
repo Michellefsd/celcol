@@ -1,5 +1,6 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
+const fs = require('fs');
 
 // CREATE
 exports.crearPersonal = async (req, res) => {
@@ -19,6 +20,8 @@ exports.crearPersonal = async (req, res) => {
       horasTrabajadas
     } = req.body;
 
+    const archivos = req.files || {};
+
     const nuevo = await prisma.empleado.create({
       data: {
         nombre,
@@ -32,6 +35,7 @@ exports.crearPersonal = async (req, res) => {
         numeroLicencia,
         vencimientoLicencia: vencimientoLicencia ? new Date(vencimientoLicencia) : null,
         fechaAlta: fechaAlta ? new Date(fechaAlta) : null,
+        carneSalud: archivos.carneSalud?.[0]?.path || null,
         horasTrabajadas: horasTrabajadas ? parseFloat(horasTrabajadas) : 0
       }
     });
@@ -70,13 +74,28 @@ exports.obtenerPersonal = async (req, res) => {
 // UPDATE
 exports.actualizarPersonal = async (req, res) => {
   const id = parseInt(req.params.id);
+  const archivos = req.files || {};
+
   try {
+    const persona = await prisma.empleado.findUnique({ where: { id } });
+    if (!persona) return res.status(404).json({ error: 'Personal no encontrado' });
+
+    const carneNuevo = archivos.carneSalud?.[0]?.path;
+
+    if (carneNuevo && persona.carneSalud && fs.existsSync(persona.carneSalud)) {
+      fs.unlinkSync(persona.carneSalud); // borra el anterior
+    }
+
     const data = {
       ...req.body,
       vencimientoLicencia: req.body.vencimientoLicencia ? new Date(req.body.vencimientoLicencia) : null,
       fechaAlta: req.body.fechaAlta ? new Date(req.body.fechaAlta) : null,
-      horasTrabajadas: req.body.horasTrabajadas ? parseFloat(req.body.horasTrabajadas) : 0
+      horasTrabajadas: req.body.horasTrabajadas ? parseFloat(req.body.horasTrabajadas) : 0,
     };
+
+    if (carneNuevo) {
+      data.carneSalud = carneNuevo;
+    }
 
     const actualizado = await prisma.empleado.update({
       where: { id },
@@ -94,6 +113,13 @@ exports.actualizarPersonal = async (req, res) => {
 exports.eliminarPersonal = async (req, res) => {
   const id = parseInt(req.params.id);
   try {
+    const persona = await prisma.empleado.findUnique({ where: { id } });
+
+    // Eliminar archivo si existe
+    if (persona?.carneSalud && fs.existsSync(persona.carneSalud)) {
+      fs.unlinkSync(persona.carneSalud);
+    }
+
     await prisma.empleado.delete({ where: { id } });
     res.json({ mensaje: 'Personal eliminado' });
   } catch (error) {
@@ -101,3 +127,6 @@ exports.eliminarPersonal = async (req, res) => {
     res.status(500).json({ error: 'Error al eliminar el personal' });
   }
 };
+
+// ✅ Exportar correctamente
+module.exports = exports;

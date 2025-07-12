@@ -24,6 +24,13 @@ enum TipoPropietario {
   INSTITUCION
 }
 
+enum TipoLicencia {
+  AERONAVE
+  MOTOR
+  AVIÓNICA
+}
+
+
 model Avion {
   id                    Int                  @id @default(autoincrement())
   marca                 String
@@ -33,7 +40,7 @@ model Avion {
   TSN                   Float?
   vencimientoMatricula  DateTime?
   vencimientoSeguro     DateTime?
-  certificadoMatricula  String?
+  certificadoMatricula  String?              ///. ARCHIVOOO.  ///
   propietarios          AvionPropietario[]
   ordenesTrabajo        OrdenTrabajo[]
   ComponenteAvion       ComponenteAvion[]
@@ -65,7 +72,7 @@ model ComponenteExterno {
   TSO             Float?
   TBOFecha        DateTime?
   TBOHoras        Int?
-  archivo8130     String?
+  archivo8130     String?   ///  ARCHIVO. ///
   propietario     Propietario @relation(fields: [propietarioId], references: [id])
   propietarioId   Int
   ordenesTrabajo  OrdenTrabajo[]
@@ -73,7 +80,7 @@ model ComponenteExterno {
 
 model Propietario {
   id             Int                 @id @default(autoincrement())
-  tipoPropietario TipoPropietario   @default(PERSONA)
+  tipoPropietario TipoPropietario    @default(PERSONA)
   nombre         String?
   apellido       String?
   nombreEmpresa  String?
@@ -99,13 +106,14 @@ model Empleado {
   apellido          String
   email             String?
   telefono          String
-  esCertificador    Boolean @default(false)
-  esTecnico         Boolean @default(false)
+  esCertificador    Boolean              @default(false)
+  esTecnico         Boolean              @default(false)
   direccion         String?
-  tipoLicencia      String?
+  tipoLicencia      TipoLicencia[]         
   numeroLicencia    String?
   vencimientoLicencia DateTime?
   fechaAlta         DateTime?
+  carneSalud        String?             ///  ARCHIVO.  ///
   horasTrabajadas   Float                @default(0)
   registrosTrabajo  RegistroDeTrabajo[]
   ordenesAsignadas  EmpleadoAsignado[]
@@ -120,8 +128,7 @@ model Herramienta {
   numeroSerie          String?
   fechaIngreso         DateTime?
   fechaVencimiento     DateTime?  /////////DESPLEGAR ALERTA DOS MESES ANTES Y NO ELEGIBLE EN ot PASADA LA FECHA////////
-  certificadoCalibracion String?
-  archivo8130          String?
+  certificadoCalibracion String?              //// ARCHIVO ///
   ordenesAsignadas     OrdenHerramienta[]
 }
 
@@ -143,8 +150,8 @@ model Stock {
   stockMinimo        Int             /////////// alerta cuanto cantidad igual o menor que stock minimo ////////
   fechaIngreso       DateTime        @default(now())
   ordenesUsadas      OrdenStock[]
-  imagen             String?         
-  archivoFactura     String?         
+  imagen             String?          ///// ARCHIVO.  ////         
+  archivo            String?         ////// ARCHIVO.  ////
 }
 
 
@@ -157,7 +164,7 @@ model OrdenTrabajo {
   componenteId      Int?
   solicitud         String
   OTsolicitud       String?
-  solicitudFirma    String?  ////ARCHIVO /////////    
+  solicitudFirma    String?       ////ARCHIVO /////////    
   danosPrevios      String?
   accionTomada      String?
   numeroFactura     String? @unique

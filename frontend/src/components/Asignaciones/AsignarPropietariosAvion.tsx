@@ -39,9 +39,8 @@ export default function AsignarPropietariosAvionModal({
       setError('Seleccioná al menos un propietario');
       return;
     }
-//    const res = await fetch(`/aviones/${avionId}/propietarios`, {
     try {
-      const res = await fetch(`http://localhost:3001/aviones/${avionId}/propietarios`, {
+      const res = await fetch(`http://localhost:3001/aviones/${avionId}/asignar-propietarios`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ propietariosIds: seleccionados.map(id => parseInt(id)) }),

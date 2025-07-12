@@ -13,7 +13,7 @@ const storage = multer.diskStorage({
   }
 });
 
-// Validación por tipo MIME
+// Validación por tipo MIME (solo PDF)
 const fileFilterPDF = (req, file, cb) => {
   const allowedTypes = ['application/pdf'];
   if (allowedTypes.includes(file.mimetype)) {
@@ -27,26 +27,36 @@ const upload = multer({ storage });
 
 // === Middlewares personalizados por entidad ===
 
-// Para herramientas: archivo8130 + certificadoCalibracion
+//  Para herramientas: solo certificadoCalibracion (PDF)
 exports.uploadHerramientas = multer({ storage, fileFilter: fileFilterPDF }).fields([
-  { name: 'archivo8130', maxCount: 1 },
   { name: 'certificadoCalibracion', maxCount: 1 },
 ]);
 
-// Para stock: imagen + factura (permitiendo cualquier tipo de imagen y PDF)
+//  Para stock: imagen + archivo (PDF o imagen)
 exports.uploadStock = upload.fields([
   { name: 'imagen', maxCount: 1 },
-  { name: 'archivoFactura', maxCount: 1 },
+  { name: 'archivo', maxCount: 1 },
 ]);
 
-// Para componentes externos: solo archivo8130 (PDF)
+//  Para componentes externos: solo archivo8130 (PDF)
 exports.uploadComponenteExterno = multer({ storage, fileFilter: fileFilterPDF }).single('archivo8130');
 
-// Para orden de trabajo: solicitud de firma (PDF)
+//  Para orden de trabajo: solicitud de firma (PDF)
 exports.uploadSolicitudFirma = multer({ storage, fileFilter: fileFilterPDF }).single('solicitudFirma');
+
+//  Para avión: certificadoMatricula (PDF)
+exports.uploadAvion = multer({ storage, fileFilter: fileFilterPDF }).fields([
+  { name: 'certificadoMatricula', maxCount: 1 },
+]);
 
 // Middleware genérico con nombre configurable
 exports.uploadUnico = multer({ storage, fileFilter: fileFilterPDF }).single('archivo8130');
 
-// Exportar también la instancia de `upload` si querés usarla directo
+//  Para personal: carneSalud (PDF)
+exports.uploadPersonal = multer({ storage, fileFilter: fileFilterPDF }).fields([
+  { name: 'carneSalud', maxCount: 1 },
+]);
+
+
+// También exportar instancia genérica si se desea
 exports.upload = upload;

@@ -43,7 +43,7 @@ export default function EmpleadoRegistrosPage() {
 
     const fetchEmpleado = async () => {
       try {
-        const res = await fetch(`http://localhost:3001/empleados/${empleadoId}`);
+        const res = await fetch(`http://localhost:3001/personal/${empleadoId}`);
         if (!res.ok) throw new Error('No se pudo cargar el empleado');
         const data = await res.json();
         setEmpleado(data);
@@ -61,7 +61,7 @@ export default function EmpleadoRegistrosPage() {
     const query = [];
     if (desde) query.push(`desde=${desde}`);
     if (hasta) query.push(`hasta=${hasta}`);
-    const url = `http://localhost:3001/empleados/${empleadoId}/registros-trabajo` + (query.length ? `?${query.join('&')}` : '');
+    const url = `http://localhost:3001/personal/${empleadoId}/registros-trabajo` + (query.length ? `?${query.join('&')}` : '');
     const res = await fetch(url);
     const data = await res.json();
     setRegistros(data);
