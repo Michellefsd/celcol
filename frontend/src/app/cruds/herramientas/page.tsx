@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import CrudManager from '@/components/CrudManager';
 
 type Herramienta = {
@@ -17,6 +18,7 @@ type Herramienta = {
 
 export default function HerramientasPage() {
   const [refrescar, setRefrescar] = useState(false);
+  const router = useRouter();
 
   const formFields = [
     { name: 'nombre', label: 'Nombre', type: 'text' },
@@ -46,6 +48,15 @@ export default function HerramientasPage() {
       formFields={formFields}
       onBeforeSubmit={() => null}
       onAfterCreate={() => setRefrescar(!refrescar)}
+      extraActions={(herramienta) => (
+        <button
+          onClick={() => router.push(`/cruds/herramientas/${herramienta.id}`)}
+          title="Ver detalle"
+          className="text-green-600 hover:text-green-800 text-sm"
+        >
+          👁
+        </button>
+      )}
     />
   );
 }

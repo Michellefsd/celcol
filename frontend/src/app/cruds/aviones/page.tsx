@@ -3,6 +3,7 @@
 import CrudManager, { CrudConfig } from '@/components/CrudManager';
 import AsignarPropietariosAvionModal from '@/components/Asignaciones/AsignarPropietariosAvion';
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 
 type Avion = {
   id: number;
@@ -46,6 +47,8 @@ export default function AvionesPage() {
     avionId: number;
     seleccionados: string[];
   } | null>(null);
+
+  const router = useRouter();
 
   useEffect(() => {
     fetch('http://localhost:3001/propietarios')
@@ -101,13 +104,23 @@ export default function AvionesPage() {
     ],
     onAfterCreate: (avion) => abrirModalConPropietarios(avion.id),
     extraActions: (avion) => (
-      <button
-        onClick={() => abrirModalConPropietarios(avion.id)}
-        className="text-sm text-blue-600 underline"
-      >
-        Editar propietarios
-      </button>
-    )
+  <div className="flex gap-3 items-center">
+    <button
+      onClick={() => abrirModalConPropietarios(avion.id)}
+      className="text-sm text-blue-600 underline"
+    >
+      Editar propietarios
+    </button>
+    <button
+      onClick={() => router.push(`/cruds/aviones/${avion.id}`)}
+      title="Ver detalle"
+      className="text-green-600 hover:text-green-800 text-sm"
+    >
+      👁
+    </button>
+  </div>
+),
+
   };
 
   return (

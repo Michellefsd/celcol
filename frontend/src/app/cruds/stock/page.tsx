@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import CrudManager, { Field } from '@/components/CrudManager';
 
 type StockItem = {
@@ -40,11 +41,13 @@ const formFields: Field[] = [
   { name: 'cantidad', label: 'Cantidad', type: 'number' },
   { name: 'stockMinimo', label: 'Stock mínimo', type: 'number' },
   { name: 'fechaIngreso', label: 'Fecha de ingreso', type: 'date' },
-  { name: 'imagen', label: 'Imagen', type: 'file' }, // IMPORTANTE
-  { name: 'archivoFactura', label: 'Factura', type: 'file' }, // IMPORTANTE
+  { name: 'imagen', label: 'Imagen', type: 'file' },
+  { name: 'archivoFactura', label: 'Factura', type: 'file' },
 ];
 
 export default function StockPage() {
+  const router = useRouter();
+
   return (
     <CrudManager<StockItem>
       title="Productos de Stock"
@@ -70,17 +73,15 @@ export default function StockPage() {
         'archivoFactura',
       ]}
       formFields={formFields}
-      extraActions={(item) =>
-        item.imagen ? (
-          <img
-            src={`http://localhost:3001/${item.imagen}`}
-            alt="imagen"
-            className="w-12 h-12 object-contain border rounded"
-          />
-        ) : (
-          <span className="text-xs text-gray-400">Sin imagen</span>
-        )
-      }
+      extraActions={(item) => (
+        <button
+          onClick={() => router.push(`/cruds/stock/${item.id}`)}
+          title="Ver detalle"
+          className="text-green-600 hover:text-green-800 text-sm"
+        >
+          👁
+        </button>
+      )}
     />
   );
 }

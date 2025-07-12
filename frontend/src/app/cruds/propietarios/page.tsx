@@ -1,5 +1,6 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import CrudManager from '@/components/CrudManager';
 
 type Propietario = {
@@ -15,6 +16,8 @@ type Propietario = {
 };
 
 export default function PropietariosPage() {
+  const router = useRouter();
+
   // Validación personalizada: requiere email o teléfono
   const validate = (form: Partial<Propietario>): string | null => {
     const tieneEmail = form.email?.trim();
@@ -58,6 +61,15 @@ export default function PropietariosPage() {
         { name: 'direccion', label: 'Dirección', type: 'text' },
       ]}
       onBeforeSubmit={validate}
+      extraActions={(propietario) => (
+        <button
+          onClick={() => router.push(`/cruds/propietarios/${propietario.id}`)}
+          title="Ver detalle"
+          className="text-green-600 hover:text-green-800 text-sm"
+        >
+          👁
+        </button>
+      )}
     />
   );
 }
