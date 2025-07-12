@@ -1,6 +1,7 @@
 'use client';
 
-import CrudManager, { Field } from '@/components/CrudManager';
+import { useState } from 'react';
+import CrudManager from '@/components/CrudManager';
 
 type Herramienta = {
   id: number;
@@ -14,18 +15,20 @@ type Herramienta = {
   certificadoCalibracion?: string;
 };
 
-const formFields: Field[] = [
-  { name: 'nombre', label: 'Nombre', type: 'text' },
-  { name: 'tipo', label: 'Tipo', type: 'text' },
-  { name: 'marca', label: 'Marca', type: 'text' },
-  { name: 'modelo', label: 'Modelo', type: 'text' },
-  { name: 'numeroSerie', label: 'Número de serie', type: 'text' },
-  { name: 'fechaIngreso', label: 'Fecha de ingreso', type: 'date' },
-  { name: 'fechaVencimiento', label: 'Fecha de vencimiento', type: 'date' },
-  { name: 'certificadoCalibracion', label: 'Certificado de calibración', type: 'file' },
-];
-
 export default function HerramientasPage() {
+  const [refrescar, setRefrescar] = useState(false);
+
+  const formFields = [
+    { name: 'nombre', label: 'Nombre', type: 'text' },
+    { name: 'tipo', label: 'Tipo', type: 'text' },
+    { name: 'marca', label: 'Marca', type: 'text' },
+    { name: 'modelo', label: 'Modelo', type: 'text' },
+    { name: 'numeroSerie', label: 'Número de serie', type: 'text' },
+    { name: 'fechaIngreso', label: 'Fecha de ingreso', type: 'date' },
+    { name: 'fechaVencimiento', label: 'Fecha de vencimiento', type: 'date' },
+    { name: 'certificadoCalibracion', label: 'Certificado de calibración (PDF)', type: 'file' },
+  ];
+
   return (
     <CrudManager<Herramienta>
       title="Herramientas calibrables"
@@ -41,7 +44,8 @@ export default function HerramientasPage() {
         'certificadoCalibracion',
       ]}
       formFields={formFields}
+      onBeforeSubmit={() => null}
+      onAfterCreate={() => setRefrescar(!refrescar)}
     />
   );
 }
-

@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 
-const entidades = ['Propietarios', 'Aviones', 'Stock', 'Herramientas', 'Empleados'];
+const entidades = ['Propietarios', 'Aviones', 'Stock', 'Herramientas', 'Personal'];
 
 export default function EntidadMenu() {
   const router = useRouter();
