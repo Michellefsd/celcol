@@ -1,7 +1,6 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useState, useEffect } from 'react';
 import CrudManager from '@/components/CrudManager';
 
 type Propietario = {
@@ -18,41 +17,25 @@ type Propietario = {
 
 export default function PropietariosPage() {
   const router = useRouter();
-  const [tipoSeleccionado, setTipoSeleccionado] = useState<'PERSONA' | 'INSTITUCION'>('PERSONA');
-  const [formFields, setFormFields] = useState<any[]>([]);
 
-  useEffect(() => {
-    const baseFields = [
-      {
-        name: 'tipoPropietario',
-        label: 'Tipo',
-        type: 'select',
-        options: [
-          { value: 'PERSONA', label: 'Persona' },
-          { value: 'INSTITUCION', label: 'Institución' },
-        ],
-      },
-      { name: 'nombre', label: 'Nombre', type: 'text' },
-      { name: 'apellido', label: 'Apellido', type: 'text' },
-      { name: 'nombreEmpresa', label: 'Empresa', type: 'text' },
-      { name: 'rut', label: 'RUT', type: 'text' },
-      { name: 'email', label: 'Email', type: 'text' },
-      { name: 'telefono', label: 'Teléfono', type: 'text' },
-      { name: 'direccion', label: 'Dirección', type: 'text' },
-    ];
-
-    const filtered = baseFields.filter((field) => {
-      if (field.name === 'nombreEmpresa' || field.name === 'rut') {
-        return tipoSeleccionado === 'INSTITUCION';
-      }
-      if (field.name === 'nombre' || field.name === 'apellido') {
-        return tipoSeleccionado === 'PERSONA';
-      }
-      return true;
-    });
-
-    setFormFields(filtered);
-  }, [tipoSeleccionado]);
+  const formFields = [
+    {
+      name: 'tipoPropietario',
+      label: 'Tipo',
+      type: 'select',
+      options: [
+        { value: 'PERSONA', label: 'Persona' },
+        { value: 'INSTITUCION', label: 'Institución' },
+      ],
+    },
+    { name: 'nombre', label: 'Nombre', type: 'text' },
+    { name: 'apellido', label: 'Apellido', type: 'text' },
+    { name: 'nombreEmpresa', label: 'Empresa', type: 'text' },
+    { name: 'rut', label: 'RUT', type: 'text' },
+    { name: 'email', label: 'Email', type: 'text' },
+    { name: 'telefono', label: 'Teléfono', type: 'text' },
+    { name: 'direccion', label: 'Dirección', type: 'text' },
+  ];
 
   const validate = (form: Partial<Propietario>): string | null => {
     const tieneEmail = form.email?.trim();
@@ -87,13 +70,7 @@ export default function PropietariosPage() {
         'direccion',
       ]}
       formFields={formFields}
-      onBeforeSubmit={(form) => {
-        // Actualiza tipo seleccionado dinámicamente
-        if (form.tipoPropietario === 'PERSONA' || form.tipoPropietario === 'INSTITUCION') {
-          setTipoSeleccionado(form.tipoPropietario);
-        }
-        return validate(form);
-      }}
+      onBeforeSubmit={validate}
       extraActions={(propietario) => (
         <button
           onClick={() => router.push(`/cruds/propietarios/${propietario.id}`)}

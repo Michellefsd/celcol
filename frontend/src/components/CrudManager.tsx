@@ -176,8 +176,6 @@ export default function CrudManager<T extends { id: number }>({
     return value !== undefined && value !== null ? String(value) : '';
   };
 
-  const tipoPropietario = getStringField('tipoPropietario');
-
   const filteredData = data.filter(item =>
     columns.some(col =>
       renderValue(item, col).toLowerCase().includes(searchTerm.toLowerCase())
@@ -257,13 +255,16 @@ export default function CrudManager<T extends { id: number }>({
 
             {formFields
               .filter(field => {
-                if (!('tipoPropietario' in form)) return true;
+                const tipoPropietarioActual = (form as { tipoPropietario?: string })?.tipoPropietario;
+
+                if (!tipoPropietarioActual) return true;
+
                 if (['nombreEmpresa', 'rut'].includes(field.name)) {
-                  return tipoPropietario === 'INSTITUCION';
+                  return tipoPropietarioActual === 'INSTITUCION';
                 }
                 if (['nombre', 'apellido'].includes(field.name)) {
-                  return tipoPropietario === 'PERSONA';
-                }
+                  return tipoPropietarioActual === 'PERSONA';
+              }
                 return true;
               })
               .map(field => (
