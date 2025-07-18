@@ -28,7 +28,6 @@ export default function HerramientasPage() {
     { name: 'numeroSerie', label: 'Número de serie', type: 'text' },
     { name: 'fechaIngreso', label: 'Fecha de ingreso', type: 'date' },
     { name: 'fechaVencimiento', label: 'Fecha de vencimiento', type: 'date' },
-    { name: 'certificadoCalibracion', label: 'Certificado de calibración (PDF)', type: 'file' },
   ];
 
   return (

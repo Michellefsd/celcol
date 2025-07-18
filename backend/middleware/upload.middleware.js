@@ -53,7 +53,7 @@ exports.uploadAvion = multer({ storage, fileFilter: fileFilterPDF }).fields([
 exports.uploadUnico = multer({ storage, fileFilter: fileFilterPDF }).single('archivo8130');
 
 //  Para personal: carneSalud (PDF)
-exports.uploadPersonal = multer({ storage, fileFilter: fileFilterPDF }).fields([
+exports.uploadPersonal = multer({ storage }).fields([
   { name: 'carneSalud', maxCount: 1 },
 ]);
 

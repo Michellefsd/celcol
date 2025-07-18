@@ -34,14 +34,14 @@ export default function AgregarStockModal({ open, onClose, onSaved }: Props) {
   const handleSubmit = async () => {
     const body = {
       nombre: formData.nombre,
-      tipoProducto: formData.tipoProducto,
-      marca: formData.marca,
-      modelo: formData.modelo,
-      numeroSerie: formData.numeroSerie,
+      tipoProducto: formData.tipoProducto || undefined,
+      marca: formData.marca || undefined,
+      modelo: formData.modelo || undefined,
+      numeroSerie: formData.numeroSerie || undefined,
       cantidad: parseInt(formData.cantidad),
       precioVenta: parseFloat(formData.precioVenta),
       coste: parseFloat(formData.coste),
-      fechaIngreso: formData.fechaIngreso ? new Date(formData.fechaIngreso) : undefined,
+      fechaIngreso: formData.fechaIngreso || undefined,
       puedeSerVendido: formData.puedeSerVendido,
       puedeSerComprado: formData.puedeSerComprado,
     };

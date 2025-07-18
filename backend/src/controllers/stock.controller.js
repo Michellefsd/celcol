@@ -1,5 +1,17 @@
 const fs = require('fs');
 const { PrismaClient } = require('@prisma/client');
+const sharp = require('sharp');
+const { subirArchivoGenerico } = require('../utils/archivoupload'); // al inicio del archivo
+
+exports.subirArchivoStock = (req, res) =>
+  subirArchivoGenerico({
+    req,
+    res,
+    modeloPrisma: prisma.stock,
+    campoArchivo: 'archivo',
+    nombreRecurso: 'Stock',
+  });
+
 
 // Prisma con logs detallados
 const prisma = new PrismaClient({
@@ -69,6 +81,7 @@ exports.listarStock = async (req, res) => {
 };
 
 // READ ONE
+// READ ONE
 exports.obtenerStock = async (req, res) => {
   const id = parseInt(req.params.id);
   try {
@@ -80,8 +93,10 @@ exports.obtenerStock = async (req, res) => {
       return res.status(404).json({ error: 'Producto no encontrado' });
     }
 
-    const imagen = item.imagen ? `/uploads/${item.imagen.split('/').pop()}` : null;
-    const archivo = item.archivo ? `/uploads/${item.archivo.split('/').pop()}` : null;
+    // Construir URLs absolutas
+    const baseUrl = `${req.protocol}://${req.get('host')}`;
+    const imagen = item.imagen ? `${baseUrl}/${item.imagen}` : null;
+    const archivo = item.archivo ? `${baseUrl}/${item.archivo}` : null;
 
     console.log('✅ Producto encontrado:', item);
     res.json({ ...item, imagen, archivo });
@@ -90,6 +105,7 @@ exports.obtenerStock = async (req, res) => {
     res.status(500).json({ error: 'Error al obtener el producto' });
   }
 };
+
 
 // UPDATE
 exports.actualizarStock = async (req, res) => {
@@ -167,3 +183,61 @@ exports.eliminarStock = async (req, res) => {
     res.status(500).json({ error: 'Error al eliminar el producto del stock' });
   }
 };
+
+
+
+
+exports.subirArchivoStock = (req, res) =>
+  subirArchivoGenerico({
+    req,
+    res,
+    modeloPrisma: prisma.stock,
+    campoArchivo: 'archivo',
+    nombreRecurso: 'Stock',
+  });
+
+
+
+exports.subirImagenStock = async (req, res) => {
+  const id = parseInt(req.params.id);
+  const archivoOriginal = req.files?.imagen?.[0];
+
+  if (!archivoOriginal) {
+    return res.status(400).json({ error: 'No se proporcionó ninguna imagen' });
+  }
+
+  try {
+    const producto = await prisma.stock.findUnique({ where: { id } });
+    if (!producto) {
+      return res.status(404).json({ error: 'Producto no encontrado' });
+    }
+
+    // Borrar imagen anterior si existe
+    if (producto.imagen && fs.existsSync(producto.imagen)) {
+      fs.unlinkSync(producto.imagen);
+    }
+
+    // Generar nuevo nombre y ruta optimizada
+    const nombreFinal = `uploads/img-${Date.now()}.webp`;
+
+    await sharp(archivoOriginal.path)
+      .resize({ width: 420 }) // Máx. 420px de ancho
+      .webp({ quality: 40 })  // Comprimir a 40% calidad
+      .toFile(nombreFinal);
+
+    // Borrar la imagen original
+    fs.unlinkSync(archivoOriginal.path);
+
+    // Guardar ruta nueva en DB
+    const actualizado = await prisma.stock.update({
+      where: { id },
+      data: { imagen: nombreFinal },
+    });
+
+    res.json({ mensaje: 'Imagen subida y optimizada correctamente', producto: actualizado });
+  } catch (error) {
+    console.error('Error al subir imagen de stock:', error);
+    res.status(500).json({ error: 'Error al subir la imagen de stock' });
+  }
+};
+

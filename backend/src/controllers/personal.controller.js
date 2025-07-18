@@ -1,6 +1,8 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const fs = require('fs');
+const { subirArchivoGenerico } = require('../utils/archivoupload'); // al inicio del archivo
+
 
 // CREATE
 exports.crearPersonal = async (req, res) => {
@@ -59,15 +61,23 @@ exports.listarPersonal = async (req, res) => {
 };
 
 // READ ONE
-exports.obtenerPersonal = async (req, res) => {
+// GET BY ID con URL completa de carneSalud
+exports.obtenerPersonal= async (req, res) => {
   const id = parseInt(req.params.id);
   try {
-    const persona = await prisma.empleado.findUnique({ where: { id } });
-    if (!persona) return res.status(404).json({ error: 'Personal no encontrado' });
-    res.json(persona);
+    const empleado = await prisma.empleado.findUnique({ where: { id } });
+    if (!empleado) return res.status(404).json({ error: 'Empleado no encontrado' });
+
+    // Construir URL absoluta del carneSalud
+    if (empleado.carneSalud) {
+      const baseUrl = `${req.protocol}://${req.get('host')}`;
+      empleado.carneSalud = `${baseUrl}/${empleado.carneSalud.replace(/\\/g, '/')}`;
+    }
+
+    res.json(empleado);
   } catch (error) {
-    console.error('Error al obtener personal:', error);
-    res.status(500).json({ error: 'Error al obtener el personal' });
+    console.error('Error al obtener empleado:', error);
+    res.status(500).json({ error: 'Error al obtener el empleado' });
   }
 };
 
@@ -127,6 +137,22 @@ exports.eliminarPersonal = async (req, res) => {
     res.status(500).json({ error: 'Error al eliminar el personal' });
   }
 };
+
+
+
+exports.subirCarneSalud = (req, res) =>
+  subirArchivoGenerico({
+    req,
+    res,
+    modeloPrisma: prisma.empleado,
+    campoArchivo: 'carneSalud',
+    nombreRecurso: 'Personal',
+  });
+
+
+
+
+
 
 // ✅ Exportar correctamente
 module.exports = exports;

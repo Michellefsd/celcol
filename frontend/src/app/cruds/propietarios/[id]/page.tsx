@@ -30,7 +30,7 @@ interface ComponenteExterno {
 
 interface Propietario {
   id: number;
-  tipo: 'PERSONA' | 'ORGANIZACION';
+  tipo: 'PERSONA' | 'INSTITUCION';
   nombre?: string;
   apellido?: string;
   nombreEmpresa?: string;
@@ -67,9 +67,10 @@ export default function PropietarioDetallePage() {
   if (loading) return <div className="p-4">Cargando...</div>;
   if (!propietario) return <div className="p-4">Propietario no encontrado</div>;
 
-  const nombre = propietario.tipo === 'ORGANIZACION'
-    ? propietario.nombreEmpresa
-    : `${propietario.nombre} ${propietario.apellido}`;
+const nombre = propietario.tipo === 'INSTITUCION'
+    ? propietario.nombreEmpresa || '—'
+    : `${propietario.nombre ?? ''} ${propietario.apellido ?? ''}`.trim() || '—';
+
 
   return (
     <div className="p-6 space-y-8">
@@ -77,8 +78,8 @@ export default function PropietarioDetallePage() {
       <div className="border p-4 rounded shadow bg-white">
         <h1 className="text-2xl font-bold mb-2">{nombre}</h1>
         <div className="text-sm space-y-1">
-          <p><strong>Tipo:</strong> {propietario.tipo === 'ORGANIZACION' ? 'Organización' : 'Persona'}</p>
-          {propietario.tipo === 'ORGANIZACION' && <p><strong>RUT:</strong> {propietario.rut}</p>}
+          <p><strong>Tipo:</strong> {propietario.tipo === 'INSTITUCION' ? 'Institución' : 'Persona'}</p>
+          {propietario.tipo === 'INSTITUCION' && <p><strong>RUT:</strong> {propietario.rut}</p>}
           {propietario.telefono && <p><strong>Teléfono:</strong> {propietario.telefono}</p>}
           {propietario.email && <p><strong>Email:</strong> {propietario.email}</p>}
           {propietario.direccion && <p><strong>Dirección:</strong> {propietario.direccion}</p>}

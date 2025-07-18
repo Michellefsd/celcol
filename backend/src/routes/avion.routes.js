@@ -20,4 +20,9 @@ router.delete('/:id', avionController.eliminarAvion);
 // Asignar propietarios a un avión
 router.post('/:id/asignar-propietarios', avionController.asignarPropietarios);
 
+
+// routes/aviones.routes.js
+router.post('/:id/certificadoMatricula', uploadAvion, avionController.subirCertificadoMatricula);
+
+
 module.exports = router;

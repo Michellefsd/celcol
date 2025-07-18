@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import CrudManager, { Field } from '@/components/CrudManager';
+import { useRouter } from 'next/navigation';
 
 type StockItem = {
   id: number;
@@ -41,8 +41,6 @@ const formFields: Field[] = [
   { name: 'cantidad', label: 'Cantidad', type: 'number' },
   { name: 'stockMinimo', label: 'Stock mínimo', type: 'number' },
   { name: 'fechaIngreso', label: 'Fecha de ingreso', type: 'date' },
-  { name: 'imagen', label: 'Imagen', type: 'file' },
-  { name: 'archivoFactura', label: 'Factura', type: 'file' },
 ];
 
 export default function StockPage() {
@@ -54,6 +52,7 @@ export default function StockPage() {
       endpoint="http://localhost:3001/stock"
       columns={[
         'id',
+        'imagen',
         'tipoProducto',
         'nombre',
         'marca',
@@ -69,13 +68,13 @@ export default function StockPage() {
         'precioVenta',
         'coste',
         'unidadMedida',
-        'imagen',
         'archivoFactura',
       ]}
       formFields={formFields}
-      extraActions={(item) => (
+      
+      extraActions={(stock) => (
         <button
-          onClick={() => router.push(`/cruds/stock/${item.id}`)}
+          onClick={() => router.push(`/cruds/stock/${stock.id}`)}
           title="Ver detalle"
           className="text-green-600 hover:text-green-800 text-sm"
         >

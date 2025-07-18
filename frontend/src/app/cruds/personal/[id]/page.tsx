@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
+import SubirArchivo from '@/components/Asignaciones/SubirArchivo';
 
 interface RegistroDeTrabajo {
   id: number;
@@ -26,6 +27,7 @@ interface EmpleadoDetalle {
   fechaAlta: string;
   fechaBaja: string;
   horasTrabajadas: number;
+  carneSalud?: string; // ✅ para ver el archivo
 }
 
 export default function EmpleadoRegistrosPage() {
@@ -37,22 +39,22 @@ export default function EmpleadoRegistrosPage() {
   const [registros, setRegistros] = useState<RegistroDeTrabajo[]>([]);
   const [desde, setDesde] = useState('');
   const [hasta, setHasta] = useState('');
+  const [mostrarSubirCarne, setMostrarSubirCarne] = useState(false);
+
+  const fetchEmpleado = async () => {
+    if (!empleadoId) return;
+    try {
+      const res = await fetch(`http://localhost:3001/personal/${empleadoId}`);
+      if (!res.ok) throw new Error('No se pudo cargar el empleado');
+      const data = await res.json();
+      setEmpleado(data);
+    } catch (err) {
+      console.error(err);
+      alert('Error al cargar los datos del empleado');
+    }
+  };
 
   useEffect(() => {
-    if (!empleadoId) return;
-
-    const fetchEmpleado = async () => {
-      try {
-        const res = await fetch(`http://localhost:3001/personal/${empleadoId}`);
-        if (!res.ok) throw new Error('No se pudo cargar el empleado');
-        const data = await res.json();
-        setEmpleado(data);
-      } catch (err) {
-        console.error(err);
-        alert('Error al cargar los datos del empleado');
-      }
-    };
-
     fetchEmpleado();
   }, [empleadoId]);
 
@@ -72,12 +74,13 @@ export default function EmpleadoRegistrosPage() {
   return (
     <div className="p-4 space-y-6">
       {empleado && (
-        <div className="border p-4 rounded shadow bg-white">
+        <div className="border p-4 rounded shadow bg-white space-y-4">
           <h1 className="text-2xl font-bold">{empleado.nombre} {empleado.apellido}</h1>
           <p className="text-sm text-gray-600">
             {empleado.esCertificador ? '✅ Certificador' : ''} {empleado.esTecnico ? '✅ Técnico' : ''}
           </p>
-          <div className="mt-2 space-y-1 text-sm">
+
+          <div className="space-y-1 text-sm text-gray-700">
             <p><strong>Teléfono:</strong> {empleado.telefono}</p>
             <p><strong>Email:</strong> {empleado.email}</p>
             <p><strong>Dirección:</strong> {empleado.direccion}</p>
@@ -86,9 +89,63 @@ export default function EmpleadoRegistrosPage() {
             <p><strong>Fecha de alta:</strong> {empleado.fechaAlta?.slice(0, 10)}</p>
             <p><strong>Fecha de baja:</strong> {empleado.fechaBaja?.slice(0, 10)}</p>
           </div>
+
+          {empleado.carneSalud ? (
+            <div className="pt-4 space-y-2">
+              <h2 className="font-semibold">Carné de salud</h2>
+
+              <div className="flex flex-wrap gap-4 mt-2">
+                <a
+                  href={empleado.carneSalud}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="bg-gray-100 text-blue-600 px-4 py-2 rounded-lg text-sm border border-gray-300 hover:bg-gray-200 transition"
+                >
+                  Ver carné
+                </a>
+
+                <a
+                  href={empleado.carneSalud}
+                  download
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700 transition"
+                >
+                  Descargar carné
+                </a>
+
+                <button
+                  onClick={() => setMostrarSubirCarne(true)}
+                  className="text-sm text-blue-600 underline"
+                >
+                  Reemplazar carné
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="pt-4">
+              <button
+                onClick={() => setMostrarSubirCarne(true)}
+                className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700 transition"
+              >
+                Subir carné de salud
+              </button>
+            </div>
+          )}
+
+          {/* 🧾 MODAL SUBIDA */}
+          <SubirArchivo
+            open={mostrarSubirCarne}
+            onClose={() => setMostrarSubirCarne(false)}
+            url={`http://localhost:3001/personal/${empleado.id}/carneSalud`}
+            label="Subir carné de salud"
+            nombreCampo="carneSalud"
+            onUploaded={fetchEmpleado}
+          />
         </div>
       )}
 
+      {/* 📊 REGISTROS DE TRABAJO */}
       <div className="border p-4 rounded shadow bg-white">
         <h2 className="text-xl font-semibold mb-2">Registros de trabajo</h2>
 

@@ -1,5 +1,8 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
+const { subirArchivoGenerico } = require('../utils/archivoupload');
+
+
 
 // CREATE
 exports.crearAvion = async (req, res) => {
@@ -211,3 +214,13 @@ exports.asignarPropietarios = async (req, res) => {
     res.status(500).json({ error: 'Error al asignar propietarios' });
   }
 };
+
+// Subir certificado de matrícula
+exports.subirCertificadoMatricula = (req, res) =>
+  subirArchivoGenerico({
+    req,
+    res,
+    modeloPrisma: prisma.avion,
+    campoArchivo: 'certificadoMatricula',
+    nombreRecurso: 'Avión',
+  });
