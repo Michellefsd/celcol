@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
+import { api } from '@/services/api'; 
 
 type PropietarioOption = {
   value: string;
@@ -40,7 +41,7 @@ export default function AsignarPropietariosAvionModal({
       return;
     }
     try {
-      const res = await fetch(`http://localhost:3001/aviones/${avionId}/asignar-propietarios`, {
+      const res = await fetch(api(`/aviones/${avionId}/asignar-propietarios`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ propietariosIds: seleccionados.map(id => parseInt(id)) }),

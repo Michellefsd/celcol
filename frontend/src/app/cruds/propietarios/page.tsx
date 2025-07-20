@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import CrudManager from '@/components/CrudManager';
+import { api } from '@/services/api'; 
 
 type Propietario = {
   id: number;
@@ -58,7 +59,7 @@ export default function PropietariosPage() {
   return (
     <CrudManager<Propietario>
       title="Propietarios"
-      endpoint="http://localhost:3001/propietarios"
+      endpoint={api("/propietarios")}
       columns={[
         'tipoPropietario',
         'nombre',

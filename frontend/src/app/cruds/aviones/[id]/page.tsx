@@ -6,6 +6,7 @@ import AsignarAvionComponente from '@/components/Asignaciones/AsignarAvionCompon
 import EditarAvionComponente from '@/components/Asignaciones/EditarAvionComponente';
 import AccionBoton from '@/components/base/Boton';
 import SubirArchivo from '@/components/Asignaciones/SubirArchivo';
+import { api } from '@/services/api'; 
 
 interface Propietario {
   id: number;
@@ -52,7 +53,7 @@ export default function AvionDetallePage() {
   const [mostrarSubirCertificado, setMostrarSubirCertificado] = useState(false);
 
   const cargarAvion = async () => {
-    const res = await fetch(`http://localhost:3001/aviones/${id}`);
+    const res = await fetch(api(`/aviones/${id}`));
     const data = await res.json();
     setAvion(data);
     setLoading(false);
@@ -64,6 +65,12 @@ export default function AvionDetallePage() {
 
   if (loading) return <div className="p-4">Cargando...</div>;
   if (!avion) return <div className="p-4">Avión no encontrado</div>;
+
+  const esVisualizableEnNavegador = (url: string): boolean => {
+  const extension = url.split('.').pop()?.toLowerCase();
+  return ['pdf', 'jpg', 'jpeg', 'png', 'webp'].includes(extension || '');
+};
+
 
   return (
     <div className="p-6 space-y-8">
@@ -83,25 +90,29 @@ export default function AvionDetallePage() {
           <div className="pt-4 space-y-2">
             <h2 className="font-semibold">Certificado de matrícula</h2>
 
-            <div className="flex flex-wrap gap-4 mt-2">
-              <a
-                href={`http://localhost:3001/${avion.certificadoMatricula}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="bg-gray-100 text-blue-600 px-4 py-2 rounded-lg text-sm border border-gray-300 hover:bg-gray-200 transition"
-              >
-                Ver certificado
-              </a>
+           <div className="flex flex-wrap gap-4 mt-2">
+  {esVisualizableEnNavegador(avion.certificadoMatricula) && (
+    <a
+      href={api(`/${avion.certificadoMatricula}`)}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="bg-gray-100 text-blue-600 px-4 py-2 rounded-lg text-sm border border-gray-300 hover:bg-gray-200 transition"
+    >
+      Ver certificado
+    </a>
+  )}
 
-              <a
-                href={`http://localhost:3001/${avion.certificadoMatricula}`}
-                download
-                target="_blank"
-                rel="noopener noreferrer"
-                className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700 transition"
-              >
-                Descargar certificado
-              </a>
+  <a
+    href={`/${avion.certificadoMatricula}`}
+    download
+    target="_blank"
+    rel="noopener noreferrer"
+    className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700 transition"
+  >
+    Descargar certificado
+  </a>
+
+
 
               <button
                 onClick={() => setMostrarSubirCertificado(true)}
@@ -139,63 +150,61 @@ export default function AvionDetallePage() {
       </section>
 
       {/* COMPONENTES DEL AVIÓN */}
-      <section>
-        <div className="flex justify-between items-center">
-          <h2 className="text-xl font-semibold">Componentes del Avión</h2>
-          <button
-            className="bg-blue-600 text-white px-3 py-1 rounded"
-            onClick={() => setMostrarAgregarComponente(true)}
-          >
-            Agregar componente
-          </button>
+<section>
+  <div className="flex justify-between items-center">
+    <h2 className="text-xl font-semibold">Componentes del Avión</h2>
+    <button
+      className="bg-blue-600 text-white px-3 py-1 rounded"
+      onClick={() => setMostrarAgregarComponente(true)}
+    >
+      Agregar componente
+    </button>
+  </div>
+
+  {avion.componentes?.length > 0 ? (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+      {avion.componentes.map((c) => (
+        <div key={c.id} className="flex justify-between items-start bg-gray-100 px-4 py-3 rounded">
+          <div className="text-sm grid grid-cols-2 gap-x-6 gap-y-1">
+            <p><strong>Tipo:</strong> {c.tipo ?? '—'}</p>
+            <p><strong>Estado:</strong> {c.estado}</p>
+            <p><strong>Marca:</strong> {c.marca}</p>
+            <p><strong>Modelo:</strong> {c.modelo}</p>
+            <p><strong>N° Serie:</strong> {c.numeroSerie}</p>
+            <p><strong>TSN:</strong> {c.TSN ?? '—'}</p>
+            <p><strong>TSO:</strong> {c.TSO ?? '—'}</p>
+            <p><strong>TBO (Horas):</strong> {c.TBOHoras ?? '—'}</p>
+            <p><strong>TBO (Fecha):</strong> {c.TBOFecha ? c.TBOFecha.slice(0, 10) : '—'}</p>
+          </div>
+
+          <div className="space-x-2 ml-4 mt-2">
+            <AccionBoton
+              label="Editar"
+              color="blue"
+              onClick={() => {
+                setComponenteSeleccionado(c);
+                setMostrarEditarComponente(true);
+              }}
+            />
+            <AccionBoton
+              label="Eliminar"
+              color="red"
+              onClick={async () => {
+                const confirmar = confirm(`¿Eliminar el componente "${c.tipo} ${c.marca} ${c.modelo}"?`);
+                if (!confirmar) return;
+                await fetch(api(`/componentes-avion/${c.id}`), { method: 'DELETE' });
+                cargarAvion();
+              }}
+            />
+          </div>
         </div>
+      ))}
+    </div>
+  ) : (
+    <p className="mt-2">No hay componentes asignados</p>
+  )}
+</section>
 
-        {avion.componentes?.length > 0 ? (
-          <ul className="space-y-3 mt-4">
-            {avion.componentes.map((c) => (
-              <li key={c.id} className="bg-gray-100 px-4 py-3 rounded shadow text-sm">
-                <div className="flex justify-between items-center mb-2">
-                  <div>
-                    <strong>{c.tipo}</strong> — <em>{c.estado}</em>
-                  </div>
-                  <div className="space-x-2">
-                    <AccionBoton
-                      label="Editar"
-                      color="blue"
-                      onClick={() => {
-                        setComponenteSeleccionado(c);
-                        setMostrarEditarComponente(true);
-                      }}
-                    />
-                    <AccionBoton
-                      label="Eliminar"
-                      color="red"
-                      onClick={async () => {
-                        const confirmar = confirm(`¿Eliminar el componente "${c.tipo} ${c.marca} ${c.modelo}"?`);
-                        if (!confirmar) return;
-                        await fetch(`http://localhost:3001/componentes-avion/${c.id}`, { method: 'DELETE' });
-                        cargarAvion();
-                      }}
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2">
-                  <p><strong>Marca:</strong> {c.marca}</p>
-                  <p><strong>Modelo:</strong> {c.modelo}</p>
-                  <p><strong>N° Serie:</strong> {c.numeroSerie}</p>
-                  <p><strong>TSN:</strong> {c.TSN ?? '—'}</p>
-                  <p><strong>TSO:</strong> {c.TSO ?? '—'}</p>
-                  <p><strong>TBO (Fecha):</strong> {c.TBOFecha?.slice(0, 10) ?? '—'}</p>
-                  <p><strong>TBO (Horas):</strong> {c.TBOHoras ?? '—'}</p>
-                </div>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="mt-2">No hay componentes asignados</p>
-        )}
-      </section>
 
       {/* MODALES */}
       {mostrarAgregarComponente && (
@@ -217,7 +226,7 @@ export default function AvionDetallePage() {
       <SubirArchivo
         open={mostrarSubirCertificado}
         onClose={() => setMostrarSubirCertificado(false)}
-        url={`http://localhost:3001/aviones/${avion.id}/certificadoMatricula`}
+        url={api(`/aviones/${avion.id}/certificadoMatricula`)}
         label="Subir certificado de matrícula"
         nombreCampo="certificadoMatricula"
         onUploaded={cargarAvion}

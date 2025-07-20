@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import CrudManager from '@/components/CrudManager';
+import { api } from '@/services/api'; 
 
 type Herramienta = {
   id: number;
@@ -33,7 +34,7 @@ export default function HerramientasPage() {
   return (
     <CrudManager<Herramienta>
       title="Herramientas calibrables"
-      endpoint="http://localhost:3001/herramientas"
+      endpoint={api("/herramientas")}
       columns={[
         'nombre',
         'tipo',
@@ -42,7 +43,6 @@ export default function HerramientasPage() {
         'numeroSerie',
         'fechaIngreso',
         'fechaVencimiento',
-        'certificadoCalibracion',
       ]}
       formFields={formFields}
       onBeforeSubmit={() => null}

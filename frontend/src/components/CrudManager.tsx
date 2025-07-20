@@ -46,18 +46,15 @@ export default function CrudManager<T extends { id: number }>({
   const [searchTerm, setSearchTerm] = useState('');
 
   const fetchData = async () => {
-    let url = endpoint;
-    if (sortField) {
-      url += `?sort=${String(sortField)}&dir=${sortDirection}`;
-    }
-    const res = await fetch(url);
+    const res = await fetch(endpoint);
     const json = await res.json();
     setData(json);
   };
 
   useEffect(() => {
     fetchData();
-  }, [sortField, sortDirection]);
+  }, []);
+
 
   const handleSort = (field: keyof T) => {
     if (sortField === field) {
@@ -182,6 +179,44 @@ export default function CrudManager<T extends { id: number }>({
     )
   );
   
+  const sortedData = [...filteredData].sort((a, b) => {
+    if (!sortField) return 0;
+
+    const valA = a[sortField];
+    const valB = b[sortField];
+
+    if (valA == null && valB != null) return 1;
+    if (valA != null && valB == null) return -1;
+    if (valA == null && valB == null) return 0;
+
+    // String
+    if (typeof valA === 'string' && typeof valB === 'string') {
+      return sortDirection === 'asc'
+        ? valA.localeCompare(valB, 'es', { sensitivity: 'base' })
+        : valB.localeCompare(valA, 'es', { sensitivity: 'base' });
+    }
+
+    // Date string
+    if (
+      typeof valA === 'string' &&
+      typeof valB === 'string' &&
+      !isNaN(Date.parse(valA)) &&
+      !isNaN(Date.parse(valB))
+    ) {
+      const dateA = new Date(valA).getTime();
+      const dateB = new Date(valB).getTime();
+      return sortDirection === 'asc' ? dateA - dateB : dateB - dateA;
+    }
+
+    // Number
+    if (!isNaN(Number(valA)) && !isNaN(Number(valB))) {
+      return sortDirection === 'asc'
+        ? Number(valA) - Number(valB)
+        : Number(valB) - Number(valA);
+    }
+
+    return 0;
+  });
 
   return (
     <div className="p-4">
@@ -221,7 +256,7 @@ export default function CrudManager<T extends { id: number }>({
             </tr>
           </thead>
           <tbody>
-            {filteredData.map(item => (
+            {sortedData.map(item => (
               <tr key={item.id}>
                 {columns.map(col => (
                   <td key={String(col)} className="border px-2 py-1">

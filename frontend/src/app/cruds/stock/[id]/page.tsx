@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import SubirArchivo from '@/components/Asignaciones/SubirArchivo';
+import { api } from '@/services/api';
 
 interface StockItem {
   id: number;
@@ -26,30 +27,35 @@ interface StockItem {
 }
 
 export default function DetalleStockPage() {
-  const params = useParams();
-  const id = typeof params.id === 'string' ? params.id : Array.isArray(params.id) ? params.id[0] : null;
-
+  const { id } = useParams(); // ✅ forma más segura y clara
   const [item, setItem] = useState<StockItem | null>(null);
   const [mostrarSubirFactura, setMostrarSubirFactura] = useState(false);
   const [mostrarSubirImagen, setMostrarSubirImagen] = useState(false);
 
-useEffect(() => {
-  if (!id) return;
+  const cargarProducto = async () => {
+    if (!id) return;
+    const url = api(`/stock/${id}`);
+    try {
+      console.log('📦 Fetching stock desde:', url);
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`No se pudo obtener el producto. Código: ${res.status}`);
+      const data = await res.json();
+      setItem({ ...data, archivoFactura: data.archivo });
+    } catch (err) {
+      console.error('❌ Error al cargar el producto de stock:', err);
+    }
+  };
 
-  fetch(`http://localhost:3001/stock/${id}`)
-    .then((res) => res.json())
-    .then((data) => {
-      console.log('🧾 Datos del item cargado:', data);
-      setItem({
-        ...data,
-        archivoFactura: data.archivo, // Reasignamos para que se muestre correctamente
-      });
-    })
-    .catch((err) => console.error('Error al cargar el producto de stock:', err));
-}, [id]);
-
+  useEffect(() => {
+    cargarProducto();
+  }, [id]);
 
   if (!item) return <p className="text-gray-500">Cargando producto...</p>;
+
+  const esVisualizableEnNavegador = (url: string): boolean => {
+    const extension = url.split('.').pop()?.toLowerCase();
+    return ['pdf', 'jpg', 'jpeg', 'png', 'webp'].includes(extension || '');
+  };
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
@@ -77,7 +83,7 @@ useEffect(() => {
           )}
         </div>
 
-        {item.imagen && (
+        {item.imagen ? (
           <div className="pt-4 space-y-2">
             <h2 className="font-semibold">Imagen del producto</h2>
             <img
@@ -92,9 +98,7 @@ useEffect(() => {
               Reemplazar imagen
             </button>
           </div>
-        )}
-
-        {!item.imagen && (
+        ) : (
           <div className="pt-4">
             <button
               onClick={() => setMostrarSubirImagen(true)}
@@ -105,19 +109,21 @@ useEffect(() => {
           </div>
         )}
 
-        {item.archivoFactura && (
+        {item.archivoFactura ? (
           <div className="pt-4 space-y-2">
             <h2 className="font-semibold">Factura</h2>
 
             <div className="flex flex-wrap gap-4 mt-2">
-              <a
-                href={item.archivoFactura}
-                target="_blank"
-                rel="noopener noreferrer" 
-                className="bg-gray-100 text-blue-600 px-4 py-2 rounded-lg text-sm border border-gray-300 hover:bg-gray-200 transition"
-              >
-                Ver factura
-              </a>
+              {esVisualizableEnNavegador(item.archivoFactura) && (
+                <a
+                  href={item.archivoFactura}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="bg-gray-100 text-blue-600 px-4 py-2 rounded-lg text-sm border border-gray-300 hover:bg-gray-200 transition"
+                >
+                  Ver factura
+                </a>
+              )}
 
               <a
                 href={item.archivoFactura}
@@ -137,9 +143,7 @@ useEffect(() => {
               </button>
             </div>
           </div>
-        )}
-
-        {!item.archivoFactura && (
+        ) : (
           <div className="pt-4">
             <button
               onClick={() => setMostrarSubirFactura(true)}
@@ -154,27 +158,19 @@ useEffect(() => {
       <SubirArchivo
         open={mostrarSubirFactura}
         onClose={() => setMostrarSubirFactura(false)}
-        url={`http://localhost:3001/stock/${item.id}/archivo`}
+        url={api(`/stock/${item.id}/archivo`)}
         label="Subir nueva factura"
         nombreCampo="archivo"
-        onUploaded={() => {
-          fetch(`http://localhost:3001/stock/${item.id}`)
-            .then((res) => res.json())
-            .then((data) => setItem(data));
-        }}
+        onUploaded={cargarProducto}
       />
 
       <SubirArchivo
         open={mostrarSubirImagen}
         onClose={() => setMostrarSubirImagen(false)}
-        url={`http://localhost:3001/stock/${item.id}/imagen`}
+        url={api(`/stock/${item.id}/imagen`)}
         label="Subir nueva imagen"
         nombreCampo="imagen"
-        onUploaded={() => {
-          fetch(`http://localhost:3001/stock/${item.id}`)
-            .then((res) => res.json())
-            .then((data) => setItem(data));
-        }}
+        onUploaded={cargarProducto}
       />
     </div>
   );

@@ -4,6 +4,8 @@ import CrudManager, { CrudConfig } from '@/components/CrudManager';
 import AsignarPropietariosAvionModal from '@/components/Asignaciones/AsignarPropietariosAvion';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { api } from '@/services/api'; 
+
 
 type Avion = {
   id: number;
@@ -51,7 +53,7 @@ export default function AvionesPage() {
   const router = useRouter();
 
   useEffect(() => {
-    fetch('http://localhost:3001/propietarios')
+    fetch(api('/propietarios'))
       .then(res => res.json())
       .then((data: PropietarioBackend[]) => {
         const options = data.map((p): PropietarioOption => ({
@@ -68,7 +70,7 @@ export default function AvionesPage() {
 
   const abrirModalConPropietarios = async (avionId: number) => {
     try {
-      const res = await fetch(`http://localhost:3001/aviones/${avionId}`);
+      const res = await fetch(api(`/aviones/${avionId}`));
       const data: AvionConPropietarios = await res.json();
       const seleccionados =
         data.propietarios?.map((p) => p.propietario.id.toString()) ?? [];
@@ -80,7 +82,7 @@ export default function AvionesPage() {
 
   const config: CrudConfig<Avion> = {
     title: 'Aviones',
-    endpoint: 'http://localhost:3001/aviones',
+    endpoint: api('/aviones'),
     columns: [
       'marca',
       'modelo',

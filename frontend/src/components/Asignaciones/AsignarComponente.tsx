@@ -1,6 +1,7 @@
 'use client';
 
 import { ChangeEvent, useState } from 'react';
+import { api } from '@/services/api'; 
 
 interface Props {
   propietarioId: number;
@@ -9,28 +10,32 @@ interface Props {
   onSaved?: () => void;
 }
 
-export default function AgregarComponenteModal({
-  propietarioId,
-  open,
-  onClose,
-  onSaved,
-}: Props) {
-  const [tipo, setTipo] = useState('');
-  const [marca, setMarca] = useState('');
-  const [modelo, setModelo] = useState('');
-  const [numeroSerie, setNumeroSerie] = useState('');
-  const [numeroParte, setNumeroParte] = useState('');
-  const [TSN, setTSN] = useState('');
-  const [TSO, setTSO] = useState('');
-  const [TBOHoras, setTBOHoras] = useState('');
-  const [TBOFecha, setTBOFecha] = useState('');
-  const [archivo8130, setArchivo8130] = useState<File | null>(null);
+export default function AgregarComponenteModal({ propietarioId, open, onClose, onSaved }: Props) {
+  const [formData, setFormData] = useState({
+    tipo: '',
+    marca: '',
+    modelo: '',
+    numeroSerie: '',
+    numeroParte: '',
+    TSN: '',
+    TSO: '',
+    TBOHoras: '',
+    TBOFecha: '',
+    archivo8130: null as File | null,
+  });
   const [error, setError] = useState('');
 
-  const handleFile = (e: ChangeEvent<HTMLInputElement>) =>
-    setArchivo8130(e.target.files?.[0] ?? null);
+  const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const { name, type, value, files } = e.target;
+    if (type === 'file') {
+      setFormData(prev => ({ ...prev, [name]: files?.[0] || null }));
+    } else {
+      setFormData(prev => ({ ...prev, [name]: value }));
+    }
+  };
 
   const guardar = async () => {
+    const { marca, modelo, numeroSerie, archivo8130, ...rest } = formData;
     if (!marca || !modelo || !numeroSerie) {
       setError('Marca, modelo y número de serie son obligatorios');
       return;
@@ -42,15 +47,13 @@ export default function AgregarComponenteModal({
       body.append('marca', marca);
       body.append('modelo', modelo);
       body.append('numeroSerie', numeroSerie);
-      if (tipo) body.append('tipo', tipo);
-      if (numeroParte) body.append('numeroParte', numeroParte);
-      if (TSN) body.append('TSN', TSN);
-      if (TSO) body.append('TSO', TSO);
-      if (TBOHoras) body.append('TBOHoras', TBOHoras);
-      if (TBOFecha) body.append('TBOFecha', TBOFecha);
       if (archivo8130) body.append('archivo8130', archivo8130);
 
-      const res = await fetch('http://localhost:3001/componentes', {
+      for (const [key, value] of Object.entries(rest)) {
+        if (value) body.append(key, value);
+      }
+
+      const res = await fetch(api('/componentes'), {
         method: 'POST',
         body,
       });
@@ -66,30 +69,40 @@ export default function AgregarComponenteModal({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
-      <div className="bg-white p-6 rounded-xl shadow-lg max-w-md w-full space-y-4">
-        <h2 className="text-xl font-bold">Agregar componente externo</h2>
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white p-6 rounded-xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto space-y-4">
+        <h2 className="text-xl font-semibold">Agregar componente externo</h2>
 
         {error && <p className="text-red-600 text-sm">{error}</p>}
 
-        <input className="input" placeholder="Tipo" value={tipo} onChange={(e) => setTipo(e.target.value)} />
-        <input className="input" placeholder="Marca" value={marca} onChange={(e) => setMarca(e.target.value)} />
-        <input className="input" placeholder="Modelo" value={modelo} onChange={(e) => setModelo(e.target.value)} />
-        <input className="input" placeholder="Número de serie" value={numeroSerie} onChange={(e) => setNumeroSerie(e.target.value)} />
-        <input className="input" placeholder="Número de parte (opcional)" value={numeroParte} onChange={(e) => setNumeroParte(e.target.value)} />
-        <input className="input" type="number" placeholder="TSN (horas)" value={TSN} onChange={(e) => setTSN(e.target.value)} />
-        <input className="input" type="number" placeholder="TSO (horas)" value={TSO} onChange={(e) => setTSO(e.target.value)} />
-        <input className="input" type="number" placeholder="TBO (horas)" value={TBOHoras} onChange={(e) => setTBOHoras(e.target.value)} />
-        <input className="input" type="date" value={TBOFecha} onChange={(e) => setTBOFecha(e.target.value)} />
-        <input type="file" accept="application/pdf" onChange={handleFile} />
+        {[  
+          { name: 'tipo', type: 'text' },
+          { name: 'marca', type: 'text' },
+          { name: 'modelo', type: 'text' },
+          { name: 'numeroSerie', type: 'text' },
+          { name: 'numeroParte', type: 'text' },
+          { name: 'TSN', type: 'number' },
+          { name: 'TSO', type: 'number' },
+          { name: 'TBOHoras', type: 'number' },
+          { name: 'TBOFecha', type: 'date' },
+          { name: 'archivo8130', type: 'file' }
+        ].map(({ name, type }) => (
+          <div key={name} className="flex flex-col">
+            <label className="text-sm capitalize">{name}</label>
+            <input
+              type={type}
+              name={name}
+              value={type === 'file' ? undefined : formData[name as keyof typeof formData] as string}
+              onChange={handleChange}
+              className="border p-2 rounded"
+              accept={type === 'file' ? '*' : undefined}
+            />
+          </div>
+        ))}
 
         <div className="flex justify-end gap-2">
-          <button className="px-4 py-2 bg-gray-300 rounded-lg" onClick={onClose}>
-            Cancelar
-          </button>
-          <button className="px-4 py-2 bg-green-600 text-white rounded-lg" onClick={guardar}>
-            Guardar
-          </button>
+          <button onClick={onClose} className="bg-gray-300 px-4 py-2 rounded">Cancelar</button>
+          <button onClick={guardar} className="bg-blue-600 text-white px-4 py-2 rounded">Guardar</button>
         </div>
       </div>
     </div>

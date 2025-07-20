@@ -57,6 +57,10 @@ exports.uploadPersonal = multer({ storage }).fields([
   { name: 'carneSalud', maxCount: 1 },
 ]);
 
+// Para órdenes de trabajo
+exports.uploadOrdenes = multer({ storage, fileFilter: fileFilterPDF }).single('archivo');
+
+
 
 // También exportar instancia genérica si se desea
 exports.upload = upload;

@@ -2,6 +2,7 @@
 
 import CrudManager from '@/components/CrudManager';
 import { useRouter } from 'next/navigation';
+import { api } from '@/services/api'; 
 
 type Empleado = {
   id: number;
@@ -16,7 +17,6 @@ type Empleado = {
   numeroLicencia: string;
   vencimientoLicencia: string;
   fechaAlta: string;
-  fechaBaja: string;
   horasTrabajadas: number;
 };
 
@@ -26,11 +26,11 @@ export default function EmpleadosPage() {
   return (
     <CrudManager<Empleado>
       title="Personal"
-      endpoint="http://localhost:3001/personal"
+      endpoint={api("/personal")}
       columns={[
         'nombre', 'apellido', 'telefono', 'email', 'esCertificador',
         'esTecnico', 'direccion', 'tipoLicencia', 'numeroLicencia',
-        'vencimientoLicencia', 'fechaAlta', 'fechaBaja', 'horasTrabajadas'
+        'vencimientoLicencia', 'fechaAlta', 'horasTrabajadas'
       ]}
       formFields={[
         { name: 'nombre', label: 'Nombre', type: 'text' },
@@ -44,8 +44,6 @@ export default function EmpleadosPage() {
         { name: 'numeroLicencia', label: 'Número de Licencia', type: 'text' },
         { name: 'vencimientoLicencia', label: 'Vencimiento de Licencia', type: 'date' },
         { name: 'fechaAlta', label: 'Fecha de Alta', type: 'date' },
-        { name: 'fechaBaja', label: 'Fecha de Baja', type: 'date' },
-        { name: 'horasTrabajadas', label: 'Horas Trabajadas', type: 'number' }
       ]}
       extraActions={(empleado) => (
         <button

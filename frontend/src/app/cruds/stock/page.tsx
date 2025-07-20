@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import CrudManager, { Field } from '@/components/CrudManager';
 import { useRouter } from 'next/navigation';
+import { api } from '@/services/api'; 
 
 type StockItem = {
   id: number;
@@ -49,10 +50,9 @@ export default function StockPage() {
   return (
     <CrudManager<StockItem>
       title="Productos de Stock"
-      endpoint="http://localhost:3001/stock"
+      endpoint={api("/stock")}
       columns={[
         'id',
-        'imagen',
         'tipoProducto',
         'nombre',
         'marca',
@@ -68,7 +68,6 @@ export default function StockPage() {
         'precioVenta',
         'coste',
         'unidadMedida',
-        'archivoFactura',
       ]}
       formFields={formFields}
       

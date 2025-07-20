@@ -1,6 +1,7 @@
 'use client';
 
 import { ChangeEvent, useEffect, useState } from 'react';
+import { api } from '@/services/api'; 
 
 interface Componente {
   id: number;
@@ -78,7 +79,7 @@ export default function EditarComponenteModal({
       if (TBOFecha) body.append('TBOFecha', TBOFecha);
       if (archivo8130) body.append('archivo8130', archivo8130);
 
-      const res = await fetch(`http://localhost:3001/componentes/${componente.id}`, {
+      const res = await fetch(api(`/componentes/${componente.id}`), {
         method: 'PUT',
         body,
       });

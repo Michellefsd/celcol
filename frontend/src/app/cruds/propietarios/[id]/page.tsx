@@ -6,6 +6,7 @@ import Link from 'next/link';
 import AgregarComponenteModal from '@/components/Asignaciones/AsignarComponente';
 import EditarComponenteModal from '@/components/Asignaciones/EditarComponente';
 import AccionBoton from '@/components/base/Boton';
+import { api } from '@/services/api'; 
 
 interface Avion {
   id: number;
@@ -52,7 +53,7 @@ export default function PropietarioDetallePage() {
   const [mostrarEditarComponente, setMostrarEditarComponente] = useState(false);
 
   const cargarPropietario = async () => {
-    const res = await fetch(`http://localhost:3001/propietarios/${id}`);
+    const res = await fetch(api(`/propietarios/${id}`));
     const data = await res.json();
     setPropietario(data);
     setAviones(data.aviones || []);
@@ -89,23 +90,6 @@ export default function PropietarioDetallePage() {
         </div>
       </div>
 
-      {/* AVIONES ASOCIADOS */}
-      <section>
-        <h2 className="text-xl font-semibold mb-2">Aviones asociados</h2>
-        {aviones.length > 0 ? (
-          <ul className="list-disc ml-6">
-            {aviones.map((avion) => (
-              <li key={avion.id}>
-                <Link className="text-blue-600 underline" href={`/cruds/aviones/${avion.id}`}>
-                  {avion.marca} {avion.modelo} — Matrícula: {avion.matricula}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        ) : <p>No hay aviones registrados</p>}
-      </section>
-
-      {/* COMPONENTES EXTERNOS */}
       <section>
         <div className="flex justify-between items-center">
           <h2 className="text-xl font-semibold">Componentes externos</h2>
@@ -134,7 +118,7 @@ export default function PropietarioDetallePage() {
                     <p className="col-span-2">
                       <strong>8130:</strong>{' '}
                       <a
-                        href={`http://localhost:3001/${c.archivo8130}`}
+                        href={`/${c.archivo8130}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-blue-600 underline"
@@ -159,7 +143,7 @@ export default function PropietarioDetallePage() {
                     onClick={async () => {
                       const confirmar = confirm(`¿Estás seguro de que querés eliminar el componente "${c.marca} ${c.modelo}"?`);
                       if (!confirmar) return;
-                      await fetch(`http://localhost:3001/componentes/${c.id}`, { method: 'DELETE' });
+                      await fetch(`/componentes/${c.id}`, { method: 'DELETE' });
                       cargarPropietario();
                     }}
                   />

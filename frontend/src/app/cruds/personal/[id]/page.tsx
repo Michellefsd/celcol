@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import SubirArchivo from '@/components/Asignaciones/SubirArchivo';
+import { api } from '@/services/api'; 
 
 interface RegistroDeTrabajo {
   id: number;
@@ -25,9 +26,8 @@ interface EmpleadoDetalle {
   numeroLicencia: string;
   vencimientoLicencia: string;
   fechaAlta: string;
-  fechaBaja: string;
   horasTrabajadas: number;
-  carneSalud?: string; // ✅ para ver el archivo
+  carneSalud?: string; 
 }
 
 export default function EmpleadoRegistrosPage() {
@@ -44,7 +44,7 @@ export default function EmpleadoRegistrosPage() {
   const fetchEmpleado = async () => {
     if (!empleadoId) return;
     try {
-      const res = await fetch(`http://localhost:3001/personal/${empleadoId}`);
+      const res = await fetch(api(`/personal/${empleadoId}`));
       if (!res.ok) throw new Error('No se pudo cargar el empleado');
       const data = await res.json();
       setEmpleado(data);
@@ -63,13 +63,18 @@ export default function EmpleadoRegistrosPage() {
     const query = [];
     if (desde) query.push(`desde=${desde}`);
     if (hasta) query.push(`hasta=${hasta}`);
-    const url = `http://localhost:3001/personal/${empleadoId}/registros-trabajo` + (query.length ? `?${query.join('&')}` : '');
+    const url = api(`/personal/${empleadoId}/registros-trabajo`) + (query.length ? `?${query.join('&')}` : '');
     const res = await fetch(url);
     const data = await res.json();
     setRegistros(data);
   };
 
   const totalHoras = registros.reduce((sum, r) => sum + r.horas, 0);
+
+    const esVisualizableEnNavegador = (url: string): boolean => {
+  const extension = url.split('.').pop()?.toLowerCase();
+  return ['pdf', 'jpg', 'jpeg', 'png', 'webp'].includes(extension || '');
+};
 
   return (
     <div className="p-4 space-y-6">
@@ -87,57 +92,58 @@ export default function EmpleadoRegistrosPage() {
             <p><strong>Licencia:</strong> {empleado.tipoLicencia} - {empleado.numeroLicencia}</p>
             <p><strong>Vencimiento:</strong> {empleado.vencimientoLicencia?.slice(0, 10)}</p>
             <p><strong>Fecha de alta:</strong> {empleado.fechaAlta?.slice(0, 10)}</p>
-            <p><strong>Fecha de baja:</strong> {empleado.fechaBaja?.slice(0, 10)}</p>
           </div>
 
           {empleado.carneSalud ? (
-            <div className="pt-4 space-y-2">
-              <h2 className="font-semibold">Carné de salud</h2>
+  <div className="pt-4 space-y-2">
+    <h2 className="font-semibold">Carné de salud</h2>
 
-              <div className="flex flex-wrap gap-4 mt-2">
-                <a
-                  href={empleado.carneSalud}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="bg-gray-100 text-blue-600 px-4 py-2 rounded-lg text-sm border border-gray-300 hover:bg-gray-200 transition"
-                >
-                  Ver carné
-                </a>
+    <div className="flex flex-wrap gap-4 mt-2">
+      {esVisualizableEnNavegador(empleado.carneSalud) && (
+        <a
+          href={empleado.carneSalud}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="bg-gray-100 text-blue-600 px-4 py-2 rounded-lg text-sm border border-gray-300 hover:bg-gray-200 transition"
+        >
+          Ver carné
+        </a>
+      )}
 
-                <a
-                  href={empleado.carneSalud}
-                  download
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700 transition"
-                >
-                  Descargar carné
-                </a>
+      <a
+        href={empleado.carneSalud}
+        download
+        target="_blank"
+        rel="noopener noreferrer"
+        className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700 transition"
+      >
+        Descargar carné
+      </a>
 
-                <button
-                  onClick={() => setMostrarSubirCarne(true)}
-                  className="text-sm text-blue-600 underline"
-                >
-                  Reemplazar carné
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="pt-4">
-              <button
-                onClick={() => setMostrarSubirCarne(true)}
-                className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700 transition"
-              >
-                Subir carné de salud
-              </button>
-            </div>
-          )}
+      <button
+        onClick={() => setMostrarSubirCarne(true)}
+        className="text-sm text-blue-600 underline"
+      >
+        Reemplazar carné
+      </button>
+    </div>
+  </div>
+) : (
+  <div className="pt-4">
+    <button
+      onClick={() => setMostrarSubirCarne(true)}
+      className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700 transition"
+    >
+      Subir carné de salud
+    </button>
+  </div>
+)}
 
           {/* 🧾 MODAL SUBIDA */}
           <SubirArchivo
             open={mostrarSubirCarne}
             onClose={() => setMostrarSubirCarne(false)}
-            url={`http://localhost:3001/personal/${empleado.id}/carneSalud`}
+            url={api(`/personal/${empleado.id}/carneSalud`)}
             label="Subir carné de salud"
             nombreCampo="carneSalud"
             onUploaded={fetchEmpleado}

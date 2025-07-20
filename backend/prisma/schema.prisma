@@ -154,26 +154,35 @@ model Stock {
   archivo            String?         ////// ARCHIVO.  ////
 }
 
-
 model OrdenTrabajo {
-  id                Int       @id @default(autoincrement())
-  fechaApertura     DateTime  @default(now())
-  avion             Avion?   @relation(fields: [avionId], references: [id])
-  avionId           Int?
-  componente        ComponenteExterno? @relation(fields: [componenteId], references: [id])
-  componenteId      Int?
-  solicitud         String
-  OTsolicitud       String?
-  solicitudFirma    String?       ////ARCHIVO /////////    
-  danosPrevios      String?
-  accionTomada      String?
-  numeroFactura     String? @unique
-  estadoFactura     EstadoFactura @default(NO_ENVIADA)
-  empleadosAsignados EmpleadoAsignado[]
-  registrosTrabajo  RegistroDeTrabajo[]
-  herramientas      OrdenHerramienta[]
-  stockAsignado     OrdenStock[]
-}   /////////////cuando la orden se cierre solo sera editable el estadoFactura ////////////
+  id                  Int       @id @default(autoincrement())
+  fechaApertura       DateTime  @default(now())
+
+  // Asociación con avión o componente externo (uno u otro)
+  avion               Avion?    @relation(fields: [avionId], references: [id])
+  avionId             Int?
+  componente          ComponenteExterno? @relation(fields: [componenteId], references: [id])
+  componenteId        Int?
+
+  solicitud           String?                     // Descripción general del trabajo solicitado
+  OTsolicitud         String?                     // Número de OT previa si proviene de otro taller
+  solicitadoPor       String?                     // Persona o empresa que solicitó el trabajo
+  solicitudFirma      String?                     // Archivo con firma escaneada u OT oficial (PDF)
+
+  inspeccionRecibida  Boolean?                    // Indica si se realizó inspección al recibir aeronave o componente
+  danosPrevios        String?                     // Daños observados al recibir
+  accionTomada        String?                     // Acción correctiva o procedimiento realizado
+  observaciones       String?                     // Observaciones adicionales
+
+  numeroFactura       String?      @unique        // Factura emitida (si aplica)
+  archivoFactura      String?                     // Archivo adjunto de la factura (PDF, imagen)
+  estadoFactura       EstadoFactura @default(NO_ENVIADA) // Enum de estado de factura
+
+  empleadosAsignados  EmpleadoAsignado[]          // Técnicos y certificadores asignados
+  registrosTrabajo    RegistroDeTrabajo[]         // Registro de horas trabajadas por fecha
+  herramientas        OrdenHerramienta[]          // Herramientas utilizadas
+  stockAsignado       OrdenStock[]                // Insumos de stock con cantidad utilizada
+}
 
 model EmpleadoAsignado {
   id          Int           @id @default(autoincrement())

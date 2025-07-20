@@ -38,6 +38,11 @@ app.use('/componentes', componentesRoutes);
 // Archivos subidos
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
+// ordenes de trabajo
+const ordenTrabajoRoutes = require('./src/routes/ordenTrabajo.routes');
+app.use('/ordenes-trabajo', ordenTrabajoRoutes);
+
+
 // === FIN de Rutas ===
 
 const PORT = process.env.PORT || 3001;
