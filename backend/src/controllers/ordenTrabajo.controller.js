@@ -1,5 +1,6 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
+const { subirArchivoGenerico } = require('../utils/archivoupload');
 
 
 // 1. Listar todas las órdenes
@@ -117,6 +118,98 @@ exports.createOrden = async (req, res) => {
     res.status(500).json({ error: 'Error al crear orden' });
   }
 };
+
+// fase 2: Actualizar solicitud de firma y solicitado por
+
+exports.updateFase2 = async (req, res) => {
+  const id = parseInt(req.params.id);
+  const { solicitud, solicitadoPor } = req.body;
+  const archivo = req.files?.solicitudFirma?.[0]?.path;
+
+  try {
+    const updated = await prisma.ordenTrabajo.update({
+      where: { id },
+      data: {
+        solicitud,
+        solicitadoPor,
+        ...(archivo && { solicitudFirma: archivo }),
+      },
+    });
+    res.json(updated);
+  } catch (error) {
+    console.error('❌ Error al actualizar fase 2:', error);
+    res.status(500).json({ error: 'Error al actualizar fase 2' });
+  }
+};
+
+// Fase 2: Subir archivo de solicitud de firma
+exports.subirArchivoOrden = (req, res) =>
+  subirArchivoGenerico({
+    req,
+    res,
+    modeloPrisma: prisma.ordenTrabajo, // 👈 este es tu modelo en Prisma
+    campoArchivo: 'solicitudFirma',   // 👈 este es el campo que contiene el archivo
+    nombreRecurso: 'Orden de trabajo' // 👈 solo para los mensajes de respuesta
+  });
+
+
+
+// Fase 3: Actualizar inspección y asignación de recursos cuando el avion esta con celcol
+
+exports.updateFase3 = async (req, res) => {
+  const id = parseInt(req.params.id);
+  const {
+    inspeccionRecibida,
+    danosPrevios,
+    accionTomada,
+    observaciones,
+    herramientas,
+    stock,
+    certificadorId,
+    tecnicoId,
+  } = req.body;
+
+  try {
+    const updated = await prisma.ordenTrabajo.update({
+      where: { id },
+      data: {
+        inspeccionRecibida,
+        danosPrevios,
+        accionTomada,
+        observaciones,
+
+        herramientas: {
+          deleteMany: {},
+          create: herramientas?.map((hId) => ({
+            herramienta: { connect: { id: hId } },
+          })),
+        },
+
+        stockAsignado: {
+          deleteMany: {},
+          create: stock?.map((s) => ({
+            stock: { connect: { id: s.stockId } },
+            cantidadUtilizada: s.cantidad,
+          })),
+        },
+
+        empleadosAsignados: {
+          deleteMany: {},
+          create: [
+            ...(certificadorId ? [{ empleado: { connect: { id: certificadorId } } }] : []),
+            ...(tecnicoId ? [{ empleado: { connect: { id: tecnicoId } } }] : []),
+          ],
+        },
+      },
+    });
+
+    res.json(updated);
+  } catch (error) {
+    console.error('Error al actualizar fase 3:', error);
+    res.status(500).json({ error: 'Error al actualizar fase 3' });
+  }
+};
+
 
 // 5. Eliminar orden
 exports.deleteOrden = async (req, res) => {

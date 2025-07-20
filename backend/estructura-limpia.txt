@@ -1,0 +1,69 @@
+find . -type f \
+  ! -path "*/node_modules/*" \
+  ! -path "*/.git/*" \
+  ! -path "*/.next/*" \
+  ! -path "*/dist/*" \
+  ! -path "*/build/*" \
+  ! -path "*/.idea/*" \
+  ! -path "*/.vscode/*" \
+  ! -path "*/prisma/node_modules/*" \
+  | sed 's|^\./||' \
+  > estructura-limpia.txt
+
+
+middleware/upload.middleware.js
+estructura-limpia.txt
+prisma/migrations/migration_lock.toml
+prisma/migrations/20250707144231_crear_tablas/migration.sql
+prisma/migrations/20250720163339_optional_solicitud/migration.sql
+prisma/migrations/20250719163557_orden_trabajo_completa/migration.sql
+prisma/migrations/20250709125044_reinicio_stock/migration.sql
+prisma/schema.prisma
+index.js
+backend@1.0.0
+uploads/1752348301708-642447113.pdf
+uploads/1752538750125-639970531.pdf
+uploads/1752875097361-152474474.pdf
+uploads/1751915586061-671479716.pdf
+uploads/1751914898520-771969080.pdf
+uploads/1752372378587-857416220.pdf
+uploads/1752448863236-960858998.png
+uploads/img-1752537040039.webp
+uploads/1752449658830-739292104.png
+uploads/1752448931087-850695371.png
+uploads/img-1752457594188.webp
+uploads/1751899660736-741922976.pdf
+uploads/1752538112244-743769475.docx
+uploads/1752469480126-550920321.pdf
+uploads/1752468476359-754473124.pdf
+uploads/1752467072906-349439084.docx
+uploads/1751899944108-211816104.pdf
+uploads/1751910615672-437620364.pdf
+uploads/1752461550446-738332053.pdf
+uploads/1752352755006-282507727.pdf
+uploads/img-1752467054842.webp
+uploads/1752468315245-813394521.pdf
+uploads/1751938994483-776333700.pdf
+.gitignore
+package-lock.json
+package.json
+.env
+node
+src/utils/archivoupload.js
+src/prisma.js
+src/controllers/herramientas.controller.js
+src/controllers/componenteExterno.controller.js
+src/controllers/stock.controller.js
+src/controllers/personal.controller.js
+src/controllers/ordenTrabajo.controller.js
+src/controllers/avionComponente.controller.js
+src/controllers/propietario.controller.js
+src/controllers/avion.controller.js
+src/routes/stock.routes.js
+src/routes/ordenTrabajo.routes.js
+src/routes/herramientas.routes.js
+src/routes/componenteExterno.routes.js
+src/routes/personal.routes.js
+src/routes/avionComponente.routes.js
+src/routes/avion.routes.js
+src/routes/propietario.routes.js

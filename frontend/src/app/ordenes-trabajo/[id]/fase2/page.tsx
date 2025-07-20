@@ -29,7 +29,7 @@ export default function Fase2OrdenTrabajoPage() {
     formData.append('solicitud', solicitud);
     formData.append('solicitadoPor', solicitadoPor);
     if (archivo) {
-      formData.append('archivo', archivo);
+        formData.append('solicitudFirma', archivo); 
     }
 
     const res = await fetch(api(`/ordenes-trabajo/${id}/fase2`), {
