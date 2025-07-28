@@ -13,17 +13,25 @@ router.get('/:id', ordenTrabajoController.getOrdenById);
 router.post('/', ordenTrabajoController.createOrden);
 
 // 4. Subir archivo solicitudFirma (fase 2)
-//router.post('/:id/archivo', uploadOrdenTrabajo, ordenTrabajoController.subirArchivoOrden);
 router.put('/:id/fase2', uploadOrdenTrabajo, ordenTrabajoController.updateFase2);
 
+// Ruta específica para subir solo el archivo solicitudFirma
+router.post('/:id/solicitudFirma', uploadOrdenTrabajo, ordenTrabajoController.subirArchivoOrden);
 
 // 5. Actualizar fase 3
-//router.put('/:id/fase3', ordenTrabajoController.updateFase3);
+router.put('/:id/fase3', ordenTrabajoController.updateFase3);
 
-// 6. Actualizar fase 4
-//router.put('/:id/fase4', ordenTrabajoController.updateFase4);
+// 6. Subir archivo y datos de factura (fase 4)
+router.post('/:id/factura', uploadOrdenTrabajo, ordenTrabajoController.subirArchivoFactura);
 
-// 7. Eliminar una orden
-router.delete('/:id', ordenTrabajoController.deleteOrden);
+// 7. Agregar registros de trabajo (fase 4)
+router.post('/:id/registro-trabajo', ordenTrabajoController.agregarRegistroTrabajo);
+
+// 8. Eliminar registro de trabajo
+router.delete('/registro-trabajo/:registroId', ordenTrabajoController.eliminarRegistroTrabajo);
+
+// 9. Cerrar orden
+router.put('/:id/cerrar', ordenTrabajoController.cerrarOrden);
+
 
 module.exports = router;

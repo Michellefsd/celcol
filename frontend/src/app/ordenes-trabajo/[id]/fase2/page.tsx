@@ -3,6 +3,7 @@
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { api } from '@/services/api';
+import SubirArchivo from '@/components/Asignaciones/SubirArchivo';
 
 export default function Fase2OrdenTrabajoPage() {
   const { id } = useParams();
@@ -12,14 +13,19 @@ export default function Fase2OrdenTrabajoPage() {
   const [solicitud, setSolicitud] = useState('');
   const [solicitadoPor, setSolicitadoPor] = useState('');
   const [archivo, setArchivo] = useState<File | null>(null);
+  const [mostrarSubirSolicitud, setMostrarSubirSolicitud] = useState(false);
+
 
   useEffect(() => {
     fetch(api(`/ordenes-trabajo/${id}`))
       .then(res => res.json())
+      
       .then(data => {
         setOrden(data);
         setSolicitud(data.solicitud ?? '');
         setSolicitadoPor(data.solicitadoPor ?? '');
+        console.log('📂 solicitudFirma URL:', data.solicitudFirma);
+        
       })
       .catch(err => console.error('Error cargando orden de trabajo:', err));
   }, [id]);
@@ -60,6 +66,7 @@ export default function Fase2OrdenTrabajoPage() {
   }
 
   if (!orden) return <p className="p-4">Cargando orden...</p>;
+  
 
   return (
     <div className="p-6 max-w-3xl mx-auto space-y-6">
@@ -135,26 +142,55 @@ export default function Fase2OrdenTrabajoPage() {
           />
         </div>
 
-        <div>
-          <label className="block font-medium mb-1">Archivo de solicitud (PDF o imagen)</label>
-          <input
-            type="file"
-            accept="application/pdf,image/*"
-            onChange={(e) => setArchivo(e.target.files?.[0] ?? null)}
-          />
-          {orden.solicitudFirma && (
-            <p className="mt-2">
-              Archivo actual:{' '}
-              <a href={orden.solicitudFirma} className="text-blue-600 underline" target="_blank">
-                ver
-              </a>
-            </p>
-          )}
-        </div>
+{/* Subida de archivo de solicitud */}
+<div>
+  <label className="block font-medium mb-1">Archivo de solicitud (PDF o imagen)</label>
+  <button
+    onClick={() => setMostrarSubirSolicitud(true)}
+    className="px-3 py-1 bg-blue-600 text-white rounded"
+  >
+    {orden.solicitudFirma ? 'Reemplazar archivo' : 'Subir archivo'}
+  </button>
+
+  {orden.solicitudFirma && (
+    <div className="mt-2 flex gap-4 items-center text-sm">
+      <a
+        href={orden.solicitudFirma}
+        className="text-blue-600 underline"
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        Ver archivo
+      </a>
+      <a
+        href={orden.solicitudFirma}
+        download
+        className="text-blue-600 underline"
+      >
+        Descargar
+      </a>
+    </div>
+  )}
+</div>
+
+<SubirArchivo
+  open={mostrarSubirSolicitud}
+  onClose={() => setMostrarSubirSolicitud(false)}
+  url={api(`/ordenes-trabajo/${id}/solicitudFirma`)}
+  label="Subir archivo de solicitud"
+  nombreCampo="solicitudFirma"
+  onUploaded={async () => {
+    const res = await fetch(api(`/ordenes-trabajo/${id}`));
+    const updated = await res.json();
+    setOrden(updated);
+  }}
+/>
+
+
 
         <div className="flex justify-between mt-6">
           <button
-            onClick={() => router.push(`/ordenes-trabajo/${id}/fase1`)}
+            onClick={() => router.push(api(`/ordenes-trabajo/${id}/fase1`))}
             className="text-blue-600 hover:underline"
           >
             ← Fase anterior
@@ -170,10 +206,10 @@ export default function Fase2OrdenTrabajoPage() {
 
         <div className="flex justify-end">
           <button
-            onClick={() => handleGuardar()}
+            onClick={() => handleGuardar(true)}
             className="mt-4 px-4 py-2 bg-green-600 text-white rounded"
           >
-            Guardar
+            Guardar y Continuar
           </button>
         </div>
       </div>

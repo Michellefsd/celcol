@@ -139,6 +139,15 @@ exports.actualizarStock = async (req, res) => {
       fs.unlinkSync(productoActual.archivo);
     }
 
+    if (producto.cantidad <= (producto.stockMinimo ?? 0)) {
+  await prisma.aviso.create({
+    data: {
+      mensaje: `El producto "${producto.nombre}" alcanzó el stock mínimo (${producto.cantidad} unidades)`,
+      leido: false,
+    },
+  });
+}
+
     const producto = await prisma.stock.update({
       where: { id },
       data: {

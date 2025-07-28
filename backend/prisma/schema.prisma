@@ -30,6 +30,13 @@ enum TipoLicencia {
   AVIÓNICA
 }
 
+enum EstadoOrden {
+  ABIERTA
+  CERRADA
+  CANCELADA
+}
+
+
 
 model Avion {
   id                    Int                  @id @default(autoincrement())
@@ -155,8 +162,9 @@ model Stock {
 }
 
 model OrdenTrabajo {
-  id                  Int       @id @default(autoincrement())
-  fechaApertura       DateTime  @default(now())
+  id                  Int          @id @default(autoincrement())
+  fechaApertura       DateTime     @default(now())
+  estadoOrden         EstadoOrden  @default(ABIERTA)
 
   // Asociación con avión o componente externo (uno u otro)
   avion               Avion?    @relation(fields: [avionId], references: [id])
