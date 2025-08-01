@@ -111,7 +111,12 @@ export default function EditarComponenteModal({
         <input className="input" type="number" placeholder="TSO (horas)" value={TSO} onChange={(e) => setTSO(e.target.value)} />
         <input className="input" type="number" placeholder="TBO (horas)" value={TBOHoras} onChange={(e) => setTBOHoras(e.target.value)} />
         <input className="input" type="date" value={TBOFecha} onChange={(e) => setTBOFecha(e.target.value)} />
-        <input type="file" accept="application/pdf" onChange={handleFile} />
+<input
+  type="file"
+  name="archivo8130"                         // 👈 necesario para que multer lo acepte
+  accept="application/pdf"
+  onChange={handleFile}
+/>
 
         <div className="flex justify-end gap-2">
           <button className="px-4 py-2 bg-gray-300 rounded-lg" onClick={onClose}>

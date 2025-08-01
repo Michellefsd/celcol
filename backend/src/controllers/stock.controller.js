@@ -108,7 +108,7 @@ exports.obtenerStock = async (req, res) => {
 
 
 // UPDATE
-exports.actualizarStock = async (req, res) => {
+/*exports.actualizarStock = async (req, res) => {
   const id = parseInt(req.params.id);
   try {
     console.log(`🔄 Actualizando producto con ID: ${id}`);
@@ -178,6 +178,88 @@ exports.actualizarStock = async (req, res) => {
     res.status(500).json({ error: 'Error al actualizar el producto' });
   }
 };
+*/
+
+exports.actualizarStock = async (req, res) => {
+  const id = parseInt(req.params.id);
+  try {
+    console.log(`🔄 Actualizando producto con ID: ${id}`);
+    const {
+      nombre, tipoProducto, codigoBarras, notasInternas,
+      marca, modelo, numeroSerie,
+      puedeSerVendido, puedeSerComprado,
+      precioVenta, coste,
+      unidadMedida, cantidad, stockMinimo, fechaIngreso
+    } = req.body;
+
+    const archivos = req.files || {};
+
+    const productoActual = await prisma.stock.findUnique({ where: { id } });
+    if (!productoActual) {
+      console.warn('⚠️ Producto no encontrado para actualizar');
+      return res.status(404).json({ error: 'Producto no encontrado' });
+    }
+
+    const nuevaImagen = archivos.imagen?.[0]?.path;
+    const nuevoArchivo = archivos.archivo?.[0]?.path;
+
+    // Borrar imagen anterior si se subió una nueva
+    if (nuevaImagen && productoActual.imagen && fs.existsSync(productoActual.imagen)) {
+      fs.unlinkSync(productoActual.imagen);
+    }
+
+    // Borrar archivo anterior si se subió uno nuevo
+    if (nuevoArchivo && productoActual.archivo && fs.existsSync(productoActual.archivo)) {
+      fs.unlinkSync(productoActual.archivo);
+    }
+
+    // ✅ Conversión segura de valores
+    const cantidadNum = parseInt(cantidad);
+    const stockMinimoNum = parseInt(stockMinimo);
+
+    // ⚠️ Crear aviso si stock bajo
+    if (cantidadNum <= (stockMinimoNum || 0)) {
+      await prisma.aviso.create({
+        data: {
+          mensaje: `El producto "${nombre}" alcanzó el stock mínimo (${cantidadNum} unidades)`,
+          leido: false,
+        },
+      });
+    }
+
+    // 🔄 Actualizar producto
+    const producto = await prisma.stock.update({
+      where: { id },
+      data: {
+        nombre,
+        tipoProducto: tipoProducto || null,
+        codigoBarras: codigoBarras || null,
+        notasInternas: notasInternas || null,
+        marca: marca || null,
+        modelo: modelo || null,
+        numeroSerie: numeroSerie || null,
+        puedeSerVendido: puedeSerVendido === 'true',
+        puedeSerComprado: puedeSerComprado === 'true',
+        precioVenta: parseFloat(precioVenta) || 0,
+        coste: parseFloat(coste) || 0,
+        unidadMedida: unidadMedida || null,
+        cantidad: cantidadNum,
+        stockMinimo: stockMinimoNum,
+        fechaIngreso: fechaIngreso ? new Date(fechaIngreso) : undefined,
+        ...(nuevaImagen && { imagen: nuevaImagen }),
+        ...(nuevoArchivo && { archivo: nuevoArchivo }),
+      },
+    });
+
+    console.log('✅ Producto actualizado:', producto);
+    res.json(producto);
+  } catch (error) {
+    console.error('❌ Error al actualizar producto de stock:', error);
+    res.status(500).json({ error: 'Error al actualizar el producto' });
+  }
+};
+
+
 
 // DELETE
 exports.eliminarStock = async (req, res) => {

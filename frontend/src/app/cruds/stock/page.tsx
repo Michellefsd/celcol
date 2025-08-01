@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import CrudManager, { Field } from '@/components/CrudManager';
 import { useRouter } from 'next/navigation';
-import { api } from '@/services/api'; 
+import { api } from '@/services/api';
 
 type StockItem = {
   id: number;
@@ -50,7 +50,7 @@ export default function StockPage() {
   return (
     <CrudManager<StockItem>
       title="Productos de Stock"
-      endpoint={api("/stock")}
+      endpoint={api('/stock')}
       columns={[
         'id',
         'tipoProducto',
@@ -71,6 +71,12 @@ export default function StockPage() {
       ]}
       formFields={formFields}
       
+      rowClassName={(item) => {
+        if (item.cantidad === 0) return 'relative opacity-50 bg-white';
+        if (item.cantidad < item.stockMinimo) return 'bg-yellow-50';
+        return '';
+      }}
+
       extraActions={(stock) => (
         <button
           onClick={() => router.push(`/cruds/stock/${stock.id}`)}

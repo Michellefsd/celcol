@@ -9,7 +9,7 @@ import { api } from '@/services/api';
 type OrdenTrabajo = {
   id: number;
   fechaApertura: string | null;
-  estado: string;
+  estadoOrden: 'ABIERTA' | 'CERRADA' | 'CANCELADA';
   avion?: { matricula: string };
   componente?: { tipo: string; marca: string; modelo: string };
 };
@@ -79,8 +79,14 @@ export default function TrabajoCard() {
                 <p className="text-sm font-medium">
                   <span
                     className="inline-block w-3 h-3 rounded-full mr-2"
-                    style={{ backgroundColor: orden.estado === 'CERRADA' ? '#dc2626' : '#16a34a' }}
-                    title={orden.estado === 'CERRADA' ? 'Cerrada' : 'Abierta'}
+                    style={{
+                      backgroundColor: {
+                        ABIERTA: '#16a34a',   // verde
+                        CERRADA: '#dc2626',   // rojo
+                        CANCELADA: '#9ca3af', // gris
+                      }[orden.estadoOrden],
+                    }}
+                    title={orden.estadoOrden}
                   ></span>
                   #{orden.id}{' '}
                   {orden.avion
@@ -96,9 +102,9 @@ export default function TrabajoCard() {
                 <button
                   onClick={() =>
                     router.push(
-                      orden.estado === 'CERRADA'
-                        ? `/ordenes-trabajo/${orden.id}/resumen`
-                        : `/ordenes-trabajo/${orden.id}/fase3`
+                      orden.estadoOrden === 'ABIERTA'
+                        ? `/ordenes-trabajo/${orden.id}/fase3`
+                        : `/ordenes-trabajo/${orden.id}/cerrada`
                     )
                   }
                   className="text-blue-600 hover:text-blue-800 text-sm"

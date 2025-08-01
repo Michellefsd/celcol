@@ -75,30 +75,30 @@ export default function AgregarComponenteModal({ propietarioId, open, onClose, o
 
         {error && <p className="text-red-600 text-sm">{error}</p>}
 
-        {[  
-          { name: 'tipo', type: 'text' },
-          { name: 'marca', type: 'text' },
-          { name: 'modelo', type: 'text' },
-          { name: 'numeroSerie', type: 'text' },
-          { name: 'numeroParte', type: 'text' },
-          { name: 'TSN', type: 'number' },
-          { name: 'TSO', type: 'number' },
-          { name: 'TBOHoras', type: 'number' },
-          { name: 'TBOFecha', type: 'date' },
-          { name: 'archivo8130', type: 'file' }
-        ].map(({ name, type }) => (
-          <div key={name} className="flex flex-col">
-            <label className="text-sm capitalize">{name}</label>
-            <input
-              type={type}
-              name={name}
-              value={type === 'file' ? undefined : formData[name as keyof typeof formData] as string}
-              onChange={handleChange}
-              className="border p-2 rounded"
-              accept={type === 'file' ? '*' : undefined}
-            />
-          </div>
-        ))}
+        {[
+  { name: 'tipo', type: 'text' },
+  { name: 'marca', type: 'text' },
+  { name: 'modelo', type: 'text' },
+  { name: 'numeroSerie', type: 'text' },
+  { name: 'numeroParte', type: 'text' },
+  { name: 'TSN', type: 'number' },
+  { name: 'TSO', type: 'number' },
+  { name: 'TBOHoras', type: 'number' },
+  { name: 'TBOFecha', type: 'date' },
+  { name: 'archivo8130', type: 'file' }
+].map(({ name, type }) => (
+  <div key={name} className="flex flex-col">
+    <label className="text-sm capitalize">{name}</label>
+    <input
+      type={type}
+      name={name}
+      onChange={handleChange}
+      className="border p-2 rounded"
+      accept={type === 'file' ? 'application/pdf' : undefined}
+      {...(type !== 'file' ? { value: formData[name as keyof typeof formData] as string } : {})}
+    />
+  </div>
+))}
 
         <div className="flex justify-end gap-2">
           <button onClick={onClose} className="bg-gray-300 px-4 py-2 rounded">Cancelar</button>

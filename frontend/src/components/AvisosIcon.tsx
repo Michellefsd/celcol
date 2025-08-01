@@ -19,10 +19,11 @@ export default function AvisosIcon() {
   }, []);
 
   return (
-    <Link href="/avisos" className="relative group p-2 rounded hover:bg-gray-100 transition">
+    <Link href="/avisos" className="relative p-2 hover:bg-gray-100 rounded transition">
       <Bell className="w-6 h-6 text-gray-800" />
+
       {noLeidos > 0 && (
-        <span className="absolute -top-1 -right-1 bg-red-600 text-white text-xs rounded-full px-1">
+        <span className="absolute -top-1 -right-1 bg-red-600 text-white text-[10px] font-bold rounded-full h-5 min-w-5 px-1 flex items-center justify-center leading-none shadow-md">
           {noLeidos}
         </span>
       )}

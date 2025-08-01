@@ -18,7 +18,7 @@ interface Herramienta {
 }
 
 export default function DetalleHerramientaPage() {
-  const { id } = useParams(); // ✅ forma segura
+  const { id } = useParams();
   const [item, setItem] = useState<Herramienta | null>(null);
   const [mostrarSubirCertificado, setMostrarSubirCertificado] = useState(false);
 
@@ -112,7 +112,7 @@ export default function DetalleHerramientaPage() {
         onClose={() => setMostrarSubirCertificado(false)}
         url={api(`/herramientas/${item.id}/certificadoCalibracion`)}
         label="Subir certificado de calibración"
-        nombreCampo="archivo"
+        nombreCampo="certificadoCalibracion"
         onUploaded={() => {
           fetch(api(`/herramientas/${item.id}`))
             .then((res) => {

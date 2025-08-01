@@ -24,6 +24,7 @@ export type CrudConfig<T extends { id: number }> = {
   extraActions?: (item: T) => ReactNode;
   onEditLabel?: (item: T) => string;
   onEditClick?: (item: T) => void;
+  rowClassName?: (item: T) => string;
 };
 
 export default function CrudManager<T extends { id: number }>({
@@ -36,6 +37,8 @@ export default function CrudManager<T extends { id: number }>({
   extraActions,
   onEditLabel,
   onEditClick,
+  rowClassName,
+  
 }: CrudConfig<T>) {
   const [data, setData] = useState<T[]>([]);
   const [editing, setEditing] = useState<T | null>(null);
@@ -257,7 +260,8 @@ export default function CrudManager<T extends { id: number }>({
           </thead>
           <tbody>
             {sortedData.map(item => (
-              <tr key={item.id}>
+            <tr key={item.id} className={rowClassName?.(item)}>
+
                 {columns.map(col => (
                   <td key={String(col)} className="border px-2 py-1">
                     {renderValue(item, col)}

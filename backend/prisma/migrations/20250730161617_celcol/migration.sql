@@ -7,6 +7,15 @@ CREATE TYPE "Estado" AS ENUM ('ACTIVO', 'DESINSTALADO', 'MANTENIMIENTO');
 -- CreateEnum
 CREATE TYPE "TipoPropietario" AS ENUM ('PERSONA', 'INSTITUCION');
 
+-- CreateEnum
+CREATE TYPE "TipoLicencia" AS ENUM ('AERONAVE', 'MOTOR', 'AVIÓNICA');
+
+-- CreateEnum
+CREATE TYPE "EstadoOrden" AS ENUM ('ABIERTA', 'CERRADA', 'CANCELADA');
+
+-- CreateEnum
+CREATE TYPE "RolEmpleadoAsignado" AS ENUM ('TECNICO', 'CERTIFICADOR');
+
 -- CreateTable
 CREATE TABLE "Avion" (
     "id" SERIAL NOT NULL,
@@ -91,10 +100,11 @@ CREATE TABLE "Empleado" (
     "esCertificador" BOOLEAN NOT NULL DEFAULT false,
     "esTecnico" BOOLEAN NOT NULL DEFAULT false,
     "direccion" TEXT,
-    "tipoLicencia" TEXT,
+    "tipoLicencia" "TipoLicencia"[],
     "numeroLicencia" TEXT,
     "vencimientoLicencia" TIMESTAMP(3),
     "fechaAlta" TIMESTAMP(3),
+    "carneSalud" TEXT,
     "horasTrabajadas" DOUBLE PRECISION NOT NULL DEFAULT 0,
 
     CONSTRAINT "Empleado_pkey" PRIMARY KEY ("id")
@@ -111,7 +121,6 @@ CREATE TABLE "Herramienta" (
     "fechaIngreso" TIMESTAMP(3),
     "fechaVencimiento" TIMESTAMP(3),
     "certificadoCalibracion" TEXT,
-    "archivo8130" TEXT,
 
     CONSTRAINT "Herramienta_pkey" PRIMARY KEY ("id")
 );
@@ -135,7 +144,7 @@ CREATE TABLE "Stock" (
     "stockMinimo" INTEGER NOT NULL,
     "fechaIngreso" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "imagen" TEXT,
-    "archivoFactura" TEXT,
+    "archivo" TEXT,
 
     CONSTRAINT "Stock_pkey" PRIMARY KEY ("id")
 );
@@ -144,14 +153,19 @@ CREATE TABLE "Stock" (
 CREATE TABLE "OrdenTrabajo" (
     "id" SERIAL NOT NULL,
     "fechaApertura" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "estadoOrden" "EstadoOrden" NOT NULL DEFAULT 'ABIERTA',
     "avionId" INTEGER,
     "componenteId" INTEGER,
-    "solicitud" TEXT NOT NULL,
+    "solicitud" TEXT,
     "OTsolicitud" TEXT,
+    "solicitadoPor" TEXT,
     "solicitudFirma" TEXT,
+    "inspeccionRecibida" BOOLEAN,
     "danosPrevios" TEXT,
     "accionTomada" TEXT,
+    "observaciones" TEXT,
     "numeroFactura" TEXT,
+    "archivoFactura" TEXT,
     "estadoFactura" "EstadoFactura" NOT NULL DEFAULT 'NO_ENVIADA',
 
     CONSTRAINT "OrdenTrabajo_pkey" PRIMARY KEY ("id")
@@ -162,6 +176,7 @@ CREATE TABLE "EmpleadoAsignado" (
     "id" SERIAL NOT NULL,
     "ordenId" INTEGER NOT NULL,
     "empleadoId" INTEGER NOT NULL,
+    "rol" "RolEmpleadoAsignado",
 
     CONSTRAINT "EmpleadoAsignado_pkey" PRIMARY KEY ("id")
 );
@@ -194,6 +209,19 @@ CREATE TABLE "RegistroDeTrabajo" (
     "horas" DOUBLE PRECISION NOT NULL,
 
     CONSTRAINT "RegistroDeTrabajo_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "Aviso" (
+    "id" SERIAL NOT NULL,
+    "mensaje" TEXT NOT NULL,
+    "tipo" TEXT NOT NULL,
+    "leido" BOOLEAN NOT NULL DEFAULT false,
+    "creadoEn" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "herramientaId" INTEGER,
+    "stockId" INTEGER,
+
+    CONSTRAINT "Aviso_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateIndex
@@ -243,3 +271,9 @@ ALTER TABLE "RegistroDeTrabajo" ADD CONSTRAINT "RegistroDeTrabajo_ordenId_fkey" 
 
 -- AddForeignKey
 ALTER TABLE "RegistroDeTrabajo" ADD CONSTRAINT "RegistroDeTrabajo_empleadoId_fkey" FOREIGN KEY ("empleadoId") REFERENCES "Empleado"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Aviso" ADD CONSTRAINT "Aviso_herramientaId_fkey" FOREIGN KEY ("herramientaId") REFERENCES "Herramienta"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Aviso" ADD CONSTRAINT "Aviso_stockId_fkey" FOREIGN KEY ("stockId") REFERENCES "Stock"("id") ON DELETE SET NULL ON UPDATE CASCADE;

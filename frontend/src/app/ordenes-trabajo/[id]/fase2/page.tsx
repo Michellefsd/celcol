@@ -12,28 +12,35 @@ export default function Fase2OrdenTrabajoPage() {
   const [orden, setOrden] = useState<any>(null);
   const [solicitud, setSolicitud] = useState('');
   const [solicitadoPor, setSolicitadoPor] = useState('');
+  const [OTsolicitud, setOTsolicitud] = useState('');
   const [archivo, setArchivo] = useState<File | null>(null);
   const [mostrarSubirSolicitud, setMostrarSubirSolicitud] = useState(false);
 
 
-  useEffect(() => {
-    fetch(api(`/ordenes-trabajo/${id}`))
-      .then(res => res.json())
-      
-      .then(data => {
-        setOrden(data);
-        setSolicitud(data.solicitud ?? '');
-        setSolicitadoPor(data.solicitadoPor ?? '');
-        console.log('📂 solicitudFirma URL:', data.solicitudFirma);
-        
-      })
-      .catch(err => console.error('Error cargando orden de trabajo:', err));
-  }, [id]);
+useEffect(() => {
+  fetch(api(`/ordenes-trabajo/${id}`))
+    .then(res => res.json())
+    .then(data => {
+      if (data.estadoOrden === 'CERRADA') {
+        router.replace(`/ordenes-trabajo/${id}/cerrada`);
+        return;
+      }
+
+      setOrden(data);
+      setSolicitud(data.solicitud ?? '');
+      setSolicitadoPor(data.solicitadoPor ?? '');
+      setOTsolicitud(data.OTsolicitud ?? '');
+    })
+    .catch(err => console.error('Error cargando orden de trabajo:', err));
+}, [id]);
+
 
   const handleGuardar = async (redirect: boolean = false): Promise<void> => {
     const formData = new FormData();
     formData.append('solicitud', solicitud);
     formData.append('solicitadoPor', solicitadoPor);
+    formData.append('OTsolicitud', OTsolicitud);
+
     if (archivo) {
         formData.append('solicitudFirma', archivo); 
     }
@@ -73,7 +80,56 @@ export default function Fase2OrdenTrabajoPage() {
       <h1 className="text-2xl font-bold">Fase 2: Detalles de la orden #{orden.id}</h1>
 
       <div className="bg-gray-100 p-4 rounded space-y-3">
-        <p><strong>Tipo:</strong> {orden.avionId ? 'Avión' : 'Componente externo'}</p>
+       {/* <p><strong>Tipo:</strong> {orden.avionId ? 'Avión' : 'Componente externo'}</p>
+        <div className="space-y-2 text-sm">
+  {orden.avion && (
+    <>
+      <p>
+        <strong>Avión:</strong>{' '}
+        <a
+          href={`/cruds/aviones/${orden.avion.id}`}
+          className="text-blue-600 underline"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          {orden.avion.matricula} - {orden.avion.marca} {orden.avion.modelo}
+        </a>
+      </p>
+
+      {orden.avion.TSN != null && <p><strong>TSN:</strong> {orden.avion.TSN} hs</p>}
+      {orden.avion.vencimientoMatricula && (
+        <p><strong>Vencimiento matrícula:</strong> {new Date(orden.avion.vencimientoMatricula).toLocaleDateString()}</p>
+      )}
+      {orden.avion.vencimientoSeguro && (
+        <p><strong>Vencimiento seguro:</strong> {new Date(orden.avion.vencimientoSeguro).toLocaleDateString()}</p>
+      )}
+    </>
+  )}
+
+  {orden.componente && (
+    <>
+      <p>
+        <strong>Componente externo:</strong>{' '}
+        <a
+          href={`/propietarios/${orden.componente.propietarioId}`}
+          className="text-blue-600 underline"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          {orden.componente.tipo} - {orden.componente.marca} {orden.componente.modelo}
+        </a>
+      </p>
+
+      {orden.componente.TSN != null && <p><strong>TSN:</strong> {orden.componente.TSN} hs</p>}
+      {orden.componente.TSO != null && <p><strong>TSO:</strong> {orden.componente.TSO} hs</p>}
+      {orden.componente.TBOHoras != null && <p><strong>TBO:</strong> {orden.componente.TBOHoras} hs</p>}
+      {orden.componente.TBOFecha && (
+        <p><strong>Fecha TBO:</strong> {new Date(orden.componente.TBOFecha).toLocaleDateString()}</p>
+      )}
+    </>
+  )}
+</div>
+
 
         {orden.avion && (
           <div>
@@ -119,7 +175,90 @@ export default function Fase2OrdenTrabajoPage() {
             )}
           </div>
         )}
+      */}
+      <div className="space-y-2 text-sm">
+  {orden.avion && (
+    <>
+      <p>
+        <strong>Avión:</strong>{' '}
+        <a
+          href={`/cruds/aviones/${orden.avion.id}`}
+          className="text-blue-600 underline"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          {orden.avion.matricula} - {orden.avion.marca} {orden.avion.modelo}
+        </a>
+      </p>
+
+      {renderCampo('Número de serie', orden.avion.numeroSerie)}
+      {orden.avion.TSN != null && <p><strong>TSN:</strong> {orden.avion.TSN} hs</p>}
+      {orden.avion.vencimientoMatricula && (
+        <p><strong>Vencimiento matrícula:</strong> {new Date(orden.avion.vencimientoMatricula).toLocaleDateString()}</p>
+      )}
+      {orden.avion.vencimientoSeguro && (
+        <p><strong>Vencimiento seguro:</strong> {new Date(orden.avion.vencimientoSeguro).toLocaleDateString()}</p>
+      )}
+
+      {orden.avion.componentes?.length > 0 && (
+        <div className="mt-2">
+          <p className="font-semibold">Componentes instalados:</p>
+          <ul className="list-disc pl-5 text-sm">
+            {orden.avion.componentes.map((c: any) => (
+              <li key={c.id}>
+                {c.tipo ?? '—'} - {c.marca ?? '—'} {c.modelo ?? ''} (N° Serie: {c.numeroSerie ?? '—'})
+                {c.TSN != null && ` — TSN: ${c.TSN} hs`}
+                {c.TSO != null && ` — TSO: ${c.TSO} hs`}
+                {c.TBOHoras != null && ` — TBO: ${c.TBOHoras} hs`}
+                {c.TBOFecha && ` — Fecha TBO: ${new Date(c.TBOFecha).toLocaleDateString()}`}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </>
+  )}
+
+  {orden.componente && (
+    <>
+      <p>
+        <strong>Componente externo:</strong>{' '}
+        <a
+          href={`/propietarios/${orden.componente.propietarioId}`}
+          className="text-blue-600 underline"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          {orden.componente.tipo} - {orden.componente.marca} {orden.componente.modelo}
+        </a>
+      </p>
+
+      {renderCampo('N° Serie', orden.componente.numeroSerie)}
+      {orden.componente.TSN != null && <p><strong>TSN:</strong> {orden.componente.TSN} hs</p>}
+      {orden.componente.TSO != null && <p><strong>TSO:</strong> {orden.componente.TSO} hs</p>}
+      {orden.componente.TBOHoras != null && <p><strong>TBO:</strong> {orden.componente.TBOHoras} hs</p>}
+      {orden.componente.TBOFecha && (
+        <p><strong>Fecha TBO:</strong> {new Date(orden.componente.TBOFecha).toLocaleDateString()}</p>
+      )}
+
+      {orden.componente.propietario && (
+        <div className="mt-1">
+          <p className="font-semibold">Propietario:</p>
+          <p>
+            {orden.componente.propietario.tipoPropietario === 'PERSONA'
+              ? `${orden.componente.propietario.nombre} ${orden.componente.propietario.apellido}`
+              : orden.componente.propietario.nombreEmpresa}
+          </p>
+        </div>
+      )}
+    </>
+  )}
+</div>
+
       </div>
+
+
+
 
       <div className="space-y-4">
         <div>
@@ -141,6 +280,16 @@ export default function Fase2OrdenTrabajoPage() {
             onChange={(e) => setSolicitadoPor(e.target.value)}
           />
         </div>
+        <div>
+  <label className="block font-medium mb-1">N° de OT previa (otro taller)</label>
+  <input
+    type="text"
+    className="w-full border rounded px-3 py-2"
+    value={OTsolicitud}
+    onChange={(e) => setOTsolicitud(e.target.value)}
+  />
+</div>
+
 
 {/* Subida de archivo de solicitud */}
 <div>
@@ -187,14 +336,8 @@ export default function Fase2OrdenTrabajoPage() {
 />
 
 
-
         <div className="flex justify-between mt-6">
-          <button
-            onClick={() => router.push(api(`/ordenes-trabajo/${id}/fase1`))}
-            className="text-blue-600 hover:underline"
-          >
-            ← Fase anterior
-          </button>
+        <div></div>
 
           <button
             onClick={() => { handleGuardar(true); }}

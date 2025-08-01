@@ -36,6 +36,11 @@ enum EstadoOrden {
   CANCELADA
 }
 
+enum RolEmpleadoAsignado {
+  TECNICO
+  CERTIFICADOR
+}
+
 
 
 model Avion {
@@ -127,7 +132,7 @@ model Empleado {
 }
 
 model Herramienta {
-  id                   Int       @id @default(autoincrement())
+  id                   Int            @id @default(autoincrement())
   nombre               String
   tipo                 String?
   marca                String?
@@ -137,6 +142,7 @@ model Herramienta {
   fechaVencimiento     DateTime?  /////////DESPLEGAR ALERTA DOS MESES ANTES Y NO ELEGIBLE EN ot PASADA LA FECHA////////
   certificadoCalibracion String?              //// ARCHIVO ///
   ordenesAsignadas     OrdenHerramienta[]
+  avisos               Aviso[]       @relation("HerramientaAvisos")
 }
 
 model Stock {
@@ -159,6 +165,7 @@ model Stock {
   ordenesUsadas      OrdenStock[]
   imagen             String?          ///// ARCHIVO.  ////         
   archivo            String?         ////// ARCHIVO.  ////
+  avisos             Aviso[]         @relation("StockAvisos")
 }
 
 model OrdenTrabajo {
@@ -198,6 +205,7 @@ model EmpleadoAsignado {
   ordenId     Int
   empleado    Empleado      @relation(fields: [empleadoId], references: [id])
   empleadoId  Int
+  rol         RolEmpleadoAsignado?
 }
 
 model OrdenStock {
@@ -225,4 +233,18 @@ model RegistroDeTrabajo {
   empleadoId   Int
   fecha        DateTime
   horas        Float
+}
+
+model Aviso {
+  id            Int          @id @default(autoincrement())
+  mensaje       String
+  tipo          String
+  leido         Boolean      @default(false)
+  creadoEn      DateTime     @default(now())
+
+  herramientaId Int?
+  herramienta   Herramienta? @relation("HerramientaAvisos", fields: [herramientaId], references: [id])
+
+  stockId       Int?
+  stock         Stock?       @relation("StockAvisos", fields: [stockId], references: [id])
 }

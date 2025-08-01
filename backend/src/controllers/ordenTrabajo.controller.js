@@ -132,7 +132,7 @@ exports.createOrden = async (req, res) => {
 
 exports.updateFase2 = async (req, res) => {
   const id = parseInt(req.params.id);
-  const { solicitud, solicitadoPor } = req.body;
+  const { solicitud, solicitadoPor, OTsolicitud } = req.body;
   const archivo = req.files?.solicitudFirma?.[0]?.path;
 
   try {
@@ -141,6 +141,7 @@ exports.updateFase2 = async (req, res) => {
       data: {
         solicitud,
         solicitadoPor,
+        OTsolicitud,
         ...(archivo && { solicitudFirma: archivo }),
       },
     });
@@ -162,71 +163,8 @@ exports.subirArchivoOrden = (req, res) =>
   });
 
 
-
+/*
 // Fase 3: Actualizar inspección y asignación de recursos cuando el avion esta con celcol
-
-/*exports.updateFase3 = async (req, res) => {
-  const id = parseInt(req.params.id);
-  const {
-    inspeccionRecibida,
-    danosPrevios,
-    accionTomada,
-    observaciones,
-    herramientas,
-    stock,
-    certificadorId,
-    tecnicoId,
-  } = req.body;
-
-  try {
-    const updated = await prisma.ordenTrabajo.update({
-      where: { id },
-      data: {
-        inspeccionRecibida,
-        danosPrevios,
-        accionTomada,
-        observaciones,
-
-        herramientas: {
-          deleteMany: {},
-          create: herramientas?.map((hId) => ({
-            herramienta: { connect: { id: hId } },
-          })),
-        },
-
-        stockAsignado: {
-          deleteMany: {},
-          create: stock?.map((s) => ({
-            stock: { connect: { id: s.stockId } },
-            cantidadUtilizada: s.cantidad,
-          })),
-        },
-
-        empleadosAsignados: {
-          deleteMany: {},
-         create: [
-  ...(req.body.certificadores ?? []).map((id) => ({
-    empleado: { connect: { id } },
-  })),
-  ...(req.body.tecnicos ?? []).map((id) => ({
-    empleado: { connect: { id } },
-  })),
-]
-
-        },
-      },
-    });
-
-    res.json(updated);
-  } catch (error) {
-    console.error('Error al actualizar fase 3:', error);
-    res.status(500).json({ error: 'Error al actualizar fase 3' });
-  }
-};
-
-*/
-
-
 exports.updateFase3 = async (req, res) => {
   const id = parseInt(req.params.id);
   const {
@@ -240,44 +178,50 @@ exports.updateFase3 = async (req, res) => {
     tecnicos = [],
   } = req.body;
 
-  try {
-    // Primero, actualizamos los datos generales
-    const updatedOrden = await prisma.ordenTrabajo.update({
-      where: { id },
-      data: {
-        inspeccionRecibida,
-        danosPrevios,
-        accionTomada,
-        observaciones,
+ try {
+  // Eliminamos duplicados dentro de cada rol
+  const certificadoresUnicos = [...new Set(certificadores)];
+  const tecnicosUnicos = [...new Set(tecnicos)];
 
-        herramientas: {
-          deleteMany: {},
-          create: herramientas?.map((hId) => ({
-            herramienta: { connect: { id: hId } },
-          })),
-        },
+  const updatedOrden = await prisma.ordenTrabajo.update({
+    where: { id },
+    data: {
+      inspeccionRecibida,
+      danosPrevios,
+      accionTomada,
+      observaciones,
 
-        stockAsignado: {
-          deleteMany: {},
-          create: stock?.map((s) => ({
-            stock: { connect: { id: s.stockId } },
-            cantidadUtilizada: s.cantidad,
-          })),
-        },
-
-        empleadosAsignados: {
-          deleteMany: {},
-          create: [
-            ...certificadores.map((id) => ({
-              empleado: { connect: { id } },
-            })),
-            ...tecnicos.map((id) => ({
-              empleado: { connect: { id } },
-            })),
-          ],
-        },
+      herramientas: {
+        deleteMany: {},
+        create: herramientas?.map((hId) => ({
+          herramienta: { connect: { id: hId } },
+        })),
       },
-    });
+
+      stockAsignado: {
+        deleteMany: {},
+        create: stock?.map((s) => ({
+          stock: { connect: { id: s.stockId } },
+          cantidadUtilizada: s.cantidad,
+        })),
+      },
+
+empleadosAsignados: {
+  deleteMany: {},
+  create: [
+    ...certificadoresUnicos.map((id) => ({
+      empleado: { connect: { id } },
+      rol: 'CERTIFICADOR',
+    })),
+    ...tecnicosUnicos.map((id) => ({
+      empleado: { connect: { id } },
+      rol: 'TECNICO',
+    })),
+  ],
+},
+
+    },
+  });
 
     // Luego, actualizamos el stock real
     const alertas = [];
@@ -300,12 +244,25 @@ exports.updateFase3 = async (req, res) => {
      if (nuevaCantidad <= (stockActual.stockMinimo ?? 0)) {
   alertas.push(`⚠️ El stock de "${stockActual.nombre}" está por debajo del mínimo (${nuevaCantidad} unidades).`);
 
+  // Verificamos si ya hay un aviso no leído para este producto
+const existeAviso = await prisma.aviso.findFirst({
+  where: {
+    mensaje: {
+      contains: `"${stockActual.nombre}"`,
+    },
+    leido: false,
+  },
+});
+
+if (!existeAviso) {
   await prisma.aviso.create({
     data: {
       mensaje: `El producto "${stockActual.nombre}" alcanzó el stock mínimo (${nuevaCantidad} unidades)`,
       leido: false,
     },
   });
+}
+
 }
 
     }
@@ -319,6 +276,178 @@ exports.updateFase3 = async (req, res) => {
     res.status(500).json({ error: 'Error al actualizar fase 3' });
   }
 };
+
+*/
+
+
+
+
+
+// Fase 3: Subir archivo de inspección
+// Fase 3: Actualizar inspección y asignación de recursos cuando el avión está con Celcol
+exports.updateFase3 = async (req, res) => {
+  const id = parseInt(req.params.id);
+  const {
+    inspeccionRecibida,
+    danosPrevios,
+    accionTomada,
+    observaciones,
+    herramientas,
+    stock = [],
+    certificadores = [],
+    tecnicos = [],
+  } = req.body;
+
+  try {
+    const certificadoresUnicos = [...new Set(certificadores)];
+    const tecnicosUnicos = [...new Set(tecnicos)];
+    const alertas = [];
+
+    await prisma.$transaction(async (tx) => {
+      // 1. Obtener stock previo
+      const stockPrevio = await tx.ordenStock.findMany({
+        where: { ordenId: id },
+      });
+
+      const stockMapPrevio = new Map();
+      for (const item of stockPrevio) {
+        stockMapPrevio.set(item.stockId, item.cantidadUtilizada);
+      }
+
+      // 2. Limpiar herramientas, stock, personal
+      await tx.ordenTrabajo.update({
+        where: { id },
+        data: {
+          inspeccionRecibida,
+          danosPrevios,
+          accionTomada,
+          observaciones,
+          herramientas: { deleteMany: {} },
+          stockAsignado: { deleteMany: {} },
+          empleadosAsignados: { deleteMany: {} },
+        },
+      });
+
+      // 3. Crear herramientas
+      for (const hId of herramientas ?? []) {
+        await tx.ordenHerramienta.create({
+          data: {
+            ordenId: id,
+            herramienta: { connect: { id: hId } },
+          },
+        });
+      }
+
+      // 4. Crear stock nuevo y ajustar cantidades
+      const stockIdsActuales = stock.map((s) => s.stockId);
+      for (const s of stock) {
+        const anterior = stockMapPrevio.get(s.stockId) ?? 0;
+        const diferencia = s.cantidad - anterior;
+
+
+        if (diferencia > 0) {
+  // Se están usando más unidades → descontar del stock
+  await tx.stock.update({
+    where: { id: s.stockId },
+    data: {
+      cantidad: { decrement: diferencia },
+    },
+  });
+} else if (diferencia < 0) {
+  // Se usaron menos unidades que antes → devolver al stock
+  await tx.stock.update({
+    where: { id: s.stockId },
+    data: {
+      cantidad: { increment: Math.abs(diferencia) },
+    },
+  });
+}
+
+
+        if (diferencia !== 0) {
+          await tx.stock.update({
+            where: { id: s.stockId },
+            data: {
+              cantidad: { decrement: diferencia * -1 }, // + para negativo, - para positivo
+            },
+          });
+
+          const stockActual = await tx.stock.findUnique({
+            where: { id: s.stockId },
+            select: { cantidad: true, stockMinimo: true, nombre: true },
+          });
+
+          if (stockActual && stockActual.cantidad <= (stockActual.stockMinimo ?? 0)) {
+            alertas.push(`⚠️ El stock de "${stockActual.nombre}" está por debajo del mínimo (${stockActual.cantidad} unidades).`);
+
+            const existeAviso = await tx.aviso.findFirst({
+              where: {
+                mensaje: { contains: `"${stockActual.nombre}"` },
+                leido: false,
+              },
+            });
+
+            if (!existeAviso) {
+              await tx.aviso.create({
+                data: {
+                  mensaje: `El producto "${stockActual.nombre}" alcanzó el stock mínimo (${stockActual.cantidad} unidades)`,
+                  leido: false,
+                },
+              });
+            }
+          }
+        }
+      }
+
+      // 5. Devolver ítems que ya no están
+      for (const anterior of stockPrevio) {
+        const sigueExistiendo = stockIdsActuales.includes(anterior.stockId);
+        if (!sigueExistiendo) {
+          await tx.stock.update({
+            where: { id: anterior.stockId },
+            data: {
+              cantidad: { increment: anterior.cantidadUtilizada },
+            },
+          });
+        }
+      }
+
+      // 6. Crear técnicos y certificadores
+      for (const idCert of certificadoresUnicos) {
+       await tx.empleadoAsignado.create({
+  data: {
+    ordenId: id,
+    empleadoId: idCert,
+    rol: 'CERTIFICADOR',
+  },
+});
+      }
+      
+
+      for (const idTec of tecnicosUnicos) {
+        await tx.empleadoAsignado.create({
+          data: {
+            ordenId: id,
+            empleadoId: idTec,
+            rol: 'TECNICO',
+          },
+        });
+      }
+    });
+
+    res.json({
+      mensaje: 'Fase 3 actualizada correctamente',
+      alertas,
+    });
+
+  } catch (error) {
+    console.error('❌ Error al actualizar fase 3:', error);
+    res.status(500).json({ error: 'Error al actualizar fase 3' });
+  }
+};
+
+
+
 
 
 // 5. Eliminar orden
@@ -344,8 +473,8 @@ exports.agregarRegistroTrabajo = async (req, res) => {
       registros.map((r) =>
         prisma.registroDeTrabajo.create({
           data: {
-            orden: { connect: { id: ordenId } },
-            empleado: { connect: { id: r.empleadoId } },
+            ordenId: ordenId,
+            empleadoId: r.empleadoId,
             fecha: new Date(r.fecha),
             horas: parseFloat(r.horas),
           },

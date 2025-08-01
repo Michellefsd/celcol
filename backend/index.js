@@ -2,6 +2,8 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const { PrismaClient } = require('@prisma/client');
+const cron = require('node-cron');
+const { revisarTodasLasHerramientas } = require('./src/utils/avisos');
 
 const app = express();
 
@@ -11,6 +13,24 @@ app.use(express.json());
 const prisma = new PrismaClient({
   log: ['query', 'info', 'warn', 'error'],
 });
+
+
+cron.schedule('0 8 * * *', async () => {
+  console.log('⏰ Ejecutando revisión diaria de herramientas...');
+  try {
+    await revisarTodasLasHerramientas(prisma);
+    console.log('✅ Revisión completada.');
+  } catch (err) {
+    console.error('❌ Error al revisar herramientas:', err);
+  }
+});
+
+
+(async () => {
+  console.log('🚨 Ejecutando revisión manual de herramientas ahora...');
+  await revisarTodasLasHerramientas(prisma);
+})();
+
 
 // === RUTAS ===
 
@@ -41,6 +61,11 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 // ordenes de trabajo
 const ordenTrabajoRoutes = require('./src/routes/ordenTrabajo.routes');
 app.use('/ordenes-trabajo', ordenTrabajoRoutes);
+
+// Avisos
+const avisosRoutes = require('./src/routes/avisos.routes');
+app.use('/avisos', avisosRoutes);
+
 
 
 // === FIN de Rutas ===

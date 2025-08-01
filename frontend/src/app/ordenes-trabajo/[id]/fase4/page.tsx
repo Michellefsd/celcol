@@ -1,7 +1,8 @@
 'use client';
 
+
 import { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { api } from '@/services/api';
 import SubirArchivo from '@/components/Asignaciones/SubirArchivo';
 
@@ -34,7 +35,9 @@ interface Componente {
 interface EmpleadoAsignado {
   empleadoId: number;
   empleado: Empleado;
+  rol: 'TECNICO' | 'CERTIFICADOR';
 }
+
 
 interface HerramientaAsignada {
   herramientaId: number;
@@ -57,6 +60,7 @@ interface StockAsignado {
 
 interface OrdenTrabajo {
   id: number;
+  estadoOrden: 'ABIERTA' | 'CERRADA' | 'CANCELADA';
   archivoFactura?: string;
   estadoFactura?: 'NO_ENVIADA' | 'ENVIADA' | 'PAGA' | '';
   numeroFactura?: string;
@@ -77,6 +81,7 @@ interface OrdenTrabajo {
 export default function Fase4OrdenTrabajoPage() {
   const params = useParams();
   const id = params.id as string;
+  const router = useRouter();
 
   const [orden, setOrden] = useState<OrdenTrabajo | null>(null);
   const [estadoFactura, setEstadoFactura] = useState<OrdenTrabajo['estadoFactura']>('');
@@ -88,23 +93,32 @@ export default function Fase4OrdenTrabajoPage() {
   useEffect(() => {
     if (!id) return;
 
-    const fetchData = async () => {
-      try {
-        const res = await fetch(api(`/ordenes-trabajo/${id}`));
-        const data: OrdenTrabajo = await res.json();
-        setOrden(data);
-        setEstadoFactura(data.estadoFactura ?? '');
-        setNumeroFactura(data.numeroFactura ?? '');
-        setRegistros(
-          (data.registrosTrabajo ?? []).map((r) => ({
-            ...r,
-            guardado: true,
-          }))
-        );
-      } catch {
-        setOrden(null);
-      }
-    };
+const fetchData = async () => {
+  try {
+    const res = await fetch(api(`/ordenes-trabajo/${id}`));
+    const data: OrdenTrabajo = await res.json();
+
+    // 🚫 Redirigir si está cerrada
+    if (data.estadoOrden === 'CERRADA') {
+      router.replace(`/ordenes-trabajo/${id}/cerrada`);
+      return;
+    }
+
+    // ✅ Si no está cerrada, seguir con la carga
+    setOrden(data);
+    setEstadoFactura(data.estadoFactura ?? '');
+    setNumeroFactura(data.numeroFactura ?? '');
+    setRegistros(
+      (data.registrosTrabajo ?? []).map((r) => ({
+        ...r,
+        guardado: true,
+      }))
+    );
+  } catch {
+    setOrden(null);
+  }
+};
+
 
     const fetchPersonal = async () => {
       try {
@@ -184,6 +198,41 @@ export default function Fase4OrdenTrabajoPage() {
 
   if (!orden) return <p className="p-4">Cargando orden...</p>;
 
+  // Agrupar stock por ID y sumar cantidades
+const stockAgrupado = orden.stockAsignado?.reduce<Record<number, StockAsignado>>((acc, s) => {
+  if (!acc[s.stockId]) {
+    acc[s.stockId] = { ...s };
+  } else {
+    acc[s.stockId].cantidadUtilizada += s.cantidadUtilizada;
+  }
+  return acc;
+}, {});
+
+// Filtrar herramientas sin repeticiones
+const herramientasUnicas = Array.from(
+  new Map(
+    (orden.herramientas ?? []).map((h) => [h.herramientaId, h])
+  ).values()
+);
+
+// Agrupar empleados por rol y eliminar duplicados
+const tecnicos = Array.from(
+  new Map(
+    orden.empleadosAsignados
+      ?.filter((e) => e.rol === 'TECNICO')
+      .map((e) => [e.empleadoId, e])
+  ).values()
+);
+
+const certificadores = Array.from(
+  new Map(
+    orden.empleadosAsignados
+      ?.filter((e) => e.rol === 'CERTIFICADOR')
+      .map((e) => [e.empleadoId, e])
+  ).values()
+);
+
+
   return (
     <div className="p-6 max-w-4xl mx-auto space-y-6">
       <h1 className="text-2xl font-bold">Fase 4: Cierre y factura</h1>
@@ -238,50 +287,71 @@ export default function Fase4OrdenTrabajoPage() {
     </p>
   )}
 
-  {!!orden.herramientas?.length && (
-    <div>
-      <strong>Herramientas:</strong>
-      <ul className="list-disc ml-6">
-        {orden.herramientas.map((h, i) => (
-          <li key={i}>
-            {h.herramienta.nombre}
-            {(h.herramienta.marca || h.herramienta.modelo) &&
-              ` (${h.herramienta.marca ?? ''} ${h.herramienta.modelo ?? ''})`}
-          </li>
-        ))}
-      </ul>
-    </div>
-  )}
+{!!herramientasUnicas.length && (
+  <div>
+    <strong>Herramientas:</strong>
+    <ul className="list-disc ml-6">
+      {herramientasUnicas.map((h, i) => (
+        <li key={i}>
+          {h.herramienta.nombre}
+          {(h.herramienta.marca || h.herramienta.modelo) &&
+            ` (${h.herramienta.marca ?? ''} ${h.herramienta.modelo ?? ''})`}
+        </li>
+      ))}
+    </ul>
+  </div>
+)}
 
-  {!!orden.stockAsignado?.length && (
-    <div>
-      <strong>Stock:</strong>
-      <ul className="list-disc ml-6">
-        {orden.stockAsignado.map((s, i) => (
-          <li key={i}>
-            {s.stock.nombre}
-            {(s.stock.marca || s.stock.modelo) &&
-              ` (${s.stock.marca ?? ''} ${s.stock.modelo ?? ''})`}
-            {' - '}
-            {s.cantidadUtilizada} unidad(es)
-          </li>
-        ))}
-      </ul>
-    </div>
-  )}
 
-  {!!orden.empleadosAsignados?.length && (
-    <div>
-      <strong>Personal asignado:</strong>
-      <ul className="list-disc ml-6">
-        {orden.empleadosAsignados.map((e, i) => (
-          <li key={i}>
-            {e.empleado.nombre} {e.empleado.apellido}
-          </li>
-        ))}
-      </ul>
-    </div>
-  )}
+{!!stockAgrupado && (
+  <div>
+    <strong>Stock:</strong>
+    <ul className="list-disc ml-6">
+      {Object.values(stockAgrupado).map((s, i) => (
+        <li key={i}>
+          {s.stock.nombre}
+          {(s.stock.marca || s.stock.modelo) &&
+            ` (${s.stock.marca ?? ''} ${s.stock.modelo ?? ''})`}
+          {' - '}
+          {s.cantidadUtilizada} unidad(es)
+        </li>
+      ))}
+    </ul>
+  </div>
+)}
+
+
+{!!orden.empleadosAsignados?.length && (
+  <div className="space-y-2">
+    {!!certificadores.length && (
+      <div>
+        <strong>Certificadores:</strong>
+        <ul className="list-disc ml-6">
+          {certificadores.map((e, i) => (
+            <li key={`cert-${i}`}>
+              {e.empleado.nombre} {e.empleado.apellido}
+            </li>
+          ))}
+        </ul>
+      </div>
+    )}
+
+    {!!tecnicos.length && (
+      <div>
+        <strong>Técnicos:</strong>
+        <ul className="list-disc ml-6">
+          {tecnicos.map((e, i) => (
+            <li key={`tec-${i}`}>
+              {e.empleado.nombre} {e.empleado.apellido}
+            </li>
+          ))}
+        </ul>
+      </div>
+    )}
+  </div>
+)}
+
+
 </section>
 
 
