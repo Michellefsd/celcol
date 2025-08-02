@@ -331,7 +331,7 @@ export default function Fase3OrdenTrabajoPage() {
           setHerramientasSeleccionadas(nuevos);
         }}
       />
-
+{/*}
       <SelectorDinamico
         label="Stock utilizado"
         opciones={stock
@@ -342,13 +342,33 @@ export default function Fase3OrdenTrabajoPage() {
           }))}
         conCantidad={true}
         maximos={stockMaximos}
-        permitirDuplicados={true}
+        permitirDuplicados={false}
 onChange={(nuevos) => {
   const nuevosNormalizados = Array.isArray(nuevos) ? nuevos : [nuevos];
   setStockSeleccionado((prev) => [...prev, ...nuevosNormalizados]);
-}}
+}} 
+ />
+ */}
 
-      />
+<SelectorDinamico
+  label="Stock utilizado"
+  opciones={stock
+    .filter((s) => 
+      s.cantidad > 0 && 
+      !stockSeleccionado.some((sel) => sel.id === s.id)
+    )
+    .map((s) => ({
+      id: s.id,
+      nombre: [s.nombre, s.marca, s.modelo].filter(Boolean).join(' '),
+    }))}
+  conCantidad={true}
+  maximos={stockMaximos}
+  permitirDuplicados={false}
+  onChange={(nuevos) => {
+    const nuevosNormalizados = Array.isArray(nuevos) ? nuevos : [nuevos];
+    setStockSeleccionado((prev) => [...prev, ...nuevosNormalizados]);
+  }}
+/>
 
       <AsignacionesActuales
         titulo="Stock asignado"
@@ -376,24 +396,28 @@ onChange={(nuevos) => {
           setStockSeleccionado(nuevos);
         }}
       />
+<SelectorDinamico
+  label="Técnicos asignados"
+  opciones={personal
+    .filter((p) => 
+      p.esTecnico &&
+      !certificadoresSeleccionados.some((c) => c.id === p.id)
+    )
+    .map((p) => ({
+      id: p.id,
+      nombre: `${p.nombre} ${p.apellido}`,
+    }))}
+  onChange={(nuevos) => {
+    const nuevosNormalizados = Array.isArray(nuevos) ? nuevos : [nuevos];
+    setTecnicosSeleccionados((prev) => {
+      const combinados = [...prev, ...nuevosNormalizados];
+      return combinados.filter(
+        (item, index, self) => index === self.findIndex((i) => i.id === item.id)
+      );
+    });
+  }}
+/>
 
-      <SelectorDinamico
-        label="Técnicos asignados"
-        opciones={personal.filter((p) => p.esTecnico).map((p) => ({
-          id: p.id,
-          nombre: `${p.nombre} ${p.apellido}`,
-        }))}
-onChange={(nuevos) => {
-  const nuevosNormalizados = Array.isArray(nuevos) ? nuevos : [nuevos];
-  setTecnicosSeleccionados((prev) => {
-    const combinados = [...prev, ...nuevosNormalizados];
-    return combinados.filter(
-      (item, index, self) =>
-        index === self.findIndex((i) => i.id === item.id)
-    );
-  });
-}}
-      />
 
       <AsignacionesActuales
         titulo="Técnicos asignados"
@@ -406,23 +430,28 @@ onChange={(nuevos) => {
         }}
       />
 
-      <SelectorDinamico
-        label="Certificadores asignados"
-        opciones={personal.filter((p) => p.esCertificador).map((p) => ({
-          id: p.id,
-          nombre: `${p.nombre} ${p.apellido}`,
-        }))}
-onChange={(nuevos) => {
-  const nuevosNormalizados = Array.isArray(nuevos) ? nuevos : [nuevos];
-  setCertificadoresSeleccionados((prev) => {
-    const combinados = [...prev, ...nuevosNormalizados];
-    return combinados.filter(
-      (item, index, self) =>
-        index === self.findIndex((i) => i.id === item.id)
-    );
-  });
-}}
-      />
+<SelectorDinamico
+  label="Certificadores asignados"
+  opciones={personal
+    .filter((p) =>
+      p.esCertificador &&
+      !tecnicosSeleccionados.some((t) => t.id === p.id)
+    )
+    .map((p) => ({
+      id: p.id,
+      nombre: `${p.nombre} ${p.apellido}`,
+    }))}
+  onChange={(nuevos) => {
+    const nuevosNormalizados = Array.isArray(nuevos) ? nuevos : [nuevos];
+    setCertificadoresSeleccionados((prev) => {
+      const combinados = [...prev, ...nuevosNormalizados];
+      return combinados.filter(
+        (item, index, self) => index === self.findIndex((i) => i.id === item.id)
+      );
+    });
+  }}
+/>
+
 
       <AsignacionesActuales
         titulo="Certificadores asignados"
@@ -435,6 +464,9 @@ onChange={(nuevos) => {
         }}
       />
     </div>
+
+{/*fases finales*/}
+
 
     <div className="flex justify-between mt-6">
       <button onClick={() => router.push(`/ordenes-trabajo/${id}/fase2`)} className="text-blue-600 hover:underline">

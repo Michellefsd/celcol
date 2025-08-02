@@ -27,7 +27,7 @@ type StockItem = {
 };
 
 const formFields: Field[] = [
-  { name: 'nombre', label: 'Nombre', type: 'text' },
+  { name: 'nombre', label: 'Nombre', type: 'text', required: true },
   { name: 'tipoProducto', label: 'Tipo de producto', type: 'text' },
   { name: 'codigoBarras', label: 'Código de barras', type: 'text' },
   { name: 'notasInternas', label: 'Notas internas', type: 'text' },
@@ -39,8 +39,8 @@ const formFields: Field[] = [
   { name: 'precioVenta', label: 'Precio de venta', type: 'number' },
   { name: 'coste', label: 'Coste', type: 'number' },
   { name: 'unidadMedida', label: 'Unidad de medida', type: 'text' },
-  { name: 'cantidad', label: 'Cantidad', type: 'number' },
-  { name: 'stockMinimo', label: 'Stock mínimo', type: 'number' },
+  { name: 'cantidad', label: 'Cantidad', type: 'number', required: true },
+  { name: 'stockMinimo', label: 'Stock mínimo', type: 'number', required: true },
   { name: 'fechaIngreso', label: 'Fecha de ingreso', type: 'date' },
 ];
 

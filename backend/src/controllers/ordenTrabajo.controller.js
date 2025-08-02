@@ -163,129 +163,12 @@ exports.subirArchivoOrden = (req, res) =>
   });
 
 
-/*
-// Fase 3: Actualizar inspección y asignación de recursos cuando el avion esta con celcol
-exports.updateFase3 = async (req, res) => {
-  const id = parseInt(req.params.id);
-  const {
-    inspeccionRecibida,
-    danosPrevios,
-    accionTomada,
-    observaciones,
-    herramientas,
-    stock,
-    certificadores = [],
-    tecnicos = [],
-  } = req.body;
-
- try {
-  // Eliminamos duplicados dentro de cada rol
-  const certificadoresUnicos = [...new Set(certificadores)];
-  const tecnicosUnicos = [...new Set(tecnicos)];
-
-  const updatedOrden = await prisma.ordenTrabajo.update({
-    where: { id },
-    data: {
-      inspeccionRecibida,
-      danosPrevios,
-      accionTomada,
-      observaciones,
-
-      herramientas: {
-        deleteMany: {},
-        create: herramientas?.map((hId) => ({
-          herramienta: { connect: { id: hId } },
-        })),
-      },
-
-      stockAsignado: {
-        deleteMany: {},
-        create: stock?.map((s) => ({
-          stock: { connect: { id: s.stockId } },
-          cantidadUtilizada: s.cantidad,
-        })),
-      },
-
-empleadosAsignados: {
-  deleteMany: {},
-  create: [
-    ...certificadoresUnicos.map((id) => ({
-      empleado: { connect: { id } },
-      rol: 'CERTIFICADOR',
-    })),
-    ...tecnicosUnicos.map((id) => ({
-      empleado: { connect: { id } },
-      rol: 'TECNICO',
-    })),
-  ],
-},
-
-    },
-  });
-
-    // Luego, actualizamos el stock real
-    const alertas = [];
-
-    for (const s of stock ?? []) {
-      const stockActual = await prisma.stock.findUnique({
-        where: { id: s.stockId },
-        select: { cantidad: true, stockMinimo: true, nombre: true },
-      });
-
-      if (!stockActual) continue;
-
-      const nuevaCantidad = stockActual.cantidad - s.cantidad;
-
-      await prisma.stock.update({
-        where: { id: s.stockId },
-        data: { cantidad: nuevaCantidad },
-      });
-
-     if (nuevaCantidad <= (stockActual.stockMinimo ?? 0)) {
-  alertas.push(`⚠️ El stock de "${stockActual.nombre}" está por debajo del mínimo (${nuevaCantidad} unidades).`);
-
-  // Verificamos si ya hay un aviso no leído para este producto
-const existeAviso = await prisma.aviso.findFirst({
-  where: {
-    mensaje: {
-      contains: `"${stockActual.nombre}"`,
-    },
-    leido: false,
-  },
-});
-
-if (!existeAviso) {
-  await prisma.aviso.create({
-    data: {
-      mensaje: `El producto "${stockActual.nombre}" alcanzó el stock mínimo (${nuevaCantidad} unidades)`,
-      leido: false,
-    },
-  });
-}
-
-}
-
-    }
-
-    res.json({
-      mensaje: 'Fase 3 actualizada correctamente',
-      alertas,
-    });
-  } catch (error) {
-    console.error('❌ Error al actualizar fase 3:', error);
-    res.status(500).json({ error: 'Error al actualizar fase 3' });
-  }
-};
-
-*/
 
 
-
-
-
-// Fase 3: Subir archivo de inspección
 // Fase 3: Actualizar inspección y asignación de recursos cuando el avión está con Celcol
 exports.updateFase3 = async (req, res) => {
+  console.log('stock recibido:', req.body.stock);
+
   const id = parseInt(req.params.id);
   const {
     inspeccionRecibida,
@@ -333,7 +216,7 @@ exports.updateFase3 = async (req, res) => {
         await tx.ordenHerramienta.create({
           data: {
             ordenId: id,
-            herramienta: { connect: { id: hId } },
+            herramientaId: hId,
           },
         });
       }
@@ -341,62 +224,63 @@ exports.updateFase3 = async (req, res) => {
       // 4. Crear stock nuevo y ajustar cantidades
       const stockIdsActuales = stock.map((s) => s.stockId);
       for (const s of stock) {
+        if (!s.stockId || !s.cantidad) continue;
+
         const anterior = stockMapPrevio.get(s.stockId) ?? 0;
         const diferencia = s.cantidad - anterior;
 
-
         if (diferencia > 0) {
-  // Se están usando más unidades → descontar del stock
-  await tx.stock.update({
-    where: { id: s.stockId },
-    data: {
-      cantidad: { decrement: diferencia },
-    },
-  });
-} else if (diferencia < 0) {
-  // Se usaron menos unidades que antes → devolver al stock
-  await tx.stock.update({
-    where: { id: s.stockId },
-    data: {
-      cantidad: { increment: Math.abs(diferencia) },
-    },
-  });
-}
-
-
-        if (diferencia !== 0) {
+          // Se están usando más unidades → descontar del stock
           await tx.stock.update({
             where: { id: s.stockId },
             data: {
-              cantidad: { decrement: diferencia * -1 }, // + para negativo, - para positivo
+              cantidad: { decrement: diferencia },
+            },
+          });
+        } else if (diferencia < 0) {
+          // Se usaron menos unidades que antes → devolver al stock
+          await tx.stock.update({
+            where: { id: s.stockId },
+            data: {
+              cantidad: { increment: Math.abs(diferencia) },
+            },
+          });
+        }
+
+        // Verificar si está por debajo del mínimo
+        const stockActual = await tx.stock.findUnique({
+          where: { id: s.stockId },
+          select: { cantidad: true, stockMinimo: true, nombre: true },
+        });
+
+        if (stockActual && stockActual.cantidad <= (stockActual.stockMinimo ?? 0)) {
+          alertas.push(`⚠️ El stock de "${stockActual.nombre}" está por debajo del mínimo (${stockActual.cantidad} unidades).`);
+
+          const existeAviso = await tx.aviso.findFirst({
+            where: {
+              mensaje: { contains: `"${stockActual.nombre}"` },
+              leido: false,
             },
           });
 
-          const stockActual = await tx.stock.findUnique({
-            where: { id: s.stockId },
-            select: { cantidad: true, stockMinimo: true, nombre: true },
-          });
-
-          if (stockActual && stockActual.cantidad <= (stockActual.stockMinimo ?? 0)) {
-            alertas.push(`⚠️ El stock de "${stockActual.nombre}" está por debajo del mínimo (${stockActual.cantidad} unidades).`);
-
-            const existeAviso = await tx.aviso.findFirst({
-              where: {
-                mensaje: { contains: `"${stockActual.nombre}"` },
+          if (!existeAviso) {
+            await tx.aviso.create({
+              data: {
+                mensaje: `El producto "${stockActual.nombre}" alcanzó el stock mínimo (${stockActual.cantidad} unidades)`,
                 leido: false,
               },
             });
-
-            if (!existeAviso) {
-              await tx.aviso.create({
-                data: {
-                  mensaje: `El producto "${stockActual.nombre}" alcanzó el stock mínimo (${stockActual.cantidad} unidades)`,
-                  leido: false,
-                },
-              });
-            }
           }
         }
+
+        // Registrar nuevo stock asignado
+        await tx.ordenStock.create({
+          data: {
+            ordenId: id,
+            stockId: s.stockId,
+            cantidadUtilizada: s.cantidad,
+          },
+        });
       }
 
       // 5. Devolver ítems que ya no están

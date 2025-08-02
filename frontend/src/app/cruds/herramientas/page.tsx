@@ -22,7 +22,7 @@ export default function HerramientasPage() {
   const router = useRouter();
 
   const formFields = [
-    { name: 'nombre', label: 'Nombre', type: 'text' },
+    { name: 'nombre', label: 'Nombre', type: 'text', required: true },
     { name: 'tipo', label: 'Tipo', type: 'text' },
     { name: 'marca', label: 'Marca', type: 'text' },
     { name: 'modelo', label: 'Modelo', type: 'text' },

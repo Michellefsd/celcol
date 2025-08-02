@@ -12,6 +12,7 @@ export type Field = {
   label: string;
   type: string;
   options?: FieldOption[];
+  required?: boolean;
 };
 
 export type CrudConfig<T extends { id: number }> = {
@@ -89,6 +90,12 @@ export default function CrudManager<T extends { id: number }>({
   };
 
   const handleSubmit = async () => {
+    for (const field of formFields) {
+  if (field.required && !form[field.name as keyof T]) {
+    alert(`El campo "${field.label}" es obligatorio`);
+    return;
+  }
+}
     if (onBeforeSubmit) {
       const errorMessage = onBeforeSubmit(form);
       if (errorMessage) {
@@ -308,7 +315,10 @@ export default function CrudManager<T extends { id: number }>({
               })
               .map(field => (
                 <div key={field.name} className="mb-3">
-                  <label className="block mb-1">{field.label}</label>
+                  <label className="block mb-1">
+                    {field.label}
+                    {field.required && <span className="text-red-600">*</span>}
+                  </label>
                   {field.type === 'select' ? (
                     <select
                       name={field.name}

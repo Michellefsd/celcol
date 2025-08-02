@@ -33,9 +33,9 @@ export default function EmpleadosPage() {
         'vencimientoLicencia', 'fechaAlta', 'horasTrabajadas'
       ]}
       formFields={[
-        { name: 'nombre', label: 'Nombre', type: 'text' },
-        { name: 'apellido', label: 'Apellido', type: 'text' },
-        { name: 'telefono', label: 'Teléfono', type: 'text' },
+        { name: 'nombre', label: 'Nombre', type: 'text', required: true },
+        { name: 'apellido', label: 'Apellido', type: 'text', required: true },
+        { name: 'telefono', label: 'Teléfono', type: 'text', required: true },
         { name: 'email', label: 'Email', type: 'email' },
         { name: 'esCertificador', label: '¿Es certificador?', type: 'checkbox' },
         { name: 'esTecnico', label: '¿Es técnico?', type: 'checkbox' },

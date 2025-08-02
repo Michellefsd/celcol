@@ -275,12 +275,6 @@ export default function SelectorDinamico({
                 />
               )}
             </span>
-            <button
-              onClick={() => handleEliminar(index)}
-              className="text-red-500 text-xs ml-4 hover:underline"
-            >
-              Eliminar
-            </button>
           </li>
         ))}
       </ul>

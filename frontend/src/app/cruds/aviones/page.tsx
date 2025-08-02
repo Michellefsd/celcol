@@ -94,9 +94,9 @@ export default function AvionesPage() {
       'propietarios'
     ],
     formFields: [
-      { name: 'marca', label: 'Marca', type: 'text' },
-      { name: 'modelo', label: 'Modelo', type: 'text' },
-      { name: 'matricula', label: 'Matrícula', type: 'text' },
+      { name: 'marca', label: 'Marca', type: 'text', required: true },
+      { name: 'modelo', label: 'Modelo', type: 'text', required: true },
+      { name: 'matricula', label: 'Matrícula', type: 'text', required: true },
       { name: 'numeroSerie', label: 'Número de Serie', type: 'text' },
       { name: 'TSN', label: 'TSN', type: 'number' },
       { name: 'vencimientoMatricula', label: 'Venc. Matrícula', type: 'date' },
