@@ -186,6 +186,15 @@ exports.updateFase3 = async (req, res) => {
     const tecnicosUnicos = [...new Set(tecnicos)];
     const alertas = [];
 
+    // Validación: evitar asignación doble como técnico y certificador
+const idsDuplicados = certificadoresUnicos.filter(id => tecnicosUnicos.includes(id));
+if (idsDuplicados.length > 0) {
+  return res.status(400).json({
+    error: `El empleado con ID ${idsDuplicados.join(', ')} está asignado como técnico y certificador.`,
+  });
+}
+
+
     await prisma.$transaction(async (tx) => {
       // 1. Obtener stock previo
       const stockPrevio = await tx.ordenStock.findMany({

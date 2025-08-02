@@ -89,6 +89,16 @@ export default function Fase3OrdenTrabajoPage() {
   const [tecnicosSeleccionados, setTecnicosSeleccionados] = useState<SeleccionDinamica[]>([]);
   const [certificadoresSeleccionados, setCertificadoresSeleccionados] = useState<SeleccionDinamica[]>([]);
 
+type EmpleadoAsignadoExtendido = {
+  empleadoId: number;
+  rol: 'TECNICO' | 'CERTIFICADOR';
+  empleado: {
+    nombre: string;
+    apellido: string;
+  };
+};
+
+
   useEffect(() => {
     fetch(api(`/ordenes-trabajo/${id}`))
       .then(res => res.json())
@@ -119,23 +129,30 @@ export default function Fase3OrdenTrabajoPage() {
           })) ?? []
         );
 
-        const empleados = data.empleadosAsignados ?? [];
+// 👇 Agregamos consola para verificar estructura
+      console.log('🧪 empleadosAsignados crudos:', data.empleadosAsignados);
+
+      // 👇 Forzamos tipado, si coincide la estructura no habrá error
+const empleados = data.empleadosAsignados as unknown as EmpleadoAsignadoExtendido[];
+
         setTecnicosSeleccionados(
-          empleados
-            .filter((e) => e.empleado?.esTecnico)
-            .map((e) => ({
-              id: e.empleadoId,
-              nombre: `${e.empleado?.nombre ?? ''} ${e.empleado?.apellido ?? ''}`,
-            }))
-        );
-        setCertificadoresSeleccionados(
-          empleados
-            .filter((e) => e.empleado?.esCertificador)
-            .map((e) => ({
-              id: e.empleadoId,
-              nombre: `${e.empleado?.nombre ?? ''} ${e.empleado?.apellido ?? ''}`,
-            }))
-        );
+  empleados
+    .filter((e) => e.rol === 'TECNICO')
+    .map((e) => ({
+      id: e.empleadoId,
+      nombre: `${e.empleado?.nombre ?? ''} ${e.empleado?.apellido ?? ''}`,
+    }))
+);
+
+setCertificadoresSeleccionados(
+  empleados
+    .filter((e) => e.rol === 'CERTIFICADOR')
+    .map((e) => ({
+      id: e.empleadoId,
+      nombre: `${e.empleado?.nombre ?? ''} ${e.empleado?.apellido ?? ''}`,
+    }))
+);
+
       });
 
     fetch(api('/herramientas')).then(res => res.json()).then(setHerramientas);
@@ -302,12 +319,13 @@ export default function Fase3OrdenTrabajoPage() {
         />
       </div>
 
-      <SelectorDinamico
+    {/*  <SelectorDinamico
         label="Herramientas utilizadas"
         opciones={herramientas.map((h) => ({
           id: h.id,
           nombre: [h.nombre, h.marca, h.modelo].filter(Boolean).join(' '),
         }))}
+        permitirDuplicados={false}
         onChange={(nuevos) => {
   const nuevosNormalizados = Array.isArray(nuevos) ? nuevos : [nuevos];
   setHerramientasSeleccionadas((prev) => {
@@ -318,8 +336,20 @@ export default function Fase3OrdenTrabajoPage() {
     );
   });
 }}
-
       />
+      */}
+
+      <SelectorDinamico
+  label="Herramientas utilizadas"
+  opciones={herramientas.map((h) => ({
+    id: h.id,
+    nombre: [h.nombre, h.marca, h.modelo].filter(Boolean).join(' '),
+  }))}
+  permitirDuplicados={false}
+  excluidos={herramientasSeleccionadas.map((h) => h.id)} // 👈 esta línea es clave
+  onChange={(nuevos) => setHerramientasSeleccionadas(nuevos)}
+/>
+
 
       <AsignacionesActuales
         titulo="Herramientas asignadas"
@@ -331,24 +361,6 @@ export default function Fase3OrdenTrabajoPage() {
           setHerramientasSeleccionadas(nuevos);
         }}
       />
-{/*}
-      <SelectorDinamico
-        label="Stock utilizado"
-        opciones={stock
-          .filter((s) => s.cantidad > 0)
-          .map((s) => ({
-            id: s.id,
-            nombre: [s.nombre, s.marca, s.modelo].filter(Boolean).join(' '),
-          }))}
-        conCantidad={true}
-        maximos={stockMaximos}
-        permitirDuplicados={false}
-onChange={(nuevos) => {
-  const nuevosNormalizados = Array.isArray(nuevos) ? nuevos : [nuevos];
-  setStockSeleccionado((prev) => [...prev, ...nuevosNormalizados]);
-}} 
- />
- */}
 
 <SelectorDinamico
   label="Stock utilizado"
@@ -396,17 +408,17 @@ onChange={(nuevos) => {
           setStockSeleccionado(nuevos);
         }}
       />
+
 <SelectorDinamico
   label="Técnicos asignados"
   opciones={personal
-    .filter((p) => 
-      p.esTecnico &&
-      !certificadoresSeleccionados.some((c) => c.id === p.id)
-    )
+    .filter((p) => p.esTecnico)
     .map((p) => ({
       id: p.id,
       nombre: `${p.nombre} ${p.apellido}`,
     }))}
+  excluidos={certificadoresSeleccionados.map((c) => c.id)}
+  permitirDuplicados={false}
   onChange={(nuevos) => {
     const nuevosNormalizados = Array.isArray(nuevos) ? nuevos : [nuevos];
     setTecnicosSeleccionados((prev) => {
@@ -418,29 +430,27 @@ onChange={(nuevos) => {
   }}
 />
 
-
-      <AsignacionesActuales
-        titulo="Técnicos asignados"
-        items={tecnicosSeleccionados.map((t) => ({ ...t, meta: 'TECNICO' }))}
-        editable
-        onEliminar={(index) => {
-          const nuevos = [...tecnicosSeleccionados];
-          nuevos.splice(index, 1);
-          setTecnicosSeleccionados(nuevos);
-        }}
-      />
+<AsignacionesActuales
+  titulo="Técnicos asignados"
+  items={tecnicosSeleccionados.map((t) => ({ ...t, meta: 'TECNICO' }))}
+  editable
+  onEliminar={(index) => {
+    const nuevos = [...tecnicosSeleccionados];
+    nuevos.splice(index, 1);
+    setTecnicosSeleccionados(nuevos);
+  }}
+/>
 
 <SelectorDinamico
   label="Certificadores asignados"
   opciones={personal
-    .filter((p) =>
-      p.esCertificador &&
-      !tecnicosSeleccionados.some((t) => t.id === p.id)
-    )
+    .filter((p) => p.esCertificador)
     .map((p) => ({
       id: p.id,
       nombre: `${p.nombre} ${p.apellido}`,
     }))}
+  excluidos={tecnicosSeleccionados.map((t) => t.id)}
+  permitirDuplicados={false}
   onChange={(nuevos) => {
     const nuevosNormalizados = Array.isArray(nuevos) ? nuevos : [nuevos];
     setCertificadoresSeleccionados((prev) => {
@@ -452,17 +462,17 @@ onChange={(nuevos) => {
   }}
 />
 
+<AsignacionesActuales
+  titulo="Certificadores asignados"
+  items={certificadoresSeleccionados.map((c) => ({ ...c, meta: 'CERTIFICADOR' }))}
+  editable
+  onEliminar={(index) => {
+    const nuevos = [...certificadoresSeleccionados];
+    nuevos.splice(index, 1);
+    setCertificadoresSeleccionados(nuevos);
+  }}
+/>
 
-      <AsignacionesActuales
-        titulo="Certificadores asignados"
-        items={certificadoresSeleccionados.map((c) => ({ ...c, meta: 'CERTIFICADOR' }))}
-        editable
-        onEliminar={(index) => {
-          const nuevos = [...certificadoresSeleccionados];
-          nuevos.splice(index, 1);
-          setCertificadoresSeleccionados(nuevos);
-        }}
-      />
     </div>
 
 {/*fases finales*/}
