@@ -107,6 +107,11 @@ type EmpleadoAsignadoExtendido = {
           router.replace(`/ordenes-trabajo/${id}/cerrada`);
           return;
         }
+        if (data.estadoOrden === 'CANCELADA') {
+  router.replace(`/ordenes-trabajo/${id}/cancelada`);
+  return;
+}
+
 
         setOrden(data);
         setInspeccionRecibida(data.inspeccionRecibida ?? false);
@@ -196,23 +201,6 @@ setCertificadoresSeleccionados(
   return (
   <div className="p-6 max-w-3xl mx-auto space-y-6">
     <h1 className="text-2xl font-bold">Fase 3: Recepción y preparación</h1>
-
-   {/*} <div className="space-y-3 bg-gray-100 p-4 rounded">
-      <p><strong>Tipo:</strong> {orden.avionId ? 'Avión' : 'Componente externo'}</p>
-      {orden.avion?.matricula && (
-        <p><strong>Avión:</strong> {orden.avion.matricula} - {orden.avion.marca} {orden.avion.modelo}</p>
-      )}
-      {orden.componente?.tipo && (
-        <p><strong>Componente:</strong> {orden.componente.tipo} - {orden.componente.marca} {orden.componente.modelo}</p>
-      )}
-      {orden.solicitud && (
-        <p><strong>Solicitud original:</strong> {orden.solicitud}</p>
-      )}
-      {orden.solicitadoPor && (
-        <p><strong>Solicitado por:</strong> {orden.solicitadoPor}</p>
-      )}
-    </div>
-*/}
 
 <div className="space-y-3 bg-gray-100 p-4 rounded text-sm">
   <p><strong>Tipo:</strong> {orden.avionId ? 'Avión' : 'Componente externo'}</p>
@@ -319,26 +307,6 @@ setCertificadoresSeleccionados(
         />
       </div>
 
-    {/*  <SelectorDinamico
-        label="Herramientas utilizadas"
-        opciones={herramientas.map((h) => ({
-          id: h.id,
-          nombre: [h.nombre, h.marca, h.modelo].filter(Boolean).join(' '),
-        }))}
-        permitirDuplicados={false}
-        onChange={(nuevos) => {
-  const nuevosNormalizados = Array.isArray(nuevos) ? nuevos : [nuevos];
-  setHerramientasSeleccionadas((prev) => {
-    const combinados = [...prev, ...nuevosNormalizados];
-    return combinados.filter(
-      (item, index, self) =>
-        index === self.findIndex((i) => i.id === item.id)
-    );
-  });
-}}
-      />
-      */}
-
       <SelectorDinamico
   label="Herramientas utilizadas"
   opciones={herramientas.map((h) => ({
@@ -417,7 +385,6 @@ setCertificadoresSeleccionados(
       id: p.id,
       nombre: `${p.nombre} ${p.apellido}`,
     }))}
-  excluidos={certificadoresSeleccionados.map((c) => c.id)}
   permitirDuplicados={false}
   onChange={(nuevos) => {
     const nuevosNormalizados = Array.isArray(nuevos) ? nuevos : [nuevos];
@@ -441,6 +408,7 @@ setCertificadoresSeleccionados(
   }}
 />
 
+{/*}
 <SelectorDinamico
   label="Certificadores asignados"
   opciones={personal
@@ -472,6 +440,39 @@ setCertificadoresSeleccionados(
     setCertificadoresSeleccionados(nuevos);
   }}
 />
+*/}
+
+<SelectorDinamico
+  label="Certificadores asignados"
+  opciones={personal
+    .filter((p) => p.esCertificador)
+    .map((p) => ({
+      id: p.id,
+      nombre: `${p.nombre} ${p.apellido}`,
+    }))}
+  permitirDuplicados={false}
+  onChange={(nuevos) => {
+    const nuevosNormalizados = Array.isArray(nuevos) ? nuevos : [nuevos];
+    setCertificadoresSeleccionados((prev) => {
+      const combinados = [...prev, ...nuevosNormalizados];
+      return combinados.filter(
+        (item, index, self) => index === self.findIndex((i) => i.id === item.id)
+      );
+    });
+  }}
+/>
+
+<AsignacionesActuales
+  titulo="Certificadores asignados"
+  items={certificadoresSeleccionados.map((c) => ({ ...c, meta: 'CERTIFICADOR' }))}
+  editable
+  onEliminar={(index) => {
+    const nuevos = [...certificadoresSeleccionados];
+    nuevos.splice(index, 1);
+    setCertificadoresSeleccionados(nuevos);
+  }}
+/>
+
 
     </div>
 

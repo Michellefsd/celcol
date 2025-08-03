@@ -10,6 +10,7 @@ type OrdenTrabajo = {
   id: number;
   fechaApertura: string | null;
   estadoOrden: 'ABIERTA' | 'CERRADA' | 'CANCELADA';
+  archivada?: boolean;
   avion?: { matricula: string };
   componente?: { tipo: string; marca: string; modelo: string };
 };
@@ -32,21 +33,37 @@ export default function TrabajoCard() {
     return isNaN(date.getTime()) ? '—' : date.toLocaleDateString();
   };
 
-  const eliminarOrden = async (id: number) => {
-    const confirmar = confirm(`¿Estás segura de que querés eliminar la orden #${id}?`);
-    if (!confirmar) return;
+const eliminarOrden = async (id: number) => {
+  const confirmar = confirm(`¿Estás segura de que querés eliminar la orden #${id}?`);
+  if (!confirmar) return;
 
-    try {
-      const res = await fetch(api(`/ordenes-trabajo/${id}`), { method: 'DELETE' });
-      if (!res.ok) throw new Error('Error al eliminar');
-      setOrdenes((prev) => prev.filter((o) => o.id !== id));
-    } catch (error) {
-      alert('No se pudo eliminar la orden');
-      console.error(error);
-    }
-  };
+  try {
+    const res = await fetch(api(`/ordenes-trabajo/${id}`), { method: 'DELETE' });
+    if (!res.ok) throw new Error('Error al eliminar');
+    setOrdenes((prev) => prev.filter((o) => o.id !== id));
+  } catch (error) {
+    alert('No se pudo eliminar la orden');
+    console.error(error);
+  }
 
-  const ordenesFiltradas = ordenes.filter((orden) => {
+  const ordenesFiltradas = ordenes
+    .filter((orden) => !orden.archivada)
+    .filter((orden) => {
+      const texto = busqueda.toLowerCase();
+      const avionTexto = orden.avion?.matricula?.toLowerCase() ?? '';
+      const compTexto = `${orden.componente?.tipo ?? ''} ${orden.componente?.marca ?? ''} ${orden.componente?.modelo ?? ''}`.toLowerCase();
+      return (
+        avionTexto.includes(texto) ||
+        compTexto.includes(texto) ||
+        orden.id.toString().includes(texto)
+      );
+    });
+};
+
+
+const ordenesFiltradas = ordenes
+  .filter((orden) => !orden.archivada) // ⬅️ oculta archivadas
+  .filter((orden) => {
     const texto = busqueda.toLowerCase();
     const avionTexto = orden.avion?.matricula?.toLowerCase() ?? '';
     const compTexto = `${orden.componente?.tipo ?? ''} ${orden.componente?.marca ?? ''} ${orden.componente?.modelo ?? ''}`.toLowerCase();
@@ -56,6 +73,7 @@ export default function TrabajoCard() {
       orden.id.toString().includes(texto)
     );
   });
+
 
   return (
     <BaseCard>
@@ -98,14 +116,60 @@ export default function TrabajoCard() {
                 <p className="text-xs text-gray-500">{formatearFecha(orden.fechaApertura)}</p>
               </div>
 
+              
+
               <div className="flex items-center gap-2">
+                {['CERRADA', 'CANCELADA'].includes(orden.estadoOrden) && (
+  <button
+    onClick={async () => {
+      const confirmar = confirm(`¿Querés archivar la orden #${orden.id}?`);
+      if (!confirmar) return;
+
+      try {
+        const res = await fetch(api(`/ordenes-trabajo/${orden.id}/archivar`), {
+          method: 'PUT',
+        });
+        if (!res.ok) throw new Error('Error al archivar');
+
+        setOrdenes((prev) =>
+          prev.map((o) =>
+            o.id === orden.id ? { ...o, archivada: true } : o
+          )
+        );
+        alert(`Orden #${orden.id} archivada con éxito.`);
+      } catch (err) {
+        console.error(err);
+        alert('No se pudo archivar la orden.');
+      }
+    }}
+    title="Archivar orden"
+    className="text-yellow-600 hover:text-yellow-800 text-sm"
+  >
+    🗃
+  </button>
+)}
+{!['CERRADA', 'CANCELADA'].includes(orden.estadoOrden) && (
+  <button
+    onClick={() =>
+      alert('No se pueden archivar órdenes de trabajo abiertas.')
+    }
+    title="Solo se pueden archivar órdenes cerradas o canceladas"
+    className="text-gray-400 cursor-not-allowed text-sm"
+  >
+    🗃
+  </button>
+)}
+
                 <button
                   onClick={() =>
-                    router.push(
-                      orden.estadoOrden === 'ABIERTA'
-                        ? `/ordenes-trabajo/${orden.id}/fase3`
-                        : `/ordenes-trabajo/${orden.id}/cerrada`
-                    )
+router.push(
+  orden.estadoOrden === 'ABIERTA'
+    ? `/ordenes-trabajo/${orden.id}/fase3`
+    : orden.estadoOrden === 'CERRADA'
+    ? `/ordenes-trabajo/${orden.id}/cerrada`
+    : `/ordenes-trabajo/${orden.id}/cancelada`
+)
+
                   }
                   className="text-blue-600 hover:text-blue-800 text-sm"
                   title="Ver orden"

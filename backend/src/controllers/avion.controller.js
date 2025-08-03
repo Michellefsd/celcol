@@ -1,7 +1,7 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const { subirArchivoGenerico } = require('../utils/archivoupload');
-
+const { crearAvisoPorAvionSinPropietario } = require('../utils/avisos');
 
 
 // CREATE
@@ -24,18 +24,25 @@ exports.crearAvion = async (req, res) => {
       return res.status(400).json({ error: 'Faltan campos obligatorios' });
     }
 
-    const avion = await prisma.avion.create({
-      data: {
-        marca,
-        modelo,
-        numeroSerie: numeroSerie || null,
-        matricula,
-        TSN: TSN ? parseFloat(TSN) : null,
-        vencimientoMatricula: vencimientoMatricula ? new Date(vencimientoMatricula) : null,
-        vencimientoSeguro: vencimientoSeguro ? new Date(vencimientoSeguro) : null,
-        certificadoMatricula: certificadoMatriculaPath
-      }
-    });
+const avion = await prisma.avion.create({
+  data: {
+    marca,
+    modelo,
+    numeroSerie: numeroSerie || null,
+    matricula,
+    TSN: TSN ? parseFloat(TSN) : null,
+    vencimientoMatricula: vencimientoMatricula ? new Date(vencimientoMatricula) : null,
+    vencimientoSeguro: vencimientoSeguro ? new Date(vencimientoSeguro) : null,
+    certificadoMatricula: certificadoMatriculaPath
+  },
+  include: {
+    propietarios: {
+      include: { propietario: true }
+    }
+  }
+});
+
+await crearAvisoPorAvionSinPropietario(avion, prisma); 
 
     res.json(avion);
   } catch (error) {
@@ -138,25 +145,36 @@ exports.actualizarAvion = async (req, res) => {
       data: dataToUpdate
     });
 
-    // Relacionar propietarios (sin cambios)
-    if (Array.isArray(propietariosIds)) {
-      const propietarios = await prisma.propietario.findMany({
-        where: { id: { in: propietariosIds } }
-      });
+// Relacionar propietarios (y verificar aviso)
+let relaciones = [];
 
-      if (propietarios.length !== propietariosIds.length) {
-        return res.status(400).json({ error: 'Algunos propietarios no existen' });
-      }
+if (Array.isArray(propietariosIds)) {
+  const propietarios = await prisma.propietario.findMany({
+    where: { id: { in: propietariosIds } }
+  });
 
-      await prisma.avionPropietario.deleteMany({ where: { avionId: id } });
+  if (propietarios.length !== propietariosIds.length) {
+    return res.status(400).json({ error: 'Algunos propietarios no existen' });
+  }
 
-      const relaciones = propietariosIds.map(propietarioId => ({
-        avionId: id,
-        propietarioId
-      }));
+  await prisma.avionPropietario.deleteMany({ where: { avionId: id } });
 
-      await prisma.avionPropietario.createMany({ data: relaciones });
-    }
+  relaciones = propietariosIds.map(propietarioId => ({
+    avionId: id,
+    propietarioId
+  }));
+
+  await prisma.avionPropietario.createMany({ data: relaciones });
+}
+
+// Consultar avión actualizado con propietarios (incluso si no se cambiaron)
+const avionConPropietarios = await prisma.avion.findUnique({
+  where: { id },
+  include: { propietarios: true },
+});
+
+await crearAvisoPorAvionSinPropietario(avionConPropietarios, prisma);
+
 
     res.json({ mensaje: 'Avión actualizado correctamente' });
   } catch (error) {
@@ -207,6 +225,14 @@ exports.asignarPropietarios = async (req, res) => {
     }));
 
     await prisma.avionPropietario.createMany({ data: relaciones });
+
+const avionConPropietarios = await prisma.avion.findUnique({
+  where: { id: avionId },
+  include: { propietarios: true },
+});
+
+await crearAvisoPorAvionSinPropietario(avionConPropietarios, prisma);
+
 
     res.json({ mensaje: 'Propietarios asignados correctamente' });
   } catch (error) {

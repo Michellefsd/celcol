@@ -33,5 +33,11 @@ router.delete('/registro-trabajo/:registroId', ordenTrabajoController.eliminarRe
 // 9. Cerrar orden
 router.put('/:id/cerrar', ordenTrabajoController.cerrarOrden);
 
+// 10. Cancelar orden
+router.put('/:id/cancelar', ordenTrabajoController.cancelarOrden);
+
+// 11. Archivar orden
+router.put('/:id/archivar', ordenTrabajoController.archivarOrden);
+
 
 module.exports = router;

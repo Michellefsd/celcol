@@ -104,6 +104,11 @@ const fetchData = async () => {
       return;
     }
 
+    if (data.estadoOrden === 'CANCELADA') {
+  router.replace(`/ordenes-trabajo/${id}/cancelada`);
+  return;
+}
+
     // ✅ Si no está cerrada, seguir con la carga
     setOrden(data);
     setEstadoFactura(data.estadoFactura ?? '');
@@ -173,9 +178,29 @@ const fetchData = async () => {
   };
 
   // Eliminar fila local (no en backend)
-  const eliminarFila = (index: number) => {
-    setRegistros((prev) => prev.filter((_, i) => i !== index));
-  };
+const eliminarFila = async (index: number) => {
+  const r = registros[index];
+
+  // Si el registro ya fue guardado (tiene ID), lo eliminamos en backend
+  if (r.id) {
+    const confirmar = confirm('¿Querés eliminar este registro de trabajo definitivamente?');
+    if (!confirmar) return;
+
+    const res = await fetch(api(`/ordenes-trabajo/registro-trabajo/${r.id}`), {
+      method: 'DELETE',
+    });
+
+    if (!res.ok) {
+      alert('Error al eliminar el registro del servidor');
+      return;
+    }
+  }
+
+  // En todos los casos, lo eliminamos del estado local
+  setRegistros((prev) => prev.filter((_, i) => i !== index));
+};
+
+
 
   // Agregar nueva fila vacía
   const agregarFila = () => {
@@ -287,6 +312,34 @@ const certificadores = Array.from(
     </p>
   )}
 
+{orden.archivoFactura && (
+  <p>
+    <strong>Factura:</strong>{' '}
+    <a
+      href={orden.archivoFactura}
+      className="underline text-blue-600"
+      target="_blank"
+      rel="noopener noreferrer"
+    >
+      Ver archivo
+    </a>
+  </p>
+)}
+
+{orden.solicitud && (
+  <p>
+    <strong>Solicitud:</strong>{' '}
+    <a
+      href={orden.solicitud}
+      className="underline text-blue-600"
+      target="_blank"
+      rel="noopener noreferrer"
+    >
+      Ver solicitud
+    </a>
+  </p>
+)}
+
 {!!herramientasUnicas.length && (
   <div>
     <strong>Herramientas:</strong>
@@ -376,11 +429,11 @@ const certificadores = Array.from(
                 className={`border rounded px-2 py-1 ${!r.empleadoId ? 'border-red-500' : ''}`}
               >
                 <option value="">Seleccionar</option>
-                {personal.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.nombre} {p.apellido}
-                  </option>
-                ))}
+              {orden.empleadosAsignados?.map((ea) => (
+              <option key={ea.empleadoId} value={ea.empleadoId}>
+                {ea.empleado.nombre} {ea.empleado.apellido}
+              </option>
+              ))}
               </select>
               <input
                 type="date"
@@ -478,6 +531,9 @@ const certificadores = Array.from(
   )}
 </div>
 
+
+{/* Disposiciones finales */}
+
       </section>
       <div className="flex justify-between mt-8">
   <button
@@ -486,6 +542,27 @@ const certificadores = Array.from(
   >
     ← Fase anterior
   </button>
+
+<button
+  onClick={async () => {
+    const confirmar = confirm('¿Estás segura que querés cancelar esta orden de trabajo?');
+    if (!confirmar) return;
+
+    const res = await fetch(api(`/ordenes-trabajo/${id}/cancelar`), {
+      method: 'PUT',
+    });
+
+    if (res.ok) {
+      alert('Orden cancelada con éxito');
+      window.location.href = `/ordenes-trabajo/${id}/cancelada`;
+    } else {
+      alert('Error al cancelar la orden');
+    }
+  }}
+  className="bg-gray-600 text-white px-5 py-2 rounded hover:bg-gray-700 font-semibold shadow"
+>
+  Cancelar orden
+</button>
 
 <button
   onClick={async () => {

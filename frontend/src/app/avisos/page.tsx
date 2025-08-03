@@ -81,7 +81,6 @@ export default function AvisosPage() {
   )}
 </div>
 
-
               <div className="flex space-x-2">
                 {!a.leido && (
                   <button

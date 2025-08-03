@@ -15,6 +15,9 @@ router.get('/', controller.listarPersonal);
 // Obtener un personal por ID
 router.get('/:id', controller.obtenerPersonal);
 
+// Obtener todos los registros de trabajo (fecha, horas, OT, solicitud, rol) de un empleado específico
+router.get('/:id/registros-trabajo', controller.obtenerRegistrosDeTrabajo);
+
 // Eliminar personal
 router.delete('/:id', controller.eliminarPersonal);
 

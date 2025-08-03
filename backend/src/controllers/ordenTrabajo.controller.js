@@ -272,14 +272,17 @@ if (idsDuplicados.length > 0) {
             },
           });
 
-          if (!existeAviso) {
-            await tx.aviso.create({
-              data: {
-                mensaje: `El producto "${stockActual.nombre}" alcanzó el stock mínimo (${stockActual.cantidad} unidades)`,
-                leido: false,
-              },
-            });
-          }
+if (!existeAviso) {
+  await tx.aviso.create({
+    data: {
+      mensaje: `El producto "${stockActual.nombre}" alcanzó el stock mínimo (${stockActual.cantidad} unidades)`,
+      leido: false,
+      tipo: 'stock',
+      stockId: s.stockId,
+    },
+  });
+}
+
         }
 
         // Registrar nuevo stock asignado
@@ -340,6 +343,34 @@ if (idsDuplicados.length > 0) {
 };
 
 
+// Archivar orden (solo si está cerrada o cancelada)
+exports.archivarOrden = async (req, res) => {
+  const id = parseInt(req.params.id);
+
+  try {
+    const orden = await prisma.ordenTrabajo.findUnique({ where: { id } });
+
+    if (!orden) {
+      return res.status(404).json({ error: 'Orden no encontrada' });
+    }
+
+    if (!['CERRADA', 'CANCELADA'].includes(orden.estadoOrden)) {
+      return res
+        .status(400)
+        .json({ error: 'Solo se pueden archivar órdenes cerradas o canceladas' });
+    }
+
+    const ordenArchivada = await prisma.ordenTrabajo.update({
+      where: { id },
+      data: { archivada: true },
+    });
+
+    res.json({ mensaje: 'Orden archivada con éxito', orden: ordenArchivada });
+  } catch (error) {
+    console.error('❌ Error al archivar orden:', error);
+    res.status(500).json({ error: 'Error al archivar orden' });
+  }
+};
 
 
 
@@ -362,11 +393,36 @@ exports.agregarRegistroTrabajo = async (req, res) => {
   const registros = Array.isArray(req.body) ? req.body : [req.body];
 
   try {
+    // 1. Validar que todos los empleados estén asignados a la OT
+    const asignados = await prisma.empleadoAsignado.findMany({
+      where: { ordenId },
+      select: { empleadoId: true }
+    });
+
+    const empleadosValidos = new Set(asignados.map(a => a.empleadoId));
+
+    for (const r of registros) {
+      if (!empleadosValidos.has(r.empleadoId)) {
+        return res.status(400).json({ error: `Empleado ${r.empleadoId} no está asignado a la orden.` });
+      }
+    }
+
+    // 2. Eliminar registros previos de los mismos empleados en esta orden
+    const empleadosAActualizar = [...new Set(registros.map(r => r.empleadoId))];
+
+    await prisma.registroDeTrabajo.deleteMany({
+      where: {
+        ordenId,
+        empleadoId: { in: empleadosAActualizar },
+      },
+    });
+
+    // 3. Crear nuevos registros
     const nuevosRegistros = await Promise.all(
       registros.map((r) =>
         prisma.registroDeTrabajo.create({
           data: {
-            ordenId: ordenId,
+            ordenId,
             empleadoId: r.empleadoId,
             fecha: new Date(r.fecha),
             horas: parseFloat(r.horas),
@@ -382,6 +438,7 @@ exports.agregarRegistroTrabajo = async (req, res) => {
   }
 };
 
+
     // Fase 4: Subir archivo de factura
 exports.subirArchivoFactura = (req, res) =>
   subirArchivoGenerico({
@@ -392,6 +449,19 @@ exports.subirArchivoFactura = (req, res) =>
     nombreRecurso: 'Orden de trabajo (factura)',
   });
 
+exports.cancelarOrden = async (req, res) => {
+  const id = parseInt(req.params.id);
+  try {
+    await prisma.ordenTrabajo.update({
+      where: { id },
+      data: { estadoOrden: 'CANCELADA' },
+    });
+    res.json({ mensaje: 'Orden cancelada' });
+  } catch (error) {
+    console.error('Error al cancelar orden:', error);
+    res.status(500).json({ error: 'Error al cancelar orden' });
+  }
+};
 
 
 // eliminar registro de trabajos

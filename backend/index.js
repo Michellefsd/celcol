@@ -3,37 +3,45 @@ const cors = require('cors');
 const path = require('path');
 const { PrismaClient } = require('@prisma/client');
 const cron = require('node-cron');
-const { revisarTodasLasHerramientas } = require('./src/utils/avisos');
+
+const prisma = new PrismaClient({
+  log: ['query', 'info', 'warn', 'error'],
+});
+
+const {
+  revisarTodasLasHerramientas,
+  revisarAvionesSinPropietario,
+} = require('./src/utils/avisos');
+
+// === Llamadas en el arranque ===
+(async () => {
+  console.log('⏳ Esperando 60 segundos para ejecutar revisión inicial...');
+  setTimeout(async () => {
+    console.log('🚨 Ejecutando revisión manual ahora...');
+    await revisarTodasLasHerramientas(prisma);
+    await revisarAvionesSinPropietario(prisma);
+  }, 60000); // 60 segundos
+})();
+
 
 const app = express();
 
 app.use(cors());
 app.use(express.json());
 
-const prisma = new PrismaClient({
-  log: ['query', 'info', 'warn', 'error'],
-});
-
-
+// === CRON diario ===
 cron.schedule('0 8 * * *', async () => {
-  console.log('⏰ Ejecutando revisión diaria de herramientas...');
+  console.log('⏰ Ejecutando revisión diaria...');
   try {
     await revisarTodasLasHerramientas(prisma);
-    console.log('✅ Revisión completada.');
+    await revisarAvionesSinPropietario(prisma);
+    console.log('✅ Revisión diaria completada.');
   } catch (err) {
-    console.error('❌ Error al revisar herramientas:', err);
+    console.error('❌ Error al revisar avisos diarios:', err);
   }
 });
 
-
-(async () => {
-  console.log('🚨 Ejecutando revisión manual de herramientas ahora...');
-  await revisarTodasLasHerramientas(prisma);
-})();
-
-
 // === RUTAS ===
-
 const propietarioRoutes = require('./src/routes/propietario.routes');
 app.use('/propietarios', propietarioRoutes);
 
@@ -55,18 +63,14 @@ app.use('/personal', personalRoutes);
 const componentesRoutes = require('./src/routes/componenteExterno.routes');
 app.use('/componentes', componentesRoutes);
 
-// Archivos subidos
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-
-// ordenes de trabajo
 const ordenTrabajoRoutes = require('./src/routes/ordenTrabajo.routes');
 app.use('/ordenes-trabajo', ordenTrabajoRoutes);
 
-// Avisos
 const avisosRoutes = require('./src/routes/avisos.routes');
 app.use('/avisos', avisosRoutes);
 
-
+// Archivos subidos
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // === FIN de Rutas ===
 

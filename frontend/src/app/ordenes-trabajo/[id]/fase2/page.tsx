@@ -26,6 +26,11 @@ useEffect(() => {
         return;
       }
 
+      if (data.estadoOrden === 'CANCELADA') {
+  router.replace(`/ordenes-trabajo/${id}/cancelada`);
+  return;
+}
+
       setOrden(data);
       setSolicitud(data.solicitud ?? '');
       setSolicitadoPor(data.solicitadoPor ?? '');

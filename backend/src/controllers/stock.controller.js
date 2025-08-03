@@ -60,6 +60,31 @@ exports.crearStock = async (req, res) => {
     });
 
     console.log('✅ Producto creado:', producto);
+
+    // 🚨 Crear aviso si el stock ya está bajo al crearse
+    if (producto.cantidad <= producto.stockMinimo) {
+      const existeAviso = await prisma.aviso.findFirst({
+        where: {
+          stockId: producto.id,
+          tipo: 'stock',
+        },
+      });
+
+      if (!existeAviso) {
+        await prisma.aviso.create({
+          data: {
+            mensaje: `El producto "${producto.nombre}" fue creado con stock mínimo (${producto.cantidad} unidades)`,
+            leido: false,
+            tipo: 'stock',
+            stockId: producto.id,
+          },
+        });
+        console.log('📣 Aviso creado por stock bajo al crear');
+      } else {
+        console.log('ℹ️ Aviso ya existente por stock bajo');
+      }
+    }
+
     res.status(201).json(producto);
   } catch (error) {
     console.error('❌ Error al crear producto de stock:', error);
@@ -106,80 +131,6 @@ exports.obtenerStock = async (req, res) => {
   }
 };
 
-
-// UPDATE
-/*exports.actualizarStock = async (req, res) => {
-  const id = parseInt(req.params.id);
-  try {
-    console.log(`🔄 Actualizando producto con ID: ${id}`);
-    const {
-      nombre, tipoProducto, codigoBarras, notasInternas,
-      marca, modelo, numeroSerie,
-      puedeSerVendido, puedeSerComprado,
-      precioVenta, coste,
-      unidadMedida, cantidad, stockMinimo, fechaIngreso
-    } = req.body;
-
-    const archivos = req.files || {};
-
-    const productoActual = await prisma.stock.findUnique({ where: { id } });
-    if (!productoActual) {
-      console.warn('⚠️ Producto no encontrado para actualizar');
-      return res.status(404).json({ error: 'Producto no encontrado' });
-    }
-
-    const nuevaImagen = archivos.imagen?.[0]?.path;
-    const nuevoArchivo = archivos.archivo?.[0]?.path;
-
-    if (nuevaImagen && productoActual.imagen && fs.existsSync(productoActual.imagen)) {
-      fs.unlinkSync(productoActual.imagen);
-    }
-
-    if (nuevoArchivo && productoActual.archivo && fs.existsSync(productoActual.archivo)) {
-      fs.unlinkSync(productoActual.archivo);
-    }
-
-    if (producto.cantidad <= (producto.stockMinimo ?? 0)) {
-  await prisma.aviso.create({
-    data: {
-      mensaje: `El producto "${producto.nombre}" alcanzó el stock mínimo (${producto.cantidad} unidades)`,
-      leido: false,
-    },
-  });
-}
-
-    const producto = await prisma.stock.update({
-      where: { id },
-      data: {
-        nombre,
-        tipoProducto: tipoProducto || null,
-        codigoBarras: codigoBarras || null,
-        notasInternas: notasInternas || null,
-        marca: marca || null,
-        modelo: modelo || null,
-        numeroSerie: numeroSerie || null,
-        puedeSerVendido: puedeSerVendido === 'true',
-        puedeSerComprado: puedeSerComprado === 'true',
-        precioVenta: parseFloat(precioVenta) || 0,
-        coste: parseFloat(coste) || 0,
-        unidadMedida: unidadMedida || null,
-        cantidad: parseInt(cantidad),
-        stockMinimo: parseInt(stockMinimo),
-        fechaIngreso: fechaIngreso ? new Date(fechaIngreso) : undefined,
-        ...(nuevaImagen && { imagen: nuevaImagen }),
-        ...(nuevoArchivo && { archivo: nuevoArchivo }),
-      },
-    });
-
-    console.log('✅ Producto actualizado:', producto);
-    res.json(producto);
-  } catch (error) {
-    console.error('❌ Error al actualizar producto de stock:', error);
-    res.status(500).json({ error: 'Error al actualizar el producto' });
-  }
-};
-*/
-
 exports.actualizarStock = async (req, res) => {
   const id = parseInt(req.params.id);
   try {
@@ -218,14 +169,29 @@ exports.actualizarStock = async (req, res) => {
     const stockMinimoNum = parseInt(stockMinimo);
 
     // ⚠️ Crear aviso si stock bajo
-    if (cantidadNum <= (stockMinimoNum || 0)) {
-      await prisma.aviso.create({
-        data: {
-          mensaje: `El producto "${nombre}" alcanzó el stock mínimo (${cantidadNum} unidades)`,
-          leido: false,
-        },
-      });
-    }
+if (cantidadNum <= (stockMinimoNum || 0)) {
+  const existeAviso = await prisma.aviso.findFirst({
+    where: {
+      stockId: id,
+      tipo: 'stock',
+    },
+  });
+
+  if (!existeAviso) {
+    await prisma.aviso.create({
+      data: {
+        mensaje: `El producto "${nombre}" alcanzó el stock mínimo (${cantidadNum} unidades)`,
+        leido: false,
+        tipo: 'stock',
+        stockId: id,
+      },
+    });
+    console.log('📣 Aviso creado por stock bajo');
+  } else {
+    console.log('ℹ️ Aviso ya existente por stock bajo');
+  }
+}
+
 
     // 🔄 Actualizar producto
     const producto = await prisma.stock.update({

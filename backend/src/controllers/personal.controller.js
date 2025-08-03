@@ -151,6 +151,64 @@ exports.subirCarneSalud = (req, res) =>
 
 
 
+  // GET /personal/:id/registros-trabajo?desde=YYYY-MM-DD&hasta=YYYY-MM-DD
+  exports.obtenerRegistrosDeTrabajo = async (req, res) => {
+    const empleadoId = parseInt(req.params.id);
+    const { desde, hasta } = req.query;
+  
+    try {
+      // Buscar los registros de trabajo con info de la OT
+      const registros = await prisma.registroDeTrabajo.findMany({
+        where: {
+          empleadoId,
+          fecha: {
+            gte: desde ? new Date(desde) : undefined,
+            lte: hasta ? new Date(hasta) : undefined,
+          },
+        },
+        include: {
+          orden: {
+            select: {
+              id: true,
+              solicitud: true,
+            },
+          },
+        },
+      });
+  
+      // Buscar el rol en cada orden
+      const roles = await prisma.empleadoAsignado.findMany({
+        where: {
+          empleadoId,
+          ordenId: { in: registros.map(r => r.ordenId) },
+        },
+        select: {
+          ordenId: true,
+          rol: true,
+        },
+      });
+  
+      const mapaRoles = new Map(roles.map(r => [r.ordenId, r.rol]));
+  
+      // Combinar todo
+      const resultado = registros.map(r => ({
+        id: r.id,
+        fecha: r.fecha,
+        horas: r.horas,
+        ordenId: r.orden.id,
+        solicitud: r.orden.solicitud ?? '',
+        rol: mapaRoles.get(r.ordenId) ?? 'NO_ESPECIFICADO',
+      }));
+  
+      res.json(resultado);
+    } catch (error) {
+      console.error('Error al obtener registros de trabajo:', error);
+      res.status(500).json({ error: 'Error al obtener registros de trabajo' });
+    }
+  };
+  
+  
+
 
 
 

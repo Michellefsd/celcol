@@ -11,7 +11,9 @@ interface RegistroDeTrabajo {
   horas: number;
   ordenId: number;
   solicitud: string;
+  rol: 'TECNICO' | 'CERTIFICADOR' | 'NO_ESPECIFICADO';
 }
+
 
 interface EmpleadoDetalle {
   id: number;
@@ -76,6 +78,34 @@ export default function EmpleadoRegistrosPage() {
   return ['pdf', 'jpg', 'jpeg', 'png', 'webp'].includes(extension || '');
 };
 
+
+useEffect(() => {
+  if (!empleadoId) return;
+
+  // Calcular fechas: desde hace 7 días hasta hoy
+  const hoy = new Date();
+  const hace7Dias = new Date();
+  hace7Dias.setDate(hoy.getDate() - 7);
+
+  const formato = (d: Date) => d.toISOString().slice(0, 10);
+  const desdeStr = formato(hace7Dias);
+  const hastaStr = formato(hoy);
+
+  setDesde(desdeStr);
+  setHasta(hastaStr);
+
+  // Cargar registros automáticamente
+  const cargar = async () => {
+    const url = api(`/personal/${empleadoId}/registros-trabajo?desde=${desdeStr}&hasta=${hastaStr}`);
+    const res = await fetch(url);
+    const data = await res.json();
+    setRegistros(data);
+  };
+
+  cargar();
+}, [empleadoId]);
+
+
   return (
     <div className="p-4 space-y-6">
       {empleado && (
@@ -139,6 +169,10 @@ export default function EmpleadoRegistrosPage() {
   </div>
 )}
 
+
+
+
+
           {/* 🧾 MODAL SUBIDA */}
           <SubirArchivo
             open={mostrarSubirCarne}
@@ -174,6 +208,7 @@ export default function EmpleadoRegistrosPage() {
               <th className="border px-2 py-1">Horas</th>
               <th className="border px-2 py-1">Orden ID</th>
               <th className="border px-2 py-1">Solicitud</th>
+              <th className="border px-2 py-1">Rol</th>
             </tr>
           </thead>
           <tbody>
@@ -183,6 +218,7 @@ export default function EmpleadoRegistrosPage() {
                 <td className="border px-2 py-1">{r.horas}</td>
                 <td className="border px-2 py-1">{r.ordenId}</td>
                 <td className="border px-2 py-1">{r.solicitud}</td>
+                <td className="border px-2 py-1">{r.rol}</td>
               </tr>
             ))}
           </tbody>
