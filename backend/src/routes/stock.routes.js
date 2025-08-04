@@ -16,7 +16,10 @@ router.get('/', stockController.listarStock);
 router.get('/:id', stockController.obtenerStock);
 
 // Eliminar un producto de stock
-router.delete('/:id', stockController.eliminarStock);
+//router.delete('/:id', stockController.eliminarStock);
+
+// Archivar producto de stock (soft-delete)
+router.patch('/archivar/:id', stockController.archivarStock);
 
 // Subir factura PDF (archivo)
 router.post('/:id/archivo', uploadStock, stockController.subirArchivoStock);

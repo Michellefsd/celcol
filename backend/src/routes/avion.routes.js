@@ -2,27 +2,29 @@ const express = require('express');
 const router = express.Router();
 const avionController = require('../controllers/avion.controller');
 const { uploadAvion } = require('../../middleware/upload.middleware');
-// Crear avión (con archivo certificadoMatricula)
+
+// Crear avión
 router.post('/', uploadAvion, avionController.crearAvion);
 
-// Actualizar avión (con posible reemplazo de certificado)
+// Actualizar avión
 router.put('/:id', uploadAvion, avionController.actualizarAvion);
 
-// Listar todos los aviones
+// Listar todos
 router.get('/', avionController.listarAviones);
 
-// Obtener un avión por ID
+// Obtener por ID
 router.get('/:id', avionController.obtenerAvion);
 
-// Eliminar un avión
-router.delete('/:id', avionController.eliminarAvion);
+// Archivar avión ✅ (corregido)
+router.patch('/archivar/:id', avionController.archivarAvion);
 
-// Asignar propietarios a un avión
+// Asignar propietarios
 router.post('/:id/asignar-propietarios', avionController.asignarPropietarios);
 
-
-// routes/aviones.routes.js
+// Subir certificado
 router.post('/:id/certificadoMatricula', uploadAvion, avionController.subirCertificadoMatricula);
 
-
 module.exports = router;
+
+// Eliminar avión
+//router.delete('/:id', avionController.eliminarAvion); 

@@ -54,13 +54,15 @@ await crearAvisoPorAvionSinPropietario(avion, prisma);
 // READ ALL
 exports.listarAviones = async (req, res) => {
   try {
-    const aviones = await prisma.avion.findMany({
-      include: {
-        propietarios: {
-          include: { propietario: true }
-        }
-      }
-    });
+const aviones = await prisma.avion.findMany({
+  where: { archivado: false },
+  include: {
+    propietarios: {
+      include: { propietario: true }
+    }
+  }
+});
+
     res.json(aviones);
   } catch (error) {
     console.error('Error al listar aviones:', error);
@@ -72,15 +74,19 @@ exports.listarAviones = async (req, res) => {
 exports.obtenerAvion = async (req, res) => {
   const id = parseInt(req.params.id);
   try {
-    const avion = await prisma.avion.findUnique({
-      where: { id },
-      include: {
-        propietarios: {
-          include: { propietario: true },
-        },
-        ComponenteAvion: true, // <- debe ir afuera de propietarios
-      },
-    });
+    const avion = await prisma.avion.findFirst({
+  where: {
+    id,
+    archivado: false
+  },
+  include: {
+    propietarios: {
+      include: { propietario: true },
+    },
+    ComponenteAvion: true,
+  },
+});
+
 
     if (!avion) return res.status(404).json({ error: 'Avión no encontrado' });
 
@@ -102,6 +108,10 @@ exports.obtenerAvion = async (req, res) => {
 const fs = require('fs');
 
 exports.actualizarAvion = async (req, res) => {
+  if (avionActual.archivado) {
+  return res.status(400).json({ error: 'No se puede modificar un avión archivado' });
+}
+
   const id = parseInt(req.params.id);
   const {
     marca,
@@ -184,15 +194,72 @@ await crearAvisoPorAvionSinPropietario(avionConPropietarios, prisma);
 };
 
 // DELETE
-exports.eliminarAvion = async (req, res) => {
+{/*exports.eliminarAvion = async (req, res) => {
   const id = parseInt(req.params.id);
   try {
-    await prisma.avionPropietario.deleteMany({ where: { avionId: id } });
-    await prisma.avion.delete({ where: { id } });
-    res.json({ mensaje: 'Avión eliminado' });
+    const ordenAbierta = await prisma.ordenTrabajo.findFirst({
+      where: {
+        avionId: id,
+        estadoOrden: 'ABIERTA'
+      }
+    });
+
+    if (ordenAbierta) {
+      return res.status(400).json({
+        error: `No se puede eliminar el avión. Está en uso en la orden de trabajo ID ${ordenAbierta.id}.`
+      });
+    }
+
+    await prisma.avion.update({
+      where: { id },
+      data: { archivado: true }
+    });
+
+    res.json({ mensaje: 'Avión archivado correctamente.' });
   } catch (error) {
     console.error('Error al eliminar avión:', error);
     res.status(500).json({ error: 'Error al eliminar el avión' });
+  }
+};
+*/}
+
+// ARCHIVAR AVIÓN (validación de OTs abiertas)
+exports.archivarAvion = async (req, res) => {
+  const id = parseInt(req.params.id);
+  try {
+    const avion = await prisma.avion.findUnique({ where: { id } });
+
+    if (!avion) {
+      return res.status(404).json({ error: 'Avión no encontrado' });
+    }
+
+    if (avion.archivado) {
+      return res.status(400).json({ error: 'El avión ya está archivado.' });
+    }
+
+    // Verificar si está en una OT abierta
+    const ordenAbierta = await prisma.ordenTrabajo.findFirst({
+      where: {
+        avionId: id,
+        estadoOrden: 'ABIERTA',
+      },
+    });
+
+    if (ordenAbierta) {
+      return res.status(400).json({
+        error: `No se puede archivar: el avión está en uso en la orden de trabajo ID ${ordenAbierta.id}.`,
+      });
+    }
+
+    await prisma.avion.update({
+      where: { id },
+      data: { archivado: true },
+    });
+
+    res.json({ mensaje: 'Avión archivado correctamente.' });
+  } catch (error) {
+    console.error('Error al archivar avión:', error);
+    res.status(500).json({ error: 'Error al archivar el avión' });
   }
 };
 

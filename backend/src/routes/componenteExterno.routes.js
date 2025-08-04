@@ -16,7 +16,10 @@ router.post('/', uploadComponenteExterno, controlador.crearComponenteExterno);
 router.put('/:id', uploadComponenteExterno, controlador.actualizarComponenteExterno);
 
 // Eliminar componente externo
-router.delete('/:id', controlador.eliminarComponenteExterno);
+//router.delete('/:id', controlador.eliminarComponenteExterno);
+
+// Archivar componente externo (soft-delete)
+router.patch('/archivar/:id', controlador.archivarComponenteExterno);
 
 // Subir archivo 8130 por separado
 router.post('/:componenteId/archivo8130', uploadComponenteExterno, controlador.subirArchivo8130);

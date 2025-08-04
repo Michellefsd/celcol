@@ -15,14 +15,14 @@ type OrdenTrabajo = {
   componente?: { tipo: string; marca: string; modelo: string };
 };
 
-export default function TrabajoCard() {
+export default function TrabajoCard({ soloArchivadas = false }: { soloArchivadas?: boolean }) {
   const [ordenes, setOrdenes] = useState<OrdenTrabajo[]>([]);
   const [busqueda, setBusqueda] = useState('');
   const router = useRouter();
 
   useEffect(() => {
     fetch(api('/ordenes-trabajo'))
-      .then(res => res.json())
+      .then((res) => res.json())
       .then(setOrdenes)
       .catch((err) => console.error('Error al cargar órdenes:', err));
   }, []);
@@ -33,21 +33,8 @@ export default function TrabajoCard() {
     return isNaN(date.getTime()) ? '—' : date.toLocaleDateString();
   };
 
-const eliminarOrden = async (id: number) => {
-  const confirmar = confirm(`¿Estás segura de que querés eliminar la orden #${id}?`);
-  if (!confirmar) return;
-
-  try {
-    const res = await fetch(api(`/ordenes-trabajo/${id}`), { method: 'DELETE' });
-    if (!res.ok) throw new Error('Error al eliminar');
-    setOrdenes((prev) => prev.filter((o) => o.id !== id));
-  } catch (error) {
-    alert('No se pudo eliminar la orden');
-    console.error(error);
-  }
-
   const ordenesFiltradas = ordenes
-    .filter((orden) => !orden.archivada)
+    .filter((orden) => (soloArchivadas ? orden.archivada : !orden.archivada))
     .filter((orden) => {
       const texto = busqueda.toLowerCase();
       const avionTexto = orden.avion?.matricula?.toLowerCase() ?? '';
@@ -58,26 +45,12 @@ const eliminarOrden = async (id: number) => {
         orden.id.toString().includes(texto)
       );
     });
-};
-
-
-const ordenesFiltradas = ordenes
-  .filter((orden) => !orden.archivada) // ⬅️ oculta archivadas
-  .filter((orden) => {
-    const texto = busqueda.toLowerCase();
-    const avionTexto = orden.avion?.matricula?.toLowerCase() ?? '';
-    const compTexto = `${orden.componente?.tipo ?? ''} ${orden.componente?.marca ?? ''} ${orden.componente?.modelo ?? ''}`.toLowerCase();
-    return (
-      avionTexto.includes(texto) ||
-      compTexto.includes(texto) ||
-      orden.id.toString().includes(texto)
-    );
-  });
-
 
   return (
     <BaseCard>
-      <BaseHeading>Trabajos realizados</BaseHeading>
+      <BaseHeading>
+        {soloArchivadas ? 'Órdenes archivadas' : 'Trabajos realizados'}
+      </BaseHeading>
 
       <input
         type="text"
@@ -99,9 +72,9 @@ const ordenesFiltradas = ordenes
                     className="inline-block w-3 h-3 rounded-full mr-2"
                     style={{
                       backgroundColor: {
-                        ABIERTA: '#16a34a',   // verde
-                        CERRADA: '#dc2626',   // rojo
-                        CANCELADA: '#9ca3af', // gris
+                        ABIERTA: '#16a34a',
+                        CERRADA: '#dc2626',
+                        CANCELADA: '#9ca3af',
                       }[orden.estadoOrden],
                     }}
                     title={orden.estadoOrden}
@@ -113,63 +86,59 @@ const ordenesFiltradas = ordenes
                     ? `– ${orden.componente.tipo} (${orden.componente.marca} ${orden.componente.modelo})`
                     : ''}
                 </p>
-                <p className="text-xs text-gray-500">{formatearFecha(orden.fechaApertura)}</p>
+                <p className="text-xs text-gray-500">
+                  {formatearFecha(orden.fechaApertura)}
+                </p>
               </div>
 
-              
-
               <div className="flex items-center gap-2">
-                {['CERRADA', 'CANCELADA'].includes(orden.estadoOrden) && (
-  <button
-    onClick={async () => {
-      const confirmar = confirm(`¿Querés archivar la orden #${orden.id}?`);
-      if (!confirmar) return;
+                {!soloArchivadas && ['CERRADA', 'CANCELADA'].includes(orden.estadoOrden) && (
+                  <button
+                    onClick={async () => {
+                      const confirmar = confirm(`¿Querés archivar la orden #${orden.id}?`);
+                      if (!confirmar) return;
 
-      try {
-        const res = await fetch(api(`/ordenes-trabajo/${orden.id}/archivar`), {
-          method: 'PUT',
-        });
-        if (!res.ok) throw new Error('Error al archivar');
+                      try {
+                        const res = await fetch(api(`/ordenes-trabajo/${orden.id}/archivar`), {
+                          method: 'PUT',
+                        });
+                        if (!res.ok) throw new Error('Error al archivar');
 
-        setOrdenes((prev) =>
-          prev.map((o) =>
-            o.id === orden.id ? { ...o, archivada: true } : o
-          )
-        );
-        alert(`Orden #${orden.id} archivada con éxito.`);
-      } catch (err) {
-        console.error(err);
-        alert('No se pudo archivar la orden.');
-      }
-    }}
-    title="Archivar orden"
-    className="text-yellow-600 hover:text-yellow-800 text-sm"
-  >
-    🗃
-  </button>
-)}
-{!['CERRADA', 'CANCELADA'].includes(orden.estadoOrden) && (
-  <button
-    onClick={() =>
-      alert('No se pueden archivar órdenes de trabajo abiertas.')
-    }
-    title="Solo se pueden archivar órdenes cerradas o canceladas"
-    className="text-gray-400 cursor-not-allowed text-sm"
-  >
-    🗃
-  </button>
-)}
+                        setOrdenes((prev) =>
+                          prev.map((o) =>
+                            o.id === orden.id ? { ...o, archivada: true } : o
+                          )
+                        );
+                        alert(`Orden #${orden.id} archivada con éxito.`);
+                      } catch (err) {
+                        console.error(err);
+                        alert('No se pudo archivar la orden.');
+                      }
+                    }}
+                    title="Archivar orden"
+                    className="text-yellow-600 hover:text-yellow-800 text-sm"
+                  >
+                    🗃
+                  </button>
+                )}
+
+<button
+  onClick={() => window.open(api(`/ordenes-trabajo/${orden.id}/pdf`), '_blank')}
+  className="text-xl hover:text-blue-700"
+  title="Descargar PDF"
+>
+  ⬇️
+</button>
 
                 <button
                   onClick={() =>
-router.push(
-  orden.estadoOrden === 'ABIERTA'
-    ? `/ordenes-trabajo/${orden.id}/fase3`
-    : orden.estadoOrden === 'CERRADA'
-    ? `/ordenes-trabajo/${orden.id}/cerrada`
-    : `/ordenes-trabajo/${orden.id}/cancelada`
-)
-
+                    router.push(
+                      orden.estadoOrden === 'ABIERTA'
+                        ? `/ordenes-trabajo/${orden.id}/fase3`
+                        : orden.estadoOrden === 'CERRADA'
+                        ? `/ordenes-trabajo/${orden.id}/cerrada`
+                        : `/ordenes-trabajo/${orden.id}/cancelada`
+                    )
                   }
                   className="text-blue-600 hover:text-blue-800 text-sm"
                   title="Ver orden"

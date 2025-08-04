@@ -19,10 +19,14 @@ router.get('/:id', controller.obtenerPersonal);
 router.get('/:id/registros-trabajo', controller.obtenerRegistrosDeTrabajo);
 
 // Eliminar personal
-router.delete('/:id', controller.eliminarPersonal);
+//router.delete('/:id', controller.eliminarPersonal);
 
+// Archivar personal (soft-delete)
+router.patch('/archivar/:id', controller.archivarPersonal);
 
 router.post('/:id/carneSalud', uploadPersonal, controller.subirCarneSalud);
 
+// Descargar horas trabajadas de un empleado en PDF
+router.get('/:id/registros-trabajo/pdf', controller.descargarHorasEmpleado);
 
 module.exports = router;

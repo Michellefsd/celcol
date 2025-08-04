@@ -39,5 +39,7 @@ router.put('/:id/cancelar', ordenTrabajoController.cancelarOrden);
 // 11. Archivar orden
 router.put('/:id/archivar', ordenTrabajoController.archivarOrden);
 
+// 12. Descargar PDF de la orden
+router.get('/:id/pdf', ordenTrabajoController.descargarOrdenPDF);
 
 module.exports = router;

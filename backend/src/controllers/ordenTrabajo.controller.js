@@ -1,6 +1,9 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const { subirArchivoGenerico } = require('../utils/archivoupload');
+const PDFDocument = require('pdfkit');
+const path = require('path');
+const fs = require('fs');
 
 
 // 1. Listar todas las órdenes
@@ -490,5 +493,92 @@ exports.cerrarOrden = async (req, res) => {
   } catch (error) {
     console.error('❌ Error al cerrar orden:', error);
     res.status(500).json({ error: 'Error al cerrar orden' });
+  }
+};
+
+
+exports.descargarOrdenPDF = async (req, res) => {
+  const id = parseInt(req.params.id);
+  try {
+    const orden = await prisma.ordenTrabajo.findUnique({
+      where: { id },
+      include: {
+        avion: true,
+        componente: true,
+        stockAsignado: { include: { stock: true } },
+        herramientas: { include: { herramienta: true } },
+        empleadosAsignados: { include: { empleado: true } },
+      }
+    });
+
+    if (!orden) return res.status(404).json({ error: 'Orden no encontrada' });
+
+    const doc = new PDFDocument();
+    const filename = `orden-${id}.pdf`;
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+    doc.pipe(res);
+
+    // Logo y encabezado
+    const logoPath = path.join(process.cwd(), 'public', 'celcol-logo.jpeg');
+    if (fs.existsSync(logoPath)) doc.image(logoPath, 50, 30, { width: 80 });
+    doc.fontSize(20).text('Celcol', 140, 40);
+    doc.moveDown(2);
+
+    // Datos principales
+    doc.fontSize(16).text(`Orden de Trabajo N.º ${orden.id}`, { underline: true });
+    doc.fontSize(12).text(`Estado: ${orden.estadoOrden}`);
+    doc.text(`Fecha de apertura: ${orden.fechaApertura?.toISOString().slice(0, 10) || 'No registrada'}`);
+    doc.moveDown();
+
+    // Avión o componente
+    if (orden.avion) {
+      doc.fontSize(14).text(`Avión: ${orden.avion.matricula || 'N/A'} - ${orden.avion.marca} ${orden.avion.modelo}`);
+    } else if (orden.componente) {
+      doc.fontSize(14).text(`Componente: ${orden.componente.tipo} - ${orden.componente.marca} ${orden.componente.modelo}`);
+    }
+    doc.moveDown();
+
+    // Stock
+    if (orden.stockAsignado.length) {
+      doc.fontSize(13).text('Stock utilizado:');
+      orden.stockAsignado.forEach(s => {
+        doc.text(`- ${s.stock.nombre} (${s.cantidad} u)`);
+      });
+      doc.moveDown();
+    }
+
+    // Herramientas
+    if (orden.herramientas.length) {
+      doc.fontSize(13).text('Herramientas asignadas:');
+      orden.herramientas.forEach(h => {
+        doc.text(`- ${h.herramienta.nombre} (${h.herramienta.marca} ${h.herramienta.modelo})`);
+      });
+      doc.moveDown();
+    }
+
+    // Personal
+    if (orden.empleadosAsignados.length) {
+   doc
+  .fontSize(20)
+  .text('Celcol', 140, 40, { continued: true });
+
+doc
+  .fontSize(12)
+  .text(`Fecha de emisión: ${new Date().toLocaleDateString()}`, {
+    align: 'right'
+  });
+
+doc.moveDown(2);
+
+    }
+    
+
+    doc.end();
+  } catch (error) {
+    console.error('Error al generar PDF de OT:', error);
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Error al generar el PDF' });
+    }
   }
 };

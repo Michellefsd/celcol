@@ -47,6 +47,21 @@ const formFields: Field[] = [
 export default function StockPage() {
   const router = useRouter();
 
+  const handleArchivar = async (item: StockItem) => {
+  const confirmado = confirm(`¿Seguro que querés archivar "${item.nombre}"?`);
+  if (!confirmado) return;
+
+  try {
+    const res = await fetch(api(`/stock/archivar/${item.id}`), { method: 'PATCH' });
+    if (!res.ok) throw new Error('Fallo al archivar');
+    alert('Producto archivado correctamente');
+    router.refresh?.(); // si usás App Router
+  } catch (err) {
+    console.error('Error al archivar producto:', err);
+    alert('Error al archivar el producto');
+  }
+};
+
   return (
     <CrudManager<StockItem>
       title="Productos de Stock"

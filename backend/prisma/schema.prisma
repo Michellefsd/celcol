@@ -57,7 +57,9 @@ model Avion {
   ordenesTrabajo        OrdenTrabajo[]
   ComponenteAvion       ComponenteAvion[]
   avisos                Aviso[]   @relation("AvisosDelAvion")
+  archivado             Boolean   @default(false)
 }
+
 
 model ComponenteAvion {
   id            Int      @id @default(autoincrement())
@@ -89,6 +91,7 @@ model ComponenteExterno {
   propietario     Propietario @relation(fields: [propietarioId], references: [id])
   propietarioId   Int
   ordenesTrabajo  OrdenTrabajo[]
+  archivado       Boolean     @default(false)
 }
 
 model Propietario {
@@ -103,6 +106,7 @@ model Propietario {
   direccion      String?
   aviones        AvionPropietario[]
   componentes    ComponenteExterno[]
+  archivado      Boolean             @default(false)
 }
 
 model AvionPropietario {
@@ -130,6 +134,7 @@ model Empleado {
   horasTrabajadas   Float                @default(0)
   registrosTrabajo  RegistroDeTrabajo[]
   ordenesAsignadas  EmpleadoAsignado[]
+  archivado         Boolean              @default(false)
 }
 
 model Herramienta {
@@ -144,6 +149,7 @@ model Herramienta {
   certificadoCalibracion String?              //// ARCHIVO ///
   ordenesAsignadas     OrdenHerramienta[]
   avisos               Aviso[]       @relation("HerramientaAvisos")
+  archivado            Boolean       @default(false)
 }
 
 model Stock {
@@ -167,6 +173,7 @@ model Stock {
   imagen             String?          ///// ARCHIVO.  ////         
   archivo            String?         ////// ARCHIVO.  ////
   avisos             Aviso[]         @relation("StockAvisos")
+  archivado          Boolean         @default(false)
 }
 
 model OrdenTrabajo {

@@ -7,6 +7,7 @@ const path = require('path');
 exports.listarComponentesExternos = async (req, res) => {
   try {
     const componentes = await prisma.componenteExterno.findMany({
+      where: { archivado: false },
       include: { propietario: true },
     });
     res.json(componentes);
@@ -65,8 +66,8 @@ exports.crearComponenteExterno = async (req, res) => {
 exports.obtenerComponenteExterno = async (req, res) => {
   const id = parseInt(req.params.id);
   try {
-    const componente = await prisma.componenteExterno.findUnique({
-      where: { id },
+    const componente = await prisma.componenteExterno.findFirst({
+      where: { id, archivado: false },
       include: { propietario: true },
     });
 
@@ -83,6 +84,10 @@ exports.obtenerComponenteExterno = async (req, res) => {
 
 // ACTUALIZAR
 exports.actualizarComponenteExterno = async (req, res) => {
+  const componenteActual = await prisma.componenteExterno.findUnique({ where: { id } });
+if (componenteActual.archivado) {
+  return res.status(400).json({ error: 'No se puede modificar un componente archivado' });
+}
   const id = parseInt(req.params.id);
   const archivo = req.file;
 
@@ -170,7 +175,7 @@ exports.subirArchivo8130 = async (req, res) => {
 };
 
 // ELIMINAR COMPONENTE
-exports.eliminarComponenteExterno = async (req, res) => {
+{/*exports.eliminarComponenteExterno = async (req, res) => {
   const id = parseInt(req.params.id);
   try {
     const componente = await prisma.componenteExterno.findUnique({ where: { id } });
@@ -179,18 +184,71 @@ exports.eliminarComponenteExterno = async (req, res) => {
       return res.status(404).json({ error: 'Componente externo no encontrado' });
     }
 
-    if (componente.archivo8130) {
-      const rutaCompleta = path.join(__dirname, '../../', componente.archivo8130);
-      fs.unlink(rutaCompleta, (err) => {
-        if (err) console.warn('No se pudo eliminar archivo:', err.message);
+    const ordenAbierta = await prisma.ordenTrabajo.findFirst({
+      where: {
+        componenteId: id,
+        estadoOrden: 'ABIERTA'
+      }
+    });
+
+    if (ordenAbierta) {
+      return res.status(400).json({
+        error: `No se puede eliminar el componente externo. Está en uso en la orden de trabajo ID ${ordenAbierta.id}.`
       });
     }
 
-    await prisma.componenteExterno.delete({ where: { id } });
+    await prisma.componenteExterno.update({
+      where: { id },
+      data: { archivado: true }
+    });
 
-    res.json({ mensaje: 'Componente externo y archivo eliminado' });
+    res.json({ mensaje: 'Componente externo archivado correctamente.' });
   } catch (error) {
     console.error('Error al eliminar componente externo:', error);
     res.status(500).json({ error: 'Error al eliminar el componente externo' });
   }
 };
+*/}
+
+// ARCHIVAR COMPONENTE EXTERNO (validación de OTs abiertas)
+
+exports.archivarComponenteExterno = async (req, res) => {
+  const id = parseInt(req.params.id);
+
+  try {
+    const componente = await prisma.componenteExterno.findUnique({ where: { id } });
+
+    if (!componente) {
+      return res.status(404).json({ error: 'Componente externo no encontrado' });
+    }
+
+    if (componente.archivado) {
+      return res.status(400).json({ error: 'El componente externo ya está archivado.' });
+    }
+
+    const ordenAbierta = await prisma.ordenTrabajo.findFirst({
+      where: {
+        componenteId: id,
+        estadoOrden: 'ABIERTA'
+      }
+    });
+
+    if (ordenAbierta) {
+      return res.status(400).json({
+        error: `No se puede archivar: el componente externo está en uso en la orden de trabajo ID ${ordenAbierta.id}.`
+      });
+    }
+
+    await prisma.componenteExterno.update({
+      where: { id },
+      data: { archivado: true }
+    });
+
+    res.json({ mensaje: 'Componente externo archivado correctamente.' });
+  } catch (error) {
+    console.error('Error al archivar componente externo:', error);
+    res.status(500).json({ error: 'Error al archivar el componente externo' });
+  }
+};
+
+

@@ -3,6 +3,11 @@ const { PrismaClient } = require('@prisma/client');
 const sharp = require('sharp');
 const { subirArchivoGenerico } = require('../utils/archivoupload'); // al inicio del archivo
 
+// Prisma con logs detallados
+const prisma = new PrismaClient({
+  log: ['query', 'info', 'warn', 'error'],
+});
+
 exports.subirArchivoStock = (req, res) =>
   subirArchivoGenerico({
     req,
@@ -11,12 +16,6 @@ exports.subirArchivoStock = (req, res) =>
     campoArchivo: 'archivo',
     nombreRecurso: 'Stock',
   });
-
-
-// Prisma con logs detallados
-const prisma = new PrismaClient({
-  log: ['query', 'info', 'warn', 'error'],
-});
 
 // CREATE
 exports.crearStock = async (req, res) => {
@@ -96,7 +95,9 @@ exports.crearStock = async (req, res) => {
 exports.listarStock = async (req, res) => {
   try {
     console.log('🔍 Listando todos los productos de stock...');
-    const items = await prisma.stock.findMany();
+    const items = await prisma.stock.findMany({
+      where: { archivado: false }
+    });
     console.log(`✅ Se encontraron ${items.length} productos.`);
     res.json(items);
   } catch (error) {
@@ -106,15 +107,18 @@ exports.listarStock = async (req, res) => {
 };
 
 // READ ONE
-// READ ONE
 exports.obtenerStock = async (req, res) => {
   const id = parseInt(req.params.id);
   try {
     console.log(`🔍 Buscando producto con ID: ${id}`);
-    const item = await prisma.stock.findUnique({ where: { id } });
+
+    // Solo traer productos NO archivados
+    const item = await prisma.stock.findFirst({
+      where: { id, archivado: false }
+    });
 
     if (!item) {
-      console.warn('⚠️ Producto no encontrado');
+      console.warn('⚠️ Producto no encontrado o fue archivado');
       return res.status(404).json({ error: 'Producto no encontrado' });
     }
 
@@ -150,6 +154,10 @@ exports.actualizarStock = async (req, res) => {
       console.warn('⚠️ Producto no encontrado para actualizar');
       return res.status(404).json({ error: 'Producto no encontrado' });
     }
+// ✅ Solo dejar esta validación con productoActual
+if (productoActual.archivado) {
+  return res.status(400).json({ error: 'No se puede modificar un producto archivado' });
+}
 
     const nuevaImagen = archivos.imagen?.[0]?.path;
     const nuevoArchivo = archivos.archivo?.[0]?.path;
@@ -225,34 +233,41 @@ if (cantidadNum <= (stockMinimoNum || 0)) {
   }
 };
 
-
-
 // DELETE
-exports.eliminarStock = async (req, res) => {
+{/*exports.eliminarStock = async (req, res) => {
   const id = parseInt(req.params.id);
   try {
-    console.log(`🗑️ Eliminando producto con ID: ${id}`);
-    await prisma.stock.delete({ where: { id } });
-    console.log('✅ Producto eliminado');
-    res.json({ mensaje: 'Producto eliminado del stock' });
+
+    console.log(`🗑️ Marcando producto como archivado (soft-delete) con ID: ${id}`);
+    await prisma.stock.update({
+      where: { id },
+      data: { archivado: true }
+    });
+    console.log('✅ Producto marcado como archivado');
+    res.json({ mensaje: 'Producto archivado del stock (soft-delete)' });
   } catch (error) {
     console.error('❌ Error al eliminar producto:', error);
     res.status(500).json({ error: 'Error al eliminar el producto del stock' });
   }
 };
+*/}
 
-
-
-
-exports.subirArchivoStock = (req, res) =>
-  subirArchivoGenerico({
-    req,
-    res,
-    modeloPrisma: prisma.stock,
-    campoArchivo: 'archivo',
-    nombreRecurso: 'Stock',
-  });
-
+// ARCHIVAR PRODUCTO DE STOCK (sin validación de uso en OT)
+exports.archivarStock = async (req, res) => {
+  const id = parseInt(req.params.id);
+  try {
+    console.log(`🗂️ Archivando producto de stock con ID: ${id}`);
+    await prisma.stock.update({
+      where: { id },
+      data: { archivado: true }
+    });
+    console.log('✅ Producto archivado correctamente');
+    res.json({ mensaje: 'Producto de stock archivado correctamente.' });
+  } catch (error) {
+    console.error('❌ Error al archivar producto de stock:', error);
+    res.status(500).json({ error: 'Error al archivar el producto de stock' });
+  }
+};
 
 
 exports.subirImagenStock = async (req, res) => {

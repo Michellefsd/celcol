@@ -15,6 +15,9 @@ router.get('/:id', controlador.obtenerPropietario);
 router.put('/:id', controlador.actualizarPropietario);
 
 // Eliminar propietario
-router.delete('/:id', controlador.eliminarPropietario);
+//router.delete('/:id', controlador.eliminarPropietario);
+
+// Archivar propietario
+router.patch('/archivar/:id', controlador.archivarPropietario);
 
 module.exports = router;

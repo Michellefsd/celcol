@@ -20,6 +20,9 @@ export default function HomePageContent() {
           <br />
         </div>
         <TrabajoCard />
+         <BaseButton onClick={() => router.push('/archivadas')}>
+            Archivados
+        </BaseButton>
       </div>
 
       {/* Columna derecha */}

@@ -5,11 +5,13 @@ const path = require('path');
 const { subirArchivoGenerico } = require('../utils/archivoupload');
 
 // LISTAR TODAS
+// LISTAR TODAS
 exports.listarHerramientas = async (req, res) => {
   try {
-    const herramientas = await prisma.herramienta.findMany();
+    const herramientas = await prisma.herramienta.findMany({
+      where: { archivado: false },
+    });
 
-    // Agregar URL completa si hay certificado
     const baseUrl = `${req.protocol}://${req.get('host')}`;
     const herramientasConUrl = herramientas.map((herramienta) => ({
       ...herramienta,
@@ -24,7 +26,6 @@ exports.listarHerramientas = async (req, res) => {
     res.status(500).json({ error: 'Error al obtener las herramientas' });
   }
 };
-
 
 // OBTENER POR ID
 exports.obtenerHerramienta = async (req, res) => {
@@ -144,19 +145,37 @@ exports.actualizarHerramienta = async (req, res) => {
   }
 };
 
-// ELIMINAR HERRAMIENTA
-exports.eliminarHerramienta = async (req, res) => {
+// ELIMINAR (soft-delete → archivado)
+{/*exports.eliminarHerramienta = async (req, res) => {
   const { id } = req.params;
   try {
-    await prisma.herramienta.delete({
+    await prisma.herramienta.update({
       where: { id: parseInt(id) },
+      data: { archivado: true },
     });
-    res.json({ mensaje: 'Herramienta eliminada correctamente' });
+    res.json({ mensaje: 'Herramienta archivada correctamente' });
   } catch (error) {
-    console.error('Error al eliminar herramienta:', error);
-    res.status(500).json({ error: 'Error al eliminar la herramienta' });
+    console.error('Error al archivar herramienta:', error);
+    res.status(500).json({ error: 'Error al archivar la herramienta' });
   }
 };
+*/}
+
+// ARCHIVAR HERRAMIENTA (sin validación, permitido aunque esté en uso)
+exports.archivarHerramienta = async (req, res) => {
+  const { id } = req.params;
+  try {
+    await prisma.herramienta.update({
+      where: { id: parseInt(id) },
+      data: { archivado: true },
+    });
+    res.json({ mensaje: 'Herramienta archivada correctamente' });
+  } catch (error) {
+    console.error('Error al archivar herramienta:', error);
+    res.status(500).json({ error: 'Error al archivar la herramienta' });
+  }
+};
+
 
 // SUBIR CERTIFICADO DE CALIBRACIÓN (endpoint separado usando lógica genérica)
 exports.subirCertificadoCalibracion = (req, res) =>

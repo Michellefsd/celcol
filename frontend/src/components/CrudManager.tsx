@@ -123,11 +123,47 @@ export default function CrudManager<T extends { id: number }>({
     }
   };
 
-  const handleDelete = async (id: number) => {
-    if (!confirm('¿Seguro que querés borrar este registro?')) return;
-    await fetch(`${endpoint}/${id}`, { method: 'DELETE' });
+/*const handleDelete = async (id: number) => {
+  if (!confirm('¿Seguro que querés borrar este registro?')) return;
+
+  try {
+    const res = await fetch(`${endpoint}/${id}`, { method: 'DELETE' });
+
+    if (!res.ok) {
+      const data = await res.json();
+      const errorMessage = data?.error || 'Error al eliminar el registro';
+      alert(errorMessage);
+      return;
+    }
+
     fetchData();
-  };
+  } catch (error) {
+    alert('Error al conectar con el servidor');
+    console.error('❌ Error en handleDelete:', error);
+  }
+};
+*/
+
+const handleDelete = async (id: number) => {
+  if (!confirm('¿Querés archivar este registro?')) return;
+
+  try {
+    const res = await fetch(`${endpoint}/archivar/${id}`, { method: 'PATCH' });
+
+    if (!res.ok) {
+      const data = await res.json();
+      const errorMessage = data?.error || 'Error al archivar el registro';
+      alert(errorMessage);
+      return;
+    }
+
+    fetchData();
+  } catch (error) {
+    alert('Error al conectar con el servidor');
+    console.error('❌ Error en handleDelete:', error);
+  }
+};
+
 
   const openModal = (item?: T) => {
     const defaultForm: Partial<T> = item ?? {};

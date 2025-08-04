@@ -225,6 +225,17 @@ useEffect(() => {
         </table>
 
         <p className="mt-4 font-semibold">Total de horas: {totalHoras}</p>
+
+        <button
+  onClick={() => {
+    const url = api(`/personal/${empleadoId}/registros-trabajo/pdf?desde=${desde}&hasta=${hasta}`);
+    window.open(url, '_blank');
+  }}
+  className="mt-4 bg-green-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-green-700 transition"
+>
+  Descargar PDF
+</button>
+
       </div>
     </div>
   );

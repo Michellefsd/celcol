@@ -19,6 +19,9 @@ router.put('/:id', uploadHerramientas, controlador.actualizarHerramienta);
 router.post('/:id/certificadoCalibracion', uploadHerramientas, controlador.subirCertificadoCalibracion);
 
 // Eliminar herramienta
-router.delete('/:id', controlador.eliminarHerramienta);
+//router.delete('/:id', controlador.eliminarHerramienta);
+
+// Archivar herramienta (soft-delete)
+router.patch('/archivar/:id', controlador.archivarHerramienta);
 
 module.exports = router;
