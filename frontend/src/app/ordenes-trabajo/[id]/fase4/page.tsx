@@ -20,24 +20,70 @@ interface Empleado {
   apellido: string;
 }
 
-interface Avion {
-  matricula?: string;
-  marca?: string;
-  modelo?: string;
-}
+type Avion = {
+  id: number;
+  matricula: string;
+  marca: string;
+  modelo: string;
+  numeroSerie?: string;
+  TSN?: number;
+  vencimientoMatricula?: string;
+  vencimientoSeguro?: string;
+  certificadoMatricula?: string;
+  componentes?: {
+    id: number;
+    tipo?: string;
+    marca?: string;
+    modelo?: string;
+    numeroSerie?: string;
+    TSN?: number;
+    TSO?: number;
+    TBOHoras?: number;
+    TBOFecha?: string;
+  }[];
+};
+
 
 interface Componente {
   tipo?: string;
   marca?: string;
   modelo?: string;
+  numeroSerie?: string;
+  TSN?: number;
+  TSO?: number;
+  TBOHoras?: number;
+  TBOFecha?: string;
+  propietarioId?: number;
+  propietario?: Propietario;
 }
+
+type Propietario = {
+  tipoPropietario: 'PERSONA' | 'EMPRESA';
+  nombre?: string;
+  apellido?: string;
+  nombreEmpresa?: string;
+  rut?: string;
+};
+
+type ComponenteExterno = {
+  id: number;
+  tipo: string;
+  marca: string;
+  modelo: string;
+  numeroSerie?: string;
+  TSN?: number;
+  TSO?: number;
+  TBOHoras?: number;
+  TBOFecha?: string;
+  propietarioId?: number;
+  propietario?: Propietario;
+};
 
 interface EmpleadoAsignado {
   empleadoId: number;
   empleado: Empleado;
   rol: 'TECNICO' | 'CERTIFICADOR';
 }
-
 
 interface HerramientaAsignada {
   herramientaId: number;
@@ -66,9 +112,12 @@ interface OrdenTrabajo {
   numeroFactura?: string;
   registrosTrabajo?: RegistroTrabajo[];
   avion?: Avion;
+  avionId?: number;
   componente?: Componente;
   solicitud?: string;
   solicitadoPor?: string;
+  OTsolicitud?: string;
+  solicitudFirma?: string;
   inspeccionRecibida?: boolean;
   danosPrevios?: string;
   accionTomada?: string;
@@ -89,6 +138,16 @@ export default function Fase4OrdenTrabajoPage() {
   const [registros, setRegistros] = useState<RegistroTrabajo[]>([]);
   const [personal, setPersonal] = useState<Empleado[]>([]);
   const [mostrarSubirFactura, setMostrarSubirFactura] = useState(false);
+
+function renderCampo(label: string, valor: any) {
+  if (valor === null || valor === undefined || valor === '') return null;
+  return (
+    <p>
+      <strong>{label}:</strong> {valor}
+    </p>
+  );
+}
+
 
   useEffect(() => {
     if (!id) return;
@@ -200,8 +259,6 @@ const eliminarFila = async (index: number) => {
   setRegistros((prev) => prev.filter((_, i) => i !== index));
 };
 
-
-
   // Agregar nueva fila vacía
   const agregarFila = () => {
     setRegistros((prev) => [
@@ -263,146 +320,176 @@ const certificadores = Array.from(
       <h1 className="text-2xl font-bold">Fase 4: Cierre y factura</h1>
       <section className="bg-gray-50 border rounded p-4 space-y-2">
   <h2 className="text-xl font-semibold">Resumen general</h2>
+<div className="space-y-3 bg-gray-100 p-4 rounded text-sm">
+
+  <p><strong>Tipo:</strong> {orden.avionId ? 'Avión' : 'Componente externo'}</p>
 
   {orden.avion && (
-    <p>
-      <strong>Avión:</strong> {orden.avion.matricula} - {orden.avion.marca} {orden.avion.modelo}
-    </p>
+    <>
+      <p>
+        <strong>Avión:</strong>{' '}
+        <a
+          href={`/cruds/aviones/${orden.avion.id}`}
+          className="text-blue-600 underline"
+          target="_blank"
+        >
+          {orden.avion.matricula} - {orden.avion.marca} {orden.avion.modelo}
+        </a>
+      </p>
+
+      {renderCampo('Número de serie', orden.avion.numeroSerie)}
+      {orden.avion.TSN != null && <p><strong>TSN:</strong> {orden.avion.TSN} hs</p>}
+      {orden.avion.vencimientoMatricula && (
+        <p><strong>Vencimiento matrícula:</strong> {new Date(orden.avion.vencimientoMatricula).toLocaleDateString()}</p>
+      )}
+      {orden.avion.vencimientoSeguro && (
+        <p><strong>Vencimiento seguro:</strong> {new Date(orden.avion.vencimientoSeguro).toLocaleDateString()}</p>
+      )}
+      {orden.avion.certificadoMatricula && (
+        <div className="flex gap-4 items-center">
+          <a href={orden.avion.certificadoMatricula} target="_blank" className="text-blue-600 underline">Ver certificado de matrícula</a>
+          <a href={orden.avion.certificadoMatricula} download className="text-blue-600 underline">Descargar</a>
+        </div>
+      )}
+
+      {!!orden.avion.componentes?.length && (
+        <div>
+          <p className="font-semibold mt-2">Componentes instalados:</p>
+          <ul className="list-disc ml-5">
+            {orden.avion.componentes.map((c) => (
+              <li key={c.id}>
+                {c.tipo ?? '—'} - {c.marca ?? '—'} {c.modelo ?? ''}
+                {c.numeroSerie && ` (N° Serie: ${c.numeroSerie})`}
+                {c.TSN != null && ` — TSN: ${c.TSN} hs`}
+                {c.TSO != null && ` — TSO: ${c.TSO} hs`}
+                {c.TBOHoras != null && ` — TBO: ${c.TBOHoras} hs`}
+                {c.TBOFecha && ` — Fecha TBO: ${new Date(c.TBOFecha).toLocaleDateString()}`}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </>
   )}
 
   {orden.componente && (
-    <p>
-      <strong>Componente:</strong> {orden.componente.tipo} - {orden.componente.marca} {orden.componente.modelo}
-    </p>
+    <>
+      <p>
+        <strong>Componente externo:</strong>{' '}
+        <a
+          href={`/propietarios/${orden.componente.propietarioId}`}
+          className="text-blue-600 underline"
+          target="_blank"
+        >
+          {orden.componente.tipo} - {orden.componente.marca} {orden.componente.modelo}
+        </a>
+      </p>
+
+      {renderCampo('N° Serie', orden.componente.numeroSerie)}
+      {renderCampo('TSN', orden.componente.TSN)}
+      {renderCampo('TSO', orden.componente.TSO)}
+      {renderCampo('TBO', orden.componente.TBOHoras)}
+      {orden.componente.TBOFecha && (
+        <p><strong>Fecha TBO:</strong> {new Date(orden.componente.TBOFecha).toLocaleDateString()}</p>
+      )}
+
+      {orden.componente.propietario && (
+        <div className="mt-1">
+          <p className="font-semibold">Propietario:</p>
+          <p>
+            {orden.componente.propietario.tipoPropietario === 'PERSONA'
+              ? `${orden.componente.propietario.nombre} ${orden.componente.propietario.apellido}`
+              : `${orden.componente.propietario.nombreEmpresa} (${orden.componente.propietario.rut})`}
+          </p>
+        </div>
+      )}
+    </>
   )}
 
-  {orden.solicitud && (
-    <p>
-      <strong>Solicitud:</strong> {orden.solicitud}
-    </p>
+   <div className="mt-4 space-y-2 text-sm bg-gray-100 p-4 rounded"> 
+
+  {(orden.solicitud || orden.solicitadoPor || orden.OTsolicitud || orden.solicitudFirma) && (
+    <div className="mt-4 space-y-1">
+      <h3 className="text-lg font-semibold">Datos de la solicitud original</h3>
+      {renderCampo('Descripción del trabajo solicitado', orden.solicitud)}
+      {renderCampo('Solicitado por', orden.solicitadoPor)}
+      {renderCampo('N.º de OT previa', orden.OTsolicitud)}
+      {orden.solicitudFirma && (
+        <div className="flex gap-4 items-center">
+          <a href={orden.solicitudFirma} className="text-blue-600 underline" target="_blank">Ver archivo de solicitud</a>
+          <a href={orden.solicitudFirma} download className="text-blue-600 underline">Descargar</a>
+        </div>
+      )}
+    </div>
   )}
 
-  {orden.solicitadoPor && (
-    <p>
-      <strong>Solicitado por:</strong> {orden.solicitadoPor}
-    </p>
+  {renderCampo('Inspección al recibir', orden.inspeccionRecibida ? 'Sí' : 'No')}
+  {renderCampo('Daños previos', orden.danosPrevios)}
+  {renderCampo('Acción tomada', orden.accionTomada)}
+  {renderCampo('Observaciones', orden.observaciones)}
+
+  {!!herramientasUnicas.length && (
+    <div>
+      <strong>Herramientas:</strong>
+      <ul className="list-disc ml-6">
+        {herramientasUnicas.map((h, i) => (
+          <li key={i}>
+            {h.herramienta.nombre}
+            {(h.herramienta.marca || h.herramienta.modelo) &&
+              ` (${h.herramienta.marca ?? ''} ${h.herramienta.modelo ?? ''})`}
+          </li>
+        ))}
+      </ul>
+    </div>
   )}
 
-  {orden.inspeccionRecibida !== undefined && (
-    <p>
-      <strong>Inspección al recibir:</strong> {orden.inspeccionRecibida ? 'Sí' : 'No'}
-    </p>
+  {!!stockAgrupado && (
+    <div>
+      <strong>Stock:</strong>
+      <ul className="list-disc ml-6">
+        {Object.values(stockAgrupado).map((s, i) => (
+          <li key={i}>
+            {s.stock.nombre}
+            {(s.stock.marca || s.stock.modelo) &&
+              ` (${s.stock.marca ?? ''} ${s.stock.modelo ?? ''})`}
+            {' - '}
+            {s.cantidadUtilizada} unidad(es)
+          </li>
+        ))}
+      </ul>
+    </div>
   )}
 
-  {orden.danosPrevios && (
-    <p>
-      <strong>Daños previos:</strong> {orden.danosPrevios}
-    </p>
+  {!!orden.empleadosAsignados?.length && (
+    <div className="space-y-2">
+      {!!certificadores.length && (
+        <div>
+          <strong>Certificadores:</strong>
+          <ul className="list-disc ml-6">
+            {certificadores.map((e, i) => (
+              <li key={`cert-${i}`}>
+                {e.empleado.nombre} {e.empleado.apellido}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {!!tecnicos.length && (
+        <div>
+          <strong>Técnicos:</strong>
+          <ul className="list-disc ml-6">
+            {tecnicos.map((e, i) => (
+              <li key={`tec-${i}`}>
+                {e.empleado.nombre} {e.empleado.apellido}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
   )}
-
-  {orden.accionTomada && (
-    <p>
-      <strong>Acción tomada:</strong> {orden.accionTomada}
-    </p>
-  )}
-
-  {orden.observaciones && (
-    <p>
-      <strong>Observaciones:</strong> {orden.observaciones}
-    </p>
-  )}
-
-{orden.archivoFactura && (
-  <p>
-    <strong>Factura:</strong>{' '}
-    <a
-      href={orden.archivoFactura}
-      className="underline text-blue-600"
-      target="_blank"
-      rel="noopener noreferrer"
-    >
-      Ver archivo
-    </a>
-  </p>
-)}
-
-{orden.solicitud && (
-  <p>
-    <strong>Solicitud:</strong>{' '}
-    <a
-      href={orden.solicitud}
-      className="underline text-blue-600"
-      target="_blank"
-      rel="noopener noreferrer"
-    >
-      Ver solicitud
-    </a>
-  </p>
-)}
-
-{!!herramientasUnicas.length && (
-  <div>
-    <strong>Herramientas:</strong>
-    <ul className="list-disc ml-6">
-      {herramientasUnicas.map((h, i) => (
-        <li key={i}>
-          {h.herramienta.nombre}
-          {(h.herramienta.marca || h.herramienta.modelo) &&
-            ` (${h.herramienta.marca ?? ''} ${h.herramienta.modelo ?? ''})`}
-        </li>
-      ))}
-    </ul>
-  </div>
-)}
-
-
-{!!stockAgrupado && (
-  <div>
-    <strong>Stock:</strong>
-    <ul className="list-disc ml-6">
-      {Object.values(stockAgrupado).map((s, i) => (
-        <li key={i}>
-          {s.stock.nombre}
-          {(s.stock.marca || s.stock.modelo) &&
-            ` (${s.stock.marca ?? ''} ${s.stock.modelo ?? ''})`}
-          {' - '}
-          {s.cantidadUtilizada} unidad(es)
-        </li>
-      ))}
-    </ul>
-  </div>
-)}
-
-
-{!!orden.empleadosAsignados?.length && (
-  <div className="space-y-2">
-    {!!certificadores.length && (
-      <div>
-        <strong>Certificadores:</strong>
-        <ul className="list-disc ml-6">
-          {certificadores.map((e, i) => (
-            <li key={`cert-${i}`}>
-              {e.empleado.nombre} {e.empleado.apellido}
-            </li>
-          ))}
-        </ul>
-      </div>
-    )}
-
-    {!!tecnicos.length && (
-      <div>
-        <strong>Técnicos:</strong>
-        <ul className="list-disc ml-6">
-          {tecnicos.map((e, i) => (
-            <li key={`tec-${i}`}>
-              {e.empleado.nombre} {e.empleado.apellido}
-            </li>
-          ))}
-        </ul>
-      </div>
-    )}
-  </div>
-)}
+</div>
+</div>
 
 
 </section>

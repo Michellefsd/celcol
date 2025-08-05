@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import SubirArchivo from '@/components/Asignaciones/SubirArchivo';
 import { api } from '@/services/api';
+import VolverAtras from '@/components/Arrow';
 
 interface StockItem {
   id: number;
@@ -58,6 +59,10 @@ export default function DetalleStockPage() {
   };
 
   return (
+    <div>
+      <VolverAtras texto="Volver a la lista de stock" />
+      
+      <h1 className="text-2xl font-bold mb-6">Detalles del Producto</h1>  
     <div className="max-w-2xl mx-auto space-y-6">
       <div className="bg-white rounded-2xl shadow p-6 space-y-4 border border-gray-200">
         <h1 className="text-2xl font-bold">{item.nombre}</h1>
@@ -172,6 +177,7 @@ export default function DetalleStockPage() {
         nombreCampo="imagen"
         onUploaded={cargarProducto}
       />
+    </div>
     </div>
   );
 }

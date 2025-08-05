@@ -27,37 +27,122 @@ exports.getAllOrdenes = async (req, res) => {
   }
 };
 
-// 2. Obtener una orden por ID
+// 2. Obtener una orden por ID (con detalles)
+/*
 exports.getOrdenById = async (req, res) => {
   const id = parseInt(req.params.id);
+
   try {
     const orden = await prisma.ordenTrabajo.findUnique({
       where: { id },
       include: {
-        avion: true,
-        componente: true,
-        empleadosAsignados: { include: { empleado: true } },
-        herramientas: { include: { herramienta: true } },
-        stockAsignado: { include: { stock: true } },
+        avion: {
+          include: {
+            ComponenteAvion: true,
+          },
+        },
+        componente: {
+          include: {
+            propietario: true,
+          },
+        },
+        empleadosAsignados: {
+          include: {
+            empleado: true,
+          },
+        },
+        herramientas: {
+          include: {
+            herramienta: true,
+          },
+        },
+        stockAsignado: {
+          include: {
+            stock: true,
+          },
+        },
         registrosTrabajo: true,
       },
     });
-    if (!orden) return res.status(404).json({ error: 'Orden no encontrada' });
 
+    if (!orden) {
+      return res.status(404).json({ error: 'Orden no encontrada' });
+    }
 
-   const baseUrl = `${req.protocol}://${req.get('host')}`;
+    // URLs absolutas para archivos (solo si existen)
+    const baseUrl = `${req.protocol}://${req.get('host')}`;
+    const solicitudFirmaUrl = orden.solicitudFirma ? `${baseUrl}/${orden.solicitudFirma}` : null;
+    const archivoFacturaUrl = orden.archivoFactura ? `${baseUrl}/${orden.archivoFactura}` : null;
+
+    res.json({
+      ...orden,
+      solicitudFirma: solicitudFirmaUrl,
+      archivoFactura: archivoFacturaUrl,
+    });
+  } catch (error) {
+    console.error('❌ Error al obtener orden:', error);
+    res.status(500).json({ error: 'Error al obtener orden' });
+  }
+};
+*/
+
+exports.getOrdenById = async (req, res) => {
+  const id = parseInt(req.params.id);
+
+  try {
+    const orden = await prisma.ordenTrabajo.findUnique({
+      where: { id },
+      include: {
+        avion: {
+          include: {
+            ComponenteAvion: true,
+          },
+        },
+        componente: {
+          include: {
+            propietario: true,
+          },
+        },
+        empleadosAsignados: {
+          include: {
+            empleado: true,
+          },
+        },
+        herramientas: {
+          include: {
+            herramienta: true,
+          },
+        },
+        stockAsignado: {
+          include: {
+            stock: true,
+          },
+        },
+        registrosTrabajo: true,
+      },
+    });
+
+    if (!orden) {
+      return res.status(404).json({ error: 'Orden no encontrada' });
+    }
+
+    const baseUrl = `${req.protocol}://${req.get('host')}`;
 
     res.json({
       ...orden,
       solicitudFirma: orden.solicitudFirma ? `${baseUrl}/${orden.solicitudFirma}` : null,
-     archivoFactura: orden.archivoFactura ? `${baseUrl}/${orden.archivoFactura}` : null,
+      archivoFactura: orden.archivoFactura ? `${baseUrl}/${orden.archivoFactura}` : null,
     });
-
   } catch (error) {
-    console.error('Error al obtener orden:', error);
+    console.error('❌ Error al obtener orden:', error);
     res.status(500).json({ error: 'Error al obtener orden' });
   }
 };
+
+
+
+
+
 
 // 3. Crear nueva orden de trabajo
 exports.createOrden = async (req, res) => {

@@ -7,6 +7,7 @@ import EditarAvionComponente from '@/components/Asignaciones/EditarAvionComponen
 import AccionBoton from '@/components/base/Boton';
 import SubirArchivo from '@/components/Asignaciones/SubirArchivo';
 import { api } from '@/services/api'; 
+import VolverAtras from '@/components/Arrow';
 
 interface Propietario {
   id: number;
@@ -73,6 +74,10 @@ export default function AvionDetallePage() {
 
 
   return (
+    <div>
+      <VolverAtras texto=" " />
+      
+      <h1 className="text-2xl font-bold mb-6">Detalles del Avión</h1>
     <div className="p-6 space-y-8">
       {/* CARD de presentación */}
       <div className="border p-4 rounded shadow bg-white">
@@ -231,6 +236,7 @@ export default function AvionDetallePage() {
         nombreCampo="certificadoMatricula"
         onUploaded={cargarAvion}
       />
+    </div>
     </div>
   );
 }

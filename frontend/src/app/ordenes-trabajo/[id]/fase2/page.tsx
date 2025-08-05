@@ -30,6 +30,9 @@ useEffect(() => {
   router.replace(`/ordenes-trabajo/${id}/cancelada`);
   return;
 }
+if (data.avion?.ComponenteAvion) {
+  data.avion.componentes = data.avion.ComponenteAvion;
+}
 
       setOrden(data);
       setSolicitud(data.solicitud ?? '');
@@ -83,104 +86,7 @@ useEffect(() => {
   return (
     <div className="p-6 max-w-3xl mx-auto space-y-6">
       <h1 className="text-2xl font-bold">Fase 2: Detalles de la orden #{orden.id}</h1>
-
       <div className="bg-gray-100 p-4 rounded space-y-3">
-       {/* <p><strong>Tipo:</strong> {orden.avionId ? 'Avión' : 'Componente externo'}</p>
-        <div className="space-y-2 text-sm">
-  {orden.avion && (
-    <>
-      <p>
-        <strong>Avión:</strong>{' '}
-        <a
-          href={`/cruds/aviones/${orden.avion.id}`}
-          className="text-blue-600 underline"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          {orden.avion.matricula} - {orden.avion.marca} {orden.avion.modelo}
-        </a>
-      </p>
-
-      {orden.avion.TSN != null && <p><strong>TSN:</strong> {orden.avion.TSN} hs</p>}
-      {orden.avion.vencimientoMatricula && (
-        <p><strong>Vencimiento matrícula:</strong> {new Date(orden.avion.vencimientoMatricula).toLocaleDateString()}</p>
-      )}
-      {orden.avion.vencimientoSeguro && (
-        <p><strong>Vencimiento seguro:</strong> {new Date(orden.avion.vencimientoSeguro).toLocaleDateString()}</p>
-      )}
-    </>
-  )}
-
-  {orden.componente && (
-    <>
-      <p>
-        <strong>Componente externo:</strong>{' '}
-        <a
-          href={`/propietarios/${orden.componente.propietarioId}`}
-          className="text-blue-600 underline"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          {orden.componente.tipo} - {orden.componente.marca} {orden.componente.modelo}
-        </a>
-      </p>
-
-      {orden.componente.TSN != null && <p><strong>TSN:</strong> {orden.componente.TSN} hs</p>}
-      {orden.componente.TSO != null && <p><strong>TSO:</strong> {orden.componente.TSO} hs</p>}
-      {orden.componente.TBOHoras != null && <p><strong>TBO:</strong> {orden.componente.TBOHoras} hs</p>}
-      {orden.componente.TBOFecha && (
-        <p><strong>Fecha TBO:</strong> {new Date(orden.componente.TBOFecha).toLocaleDateString()}</p>
-      )}
-    </>
-  )}
-</div>
-
-
-        {orden.avion && (
-          <div>
-            {renderCampo('Matrícula', orden.avion.matricula)}
-            {renderCampo('Marca', orden.avion.marca)}
-            {renderCampo('Modelo', orden.avion.modelo)}
-            {renderCampo('Número de serie', orden.avion.numeroSerie)}
-            {renderCampo('TSN', orden.avion.TSN)}
-            {renderCampo('Venc. Matrícula', orden.avion.vencimientoMatricula)}
-            {renderCampo('Venc. Seguro', orden.avion.vencimientoSeguro)}
-
-            {orden.avion.componentes?.length > 0 && (
-              <div className="mt-4">
-                <p className="font-semibold">Componentes instalados:</p>
-                <ul className="list-disc pl-5 text-sm">
-                  {orden.avion.componentes.map((c: any) => (
-                    <li key={c.id}>
-                      {c.tipo ?? '—'} - {c.marca ?? '—'} {c.modelo ?? ''} (N° Serie: {c.numeroSerie ?? '—'})
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </div>
-        )}
-
-        {orden.componente && (
-          <div>
-            {renderCampo('Tipo', orden.componente.tipo)}
-            {renderCampo('Marca', orden.componente.marca)}
-            {renderCampo('Modelo', orden.componente.modelo)}
-            {renderCampo('N° Serie', orden.componente.numeroSerie)}
-
-            {orden.componente.propietario && (
-              <div className="mt-2">
-                <p className="font-semibold">Propietario:</p>
-                <p>
-                  {orden.componente.propietario.tipoPropietario === 'PERSONA'
-                    ? `${orden.componente.propietario.nombre} ${orden.componente.propietario.apellido}`
-                    : orden.componente.propietario.nombreEmpresa}
-                </p>
-              </div>
-            )}
-          </div>
-        )}
-      */}
       <div className="space-y-2 text-sm">
   {orden.avion && (
     <>
@@ -204,6 +110,26 @@ useEffect(() => {
       {orden.avion.vencimientoSeguro && (
         <p><strong>Vencimiento seguro:</strong> {new Date(orden.avion.vencimientoSeguro).toLocaleDateString()}</p>
       )}
+      {orden.avion.certificadoMatricula && (
+  <div className="mt-2 flex gap-4 items-center text-sm">
+    <a
+      href={orden.avion.certificadoMatricula}
+      className="text-blue-600 underline"
+      target="_blank"
+      rel="noopener noreferrer"
+    >
+      Ver certificado de matrícula
+    </a>
+    <a
+      href={orden.avion.certificadoMatricula}
+      download
+      className="text-blue-600 underline"
+    >
+      Descargar
+    </a>
+  </div>
+)}
+
 
       {orden.avion.componentes?.length > 0 && (
         <div className="mt-2">

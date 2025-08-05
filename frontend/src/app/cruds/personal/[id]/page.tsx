@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import SubirArchivo from '@/components/Asignaciones/SubirArchivo';
 import { api } from '@/services/api'; 
+import VolverAtras from '@/components/Arrow';
 
 interface RegistroDeTrabajo {
   id: number;
@@ -107,6 +108,10 @@ useEffect(() => {
 
 
   return (
+    <div>
+      <VolverAtras texto="Volver a la lista de empleados" />
+      
+      <h1 className="text-2xl font-bold mb-6">Detalles del Empleado</h1>  
     <div className="p-4 space-y-6">
       {empleado && (
         <div className="border p-4 rounded shadow bg-white space-y-4">
@@ -237,6 +242,7 @@ useEffect(() => {
 </button>
 
       </div>
+    </div>
     </div>
   );
 }

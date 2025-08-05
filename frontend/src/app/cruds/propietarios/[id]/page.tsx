@@ -7,6 +7,7 @@ import AgregarComponenteModal from '@/components/Asignaciones/AsignarComponente'
 import EditarComponenteModal from '@/components/Asignaciones/EditarComponente';
 import AccionBoton from '@/components/base/Boton';
 import { api } from '@/services/api'; 
+import VolverAtras from '@/components/Arrow';
 
 interface Avion {
   id: number;
@@ -69,6 +70,10 @@ export default function PropietarioDetallePage() {
   if (!propietario) return <div className="p-4">Propietario no encontrado</div>;
 
   return (
+    <div>
+      <VolverAtras texto="Volver a la lista de propietarios" />
+      
+      <h1 className="text-2xl font-bold mb-6">Detalles del Propietario</h1>
     <div className="p-6 space-y-8">
       {/* CARD de presentación */}
       <div className="border p-4 rounded shadow bg-white">
@@ -172,6 +177,7 @@ export default function PropietarioDetallePage() {
           onSaved={cargarPropietario}
         />
       )}
+    </div>
     </div>
   );
 }
