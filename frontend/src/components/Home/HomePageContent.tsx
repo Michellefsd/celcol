@@ -50,7 +50,6 @@ import TrabajoCard from './TrabajoCard';
 import EntidadMenu from './EntidadMenu';
 import BaseButton from '../BaseButton';
 import { useRouter } from 'next/navigation';
-import AccionBoton from '../base/Boton';
 
 export default function HomePageContent() {
   const router = useRouter();

@@ -94,11 +94,12 @@ exports.refresh = async (req, res) => {
   const user = await prisma.usuario.findUnique({ where: { id: userId } });
   if (!user || user.refreshJti !== payload.jti) return res.status(401).json({ error: 'Refresh revocado' });
 
-  const newJti = newJti();
-  const newAccess = signAccess(user);
-  const newRefresh = signRefresh(user, newJti);
+  // ✅ SÍ:
+const nextJti = newJti();
+const newAccess = signAccess(user);
+const newRefresh = signRefresh(user, nextJti);
 
-  await prisma.usuario.update({ where: { id: user.id }, data: { refreshJti: newJti } });
+await prisma.usuario.update({ where: { id: user.id }, data: { refreshJti: nextJti } });
 
   setRefreshCookie(res, newRefresh);
   return res.json({ accessToken: newAccess });

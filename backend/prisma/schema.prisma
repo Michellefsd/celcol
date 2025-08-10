@@ -188,11 +188,12 @@ model Stock {
 }
 
 model OrdenTrabajo {
-  id            Int         @id @default(autoincrement())
-  fechaApertura DateTime    @default(now())
-  fechaCierre   DateTime?
-  estadoOrden   EstadoOrden @default(ABIERTA)
-  archivada     Boolean     @default(false)
+  id               Int         @id @default(autoincrement())
+  fechaApertura    DateTime    @default(now())
+  fechaCierre      DateTime?
+  fechaCancelacion DateTime?
+  estadoOrden      EstadoOrden @default(ABIERTA)
+  archivada        Boolean     @default(false)
 
   // Asociación con avión o componente externo (uno u otro)
   avion        Avion?             @relation(fields: [avionId], references: [id])
