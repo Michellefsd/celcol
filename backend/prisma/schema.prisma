@@ -179,8 +179,9 @@ model Stock {
 model OrdenTrabajo {
   id                  Int          @id @default(autoincrement())
   fechaApertura       DateTime     @default(now())
+  fechaCierre        DateTime?
   estadoOrden         EstadoOrden  @default(ABIERTA)
-  archivada Boolean @default(false)
+  archivada           Boolean @default(false)
 
   // Asociación con avión o componente externo (uno u otro)
   avion               Avion?    @relation(fields: [avionId], references: [id])
@@ -202,11 +203,17 @@ model OrdenTrabajo {
   archivoFactura      String?                     // Archivo adjunto de la factura (PDF, imagen)
   estadoFactura       EstadoFactura @default(NO_ENVIADA) // Enum de estado de factura
 
+  datosAvionSnapshot        Json?
+  datosComponenteSnapshot   Json?
+  datosPropietarioSnapshot  Json?
+
   empleadosAsignados  EmpleadoAsignado[]          // Técnicos y certificadores asignados
   registrosTrabajo    RegistroDeTrabajo[]         // Registro de horas trabajadas por fecha
   herramientas        OrdenHerramienta[]          // Herramientas utilizadas
   stockAsignado       OrdenStock[]                // Insumos de stock con cantidad utilizada
 }
+
+
 
 model EmpleadoAsignado {
   id          Int           @id @default(autoincrement())

@@ -107,7 +107,7 @@ useEffect(() => {
 }, [empleadoId]);
 
 
-  return (
+/*  return (
     <div>
       <VolverAtras texto="Volver a la lista de empleados" />
       
@@ -174,12 +174,11 @@ useEffect(() => {
   </div>
 )}
 
-
-
-
-
+*/
           {/* 🧾 MODAL SUBIDA */}
-          <SubirArchivo
+  /*
+  
+  <SubirArchivo
             open={mostrarSubirCarne}
             onClose={() => setMostrarSubirCarne(false)}
             url={api(`/personal/${empleado.id}/carneSalud`)}
@@ -189,9 +188,14 @@ useEffect(() => {
           />
         </div>
       )}
+*/
+
 
       {/* 📊 REGISTROS DE TRABAJO */}
-      <div className="border p-4 rounded shadow bg-white">
+/*
+
+
+<div className="border p-4 rounded shadow bg-white">
         <h2 className="text-xl font-semibold mb-2">Registros de trabajo</h2>
 
         <div className="flex gap-4 items-end mb-4">
@@ -245,4 +249,152 @@ useEffect(() => {
     </div>
     </div>
   );
+  */
+
+
+
+
+
+
+
+  return (
+  <div className="min-h-screen bg-slate-100">
+    <main className="mx-auto w-full lg:w-[80%] max-w-[1800px] px-4 md:px-6 lg:px-8 py-6 space-y-6">
+      <VolverAtras texto="Volver a la lista de empleados" />
+      
+      <h1 className="text-2xl font-semibold text-slate-900">Detalles del empleado</h1>
+
+      {empleado && (
+        <section className="rounded-2xl border border-slate-200 bg-white shadow-sm p-6 space-y-4">
+          <h2 className="text-xl font-semibold">{empleado.nombre} {empleado.apellido}</h2>
+          <p className="text-sm text-slate-600">
+            {empleado.esCertificador && '✅ Certificador '}
+            {empleado.esTecnico && '✅ Técnico'}
+          </p>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-1 text-sm">
+            <p><span className="text-slate-500">Teléfono:</span> {empleado.telefono}</p>
+            <p><span className="text-slate-500">Email:</span> {empleado.email}</p>
+            <p><span className="text-slate-500">Dirección:</span> {empleado.direccion}</p>
+            <p><span className="text-slate-500">Licencia:</span> {empleado.tipoLicencia} - {empleado.numeroLicencia}</p>
+            <p><span className="text-slate-500">Vencimiento:</span> {empleado.vencimientoLicencia?.slice(0, 10)}</p>
+            <p><span className="text-slate-500">Fecha de alta:</span> {empleado.fechaAlta?.slice(0, 10)}</p>
+          </div>
+
+          {/* Carné de salud */}
+          <div className="pt-4">
+            {empleado.carneSalud ? (
+              <div className="space-y-2">
+                <h3 className="font-semibold">Carné de salud</h3>
+                <div className="flex flex-wrap gap-3">
+                  {esVisualizableEnNavegador(empleado.carneSalud) && (
+                    <a
+                      href={empleado.carneSalud}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-cyan-600 hover:text-cyan-800 underline underline-offset-2"
+                    >
+                      👁️ Ver carné
+                    </a>
+                  )}
+                  <a
+                    href={empleado.carneSalud}
+                    download
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition"
+                  >
+                    Descargar
+                  </a>
+                  <button
+                    onClick={() => setMostrarSubirCarne(true)}
+                    className="text-sm text-cyan-600 underline underline-offset-2 hover:text-cyan-800"
+                  >
+                    Reemplazar
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                onClick={() => setMostrarSubirCarne(true)}
+                className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-[#597BFF] to-[#4a6ee0] text-white font-semibold px-5 py-2.5 shadow-sm hover:from-[#4a6ee0] hover:to-[#3658d4] hover:shadow-lg hover:brightness-110 transform hover:scale-[1.03] transition-all duration-300"
+              >
+                Subir carné de salud
+              </button>
+            )}
+          </div>
+
+          <SubirArchivo
+            open={mostrarSubirCarne}
+            onClose={() => setMostrarSubirCarne(false)}
+            url={api(`/personal/${empleado.id}/carneSalud`)}
+            label="Subir carné de salud"
+            nombreCampo="carneSalud"
+            onUploaded={fetchEmpleado}
+          />
+        </section>
+      )}
+
+      {/* Registros de trabajo */}
+      <section className="rounded-2xl border border-slate-200 bg-white shadow-sm p-6">
+        <h2 className="text-xl font-semibold mb-4">Registros de trabajo</h2>
+
+        <div className="flex flex-wrap gap-4 items-end mb-4">
+          <div>
+            <label className="block text-sm text-slate-500">Desde</label>
+            <input type="date" value={desde} onChange={e => setDesde(e.target.value)} className="input" />
+          </div>
+          <div>
+            <label className="block text-sm text-slate-500">Hasta</label>
+            <input type="date" value={hasta} onChange={e => setHasta(e.target.value)} className="input" />
+          </div>
+          <button
+            onClick={cargarRegistros}
+            className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-[#597BFF] to-[#4a6ee0] text-white font-semibold px-5 py-2.5 shadow-sm hover:from-[#4a6ee0] hover:to-[#3658d4] hover:shadow-lg hover:brightness-110 transform hover:scale-[1.03] transition-all duration-300"
+          >
+            Filtrar
+          </button>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm border border-slate-200 rounded-lg overflow-hidden">
+            <thead>
+              <tr className="bg-slate-50 text-slate-600">
+                <th className="border px-2 py-1">Fecha</th>
+                <th className="border px-2 py-1">Horas</th>
+                <th className="border px-2 py-1">Orden ID</th>
+                <th className="border px-2 py-1">Solicitud</th>
+                <th className="border px-2 py-1">Rol</th>
+              </tr>
+            </thead>
+            <tbody>
+              {registros.map(r => (
+                <tr key={r.id} className="hover:bg-slate-50">
+                  <td className="border px-2 py-1">{r.fecha.slice(0, 10)}</td>
+                  <td className="border px-2 py-1">{r.horas}</td>
+                  <td className="border px-2 py-1">{r.ordenId}</td>
+                  <td className="border px-2 py-1">{r.solicitud}</td>
+                  <td className="border px-2 py-1">{r.rol}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <p className="mt-4 font-semibold">Total de horas: {totalHoras}</p>
+
+        <button
+          onClick={() => {
+            const url = api(`/personal/${empleadoId}/registros-trabajo/pdf?desde=${desde}&hasta=${hasta}`);
+            window.open(url, '_blank');
+          }}
+          className="mt-4 inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-green-500 to-green-600 text-white font-semibold px-5 py-2.5 shadow-sm hover:from-green-600 hover:to-green-700 hover:shadow-lg hover:brightness-110 transform hover:scale-[1.03] transition-all duration-300"
+        >
+          Descargar PDF
+        </button>
+      </section>
+    </main>
+  </div>
+);
+
 }

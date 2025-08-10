@@ -84,11 +84,11 @@ exports.obtenerComponenteExterno = async (req, res) => {
 
 // ACTUALIZAR
 exports.actualizarComponenteExterno = async (req, res) => {
+  const id = parseInt(req.params.id);
   const componenteActual = await prisma.componenteExterno.findUnique({ where: { id } });
 if (componenteActual.archivado) {
   return res.status(400).json({ error: 'No se puede modificar un componente archivado' });
 }
-  const id = parseInt(req.params.id);
   const archivo = req.file;
 
   try {

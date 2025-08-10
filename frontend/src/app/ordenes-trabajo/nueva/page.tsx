@@ -67,6 +67,7 @@ export default function NuevaOrdenPage() {
       alert('Error al crear la orden');
     }
   }
+  
 
   return (
     <div className="max-w-xl mx-auto mt-10 space-y-6">

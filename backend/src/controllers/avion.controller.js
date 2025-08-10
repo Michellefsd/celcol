@@ -108,11 +108,12 @@ exports.obtenerAvion = async (req, res) => {
 const fs = require('fs');
 
 exports.actualizarAvion = async (req, res) => {
+  const id = parseInt(req.params.id);
+  const avionActual = await prisma.avion.findUnique({ where: { id } });
+
   if (avionActual.archivado) {
   return res.status(400).json({ error: 'No se puede modificar un avión archivado' });
 }
-
-  const id = parseInt(req.params.id);
   const {
     marca,
     modelo,
@@ -129,7 +130,6 @@ exports.actualizarAvion = async (req, res) => {
 
   try {
     // Buscar el avión actual para obtener el archivo anterior
-    const avionActual = await prisma.avion.findUnique({ where: { id } });
     if (!avionActual) return res.status(404).json({ error: 'Avión no encontrado' });
 
     const dataToUpdate = {

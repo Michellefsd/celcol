@@ -5,6 +5,8 @@ import AsignarPropietariosAvionModal from '@/components/Asignaciones/AsignarProp
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { api } from '@/services/api'; 
+import IconButton from '@/components/IconButton';
+import { IconVer } from '@/components/ui/Icons';
 
 
 type Avion = {
@@ -105,18 +107,17 @@ export default function AvionesPage() {
     onAfterCreate: (avion) => abrirModalConPropietarios(avion.id),
     extraActions: (avion) => (
   <div className="flex gap-3 items-center">
+        <IconButton
+      icon={IconVer}
+      title="Ver detalle"
+      className="text-cyan-600 hover:text-cyan-800"
+      onClick={() => router.push(`/cruds/aviones/${avion.id}`)}
+    />
     <button
       onClick={() => abrirModalConPropietarios(avion.id)}
       className="text-sm text-blue-600 underline"
     >
       Editar propietarios
-    </button>
-    <button
-      onClick={() => router.push(`/cruds/aviones/${avion.id}`)}
-      title="Ver detalle"
-      className="text-green-600 hover:text-green-800 text-sm"
-    >
-      👁
     </button>
   </div>
 ),
@@ -124,7 +125,7 @@ export default function AvionesPage() {
   };
 
   return (
-    <>
+    <div className="bg-gray-100 min-h-screen px-6 py-8"  >
       <CrudManager {...config} />
 
       {asignacionInfo && (
@@ -135,6 +136,6 @@ export default function AvionesPage() {
           onClose={() => setAsignacionInfo(null)}
         />
       )}
-    </>
+    </div>
   );
 }

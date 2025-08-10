@@ -27,8 +27,6 @@ exports.getAllOrdenes = async (req, res) => {
   }
 };
 
-// 2. Obtener una orden por ID (con detalles)
-/*
 exports.getOrdenById = async (req, res) => {
   const id = parseInt(req.params.id);
 
@@ -61,64 +59,11 @@ exports.getOrdenById = async (req, res) => {
             stock: true,
           },
         },
-        registrosTrabajo: true,
-      },
-    });
-
-    if (!orden) {
-      return res.status(404).json({ error: 'Orden no encontrada' });
-    }
-
-    // URLs absolutas para archivos (solo si existen)
-    const baseUrl = `${req.protocol}://${req.get('host')}`;
-    const solicitudFirmaUrl = orden.solicitudFirma ? `${baseUrl}/${orden.solicitudFirma}` : null;
-    const archivoFacturaUrl = orden.archivoFactura ? `${baseUrl}/${orden.archivoFactura}` : null;
-
-    res.json({
-      ...orden,
-      solicitudFirma: solicitudFirmaUrl,
-      archivoFactura: archivoFacturaUrl,
-    });
-  } catch (error) {
-    console.error('❌ Error al obtener orden:', error);
-    res.status(500).json({ error: 'Error al obtener orden' });
-  }
-};
-*/
-
-exports.getOrdenById = async (req, res) => {
-  const id = parseInt(req.params.id);
-
-  try {
-    const orden = await prisma.ordenTrabajo.findUnique({
-      where: { id },
-      include: {
-        avion: {
+        registrosTrabajo: {
           include: {
-            ComponenteAvion: true,
+            empleado: true, // ✅ necesario
           },
         },
-        componente: {
-          include: {
-            propietario: true,
-          },
-        },
-        empleadosAsignados: {
-          include: {
-            empleado: true,
-          },
-        },
-        herramientas: {
-          include: {
-            herramienta: true,
-          },
-        },
-        stockAsignado: {
-          include: {
-            stock: true,
-          },
-        },
-        registrosTrabajo: true,
       },
     });
 
@@ -138,11 +83,6 @@ exports.getOrdenById = async (req, res) => {
     res.status(500).json({ error: 'Error al obtener orden' });
   }
 };
-
-
-
-
-
 
 // 3. Crear nueva orden de trabajo
 exports.createOrden = async (req, res) => {
@@ -217,7 +157,6 @@ exports.createOrden = async (req, res) => {
 };
 
 // fase 2: Actualizar solicitud de firma y solicitado por
-
 exports.updateFase2 = async (req, res) => {
   const id = parseInt(req.params.id);
   const { solicitud, solicitadoPor, OTsolicitud } = req.body;
@@ -249,9 +188,6 @@ exports.subirArchivoOrden = (req, res) =>
     campoArchivo: 'solicitudFirma',   // 👈 este es el campo que contiene el archivo
     nombreRecurso: 'Orden de trabajo' // 👈 solo para los mensajes de respuesta
   });
-
-
-
 
 // Fase 3: Actualizar inspección y asignación de recursos cuando el avión está con Celcol
 exports.updateFase3 = async (req, res) => {
@@ -430,7 +366,6 @@ if (!existeAviso) {
   }
 };
 
-
 // Archivar orden (solo si está cerrada o cancelada)
 exports.archivarOrden = async (req, res) => {
   const id = parseInt(req.params.id);
@@ -459,7 +394,6 @@ exports.archivarOrden = async (req, res) => {
     res.status(500).json({ error: 'Error al archivar orden' });
   }
 };
-
 
 
 // 5. Eliminar orden
@@ -526,8 +460,7 @@ exports.agregarRegistroTrabajo = async (req, res) => {
   }
 };
 
-
-    // Fase 4: Subir archivo de factura
+// Fase 4: Subir archivo de factura
 exports.subirArchivoFactura = (req, res) =>
   subirArchivoGenerico({
     req,
@@ -537,20 +470,140 @@ exports.subirArchivoFactura = (req, res) =>
     nombreRecurso: 'Orden de trabajo (factura)',
   });
 
+// Fase 4: Cancelar orden de trabajo
 exports.cancelarOrden = async (req, res) => {
   const id = parseInt(req.params.id);
+
   try {
-    await prisma.ordenTrabajo.update({
+    const orden = await prisma.ordenTrabajo.findUnique({
       where: { id },
-      data: { estadoOrden: 'CANCELADA' },
+      include: {
+        avion: {
+          include: {
+            ComponenteAvion: true,
+            propietarios: true, // <-- ¡esto es nuevo!
+          },
+        },
+        componente: {
+          include: {
+            propietario: true,
+          },
+        },
+      },
     });
-    res.json({ mensaje: 'Orden cancelada' });
+
+    if (!orden) {
+      return res.status(404).json({ error: 'Orden no encontrada' });
+    }
+
+    // Si ya tiene snapshot, solo cambiamos el estado
+    if (orden.datosAvionSnapshot || orden.datosComponenteSnapshot) {
+      const actualizada = await prisma.ordenTrabajo.update({
+        where: { id },
+        data: { estadoOrden: 'CANCELADA' },
+      });
+      return res.json({ mensaje: 'Orden cancelada', orden: actualizada });
+    }
+
+    let datosAvionSnapshot = null;
+    let datosComponenteSnapshot = null;
+    let datosPropietarioSnapshot = null;
+
+    if (orden.avion) {
+  const avion = orden.avion;
+  datosAvionSnapshot = {
+    id: avion.id,
+    matricula: avion.matricula,
+    marca: avion.marca,
+    modelo: avion.modelo,
+    numeroSerie: avion.numeroSerie,
+    TSN: avion.TSN,
+    vencimientoMatricula: avion.vencimientoMatricula,
+    vencimientoSeguro: avion.vencimientoSeguro,
+    certificadoMatricula: avion.certificadoMatricula,
+    componentes: avion.ComponenteAvion.map(comp => ({
+      tipo: comp.tipo,
+      marca: comp.marca,
+      modelo: comp.modelo,
+      numeroSerie: comp.numeroSerie,
+      TSN: comp.TSN,
+      TSO: comp.TSO,
+      TBOHoras: comp.TBOHoras,
+      TBOFecha: comp.TBOFecha,
+    })),
+    propietarios: avion.propietarios.map(p => ({
+      tipo: p.tipo,
+      nombre: p.nombre,
+      apellido: p.apellido,
+      razonSocial: p.razonSocial,
+      rut: p.rut,
+      cedula: p.cedula,
+      email: p.email,
+      telefono: p.telefono,
+    })),
+  };
+
+  if (avion.propietarios.length === 1) {
+    const p = avion.propietarios[0];
+    datosPropietarioSnapshot = {
+      tipo: p.tipo,
+      nombre: p.nombre,
+      apellido: p.apellido,
+      razonSocial: p.razonSocial,
+      rut: p.rut,
+      cedula: p.cedula,
+      email: p.email,
+      telefono: p.telefono,
+    };
+  }
+}
+
+
+    if (orden.componente) {
+      const comp = orden.componente;
+      datosComponenteSnapshot = {
+        tipo: comp.tipo,
+        marca: comp.marca,
+        modelo: comp.modelo,
+        numeroSerie: comp.numeroSerie,
+        TSN: comp.TSN,
+        TSO: comp.TSO,
+        TBOHoras: comp.TBOHoras,
+        TBOFecha: comp.TBOFecha,
+        archivo8130: comp.archivo8130,
+      };
+
+      if (comp.propietario) {
+        const p = comp.propietario;
+        datosPropietarioSnapshot = {
+          tipo: p.tipo,
+          nombre: p.nombre,
+          apellido: p.apellido,
+          razonSocial: p.razonSocial,
+          rut: p.rut,
+          cedula: p.cedula,
+          email: p.email,
+          telefono: p.telefono,
+        };
+      }
+    }
+
+    const ordenCancelada = await prisma.ordenTrabajo.update({
+      where: { id },
+      data: {
+        estadoOrden: 'CANCELADA',
+        datosAvionSnapshot,
+        datosComponenteSnapshot,
+        datosPropietarioSnapshot,
+      },
+    });
+
+    res.json({ mensaje: 'Orden cancelada', orden: ordenCancelada });
   } catch (error) {
     console.error('Error al cancelar orden:', error);
     res.status(500).json({ error: 'Error al cancelar orden' });
   }
 };
-
 
 // eliminar registro de trabajos
 exports.eliminarRegistroTrabajo = async (req, res) => {
@@ -567,20 +620,139 @@ exports.eliminarRegistroTrabajo = async (req, res) => {
 // Cerrar orden de trabajos
 exports.cerrarOrden = async (req, res) => {
   const id = parseInt(req.params.id);
+
   try {
+    const orden = await prisma.ordenTrabajo.findUnique({
+      where: { id },
+      include: {
+        avion: {
+          include: {
+            ComponenteAvion: true,
+            propietarios: true, // 👈 ¡nuevo!
+          },
+        },
+        componente: {
+          include: {
+            propietario: true,
+          },
+        },
+      },
+    });
+
+    if (!orden) {
+      return res.status(404).json({ error: 'Orden no encontrada' });
+    }
+
+    // Si ya tiene snapshot, solo actualizamos estado
+    if (orden.datosAvionSnapshot || orden.datosComponenteSnapshot) {
+      const actualizada = await prisma.ordenTrabajo.update({
+        where: { id },
+        data: { estadoOrden: 'CERRADA' },
+        fechaCierre: new Date()
+      });
+      return res.json(actualizada);
+    }
+
+    let datosAvionSnapshot = null;
+    let datosComponenteSnapshot = null;
+    let datosPropietarioSnapshot = null;
+
+if (orden.avion) {
+  const avion = orden.avion;
+  datosAvionSnapshot = {
+    id: avion.id,
+    matricula: avion.matricula,
+    marca: avion.marca,
+    modelo: avion.modelo,
+    numeroSerie: avion.numeroSerie,
+    TSN: avion.TSN,
+    vencimientoMatricula: avion.vencimientoMatricula,
+    vencimientoSeguro: avion.vencimientoSeguro,
+    certificadoMatricula: avion.certificadoMatricula,
+    componentes: avion.ComponenteAvion.map(comp => ({
+      tipo: comp.tipo,
+      marca: comp.marca,
+      modelo: comp.modelo,
+      numeroSerie: comp.numeroSerie,
+      TSN: comp.TSN,
+      TSO: comp.TSO,
+      TBOHoras: comp.TBOHoras,
+      TBOFecha: comp.TBOFecha,
+    })),
+    propietarios: avion.propietarios.map(p => ({
+      tipo: p.tipo,
+      nombre: p.nombre,
+      apellido: p.apellido,
+      razonSocial: p.razonSocial,
+      rut: p.rut,
+      cedula: p.cedula,
+      email: p.email,
+      telefono: p.telefono,
+    })),
+  };
+
+  if (avion.propietarios.length === 1) {
+    const p = avion.propietarios[0];
+    datosPropietarioSnapshot = {
+      tipo: p.tipo,
+      nombre: p.nombre,
+      apellido: p.apellido,
+      razonSocial: p.razonSocial,
+      rut: p.rut,
+      cedula: p.cedula,
+      email: p.email,
+      telefono: p.telefono,
+    };
+  }
+}
+
+
+    if (orden.componente) {
+      const comp = orden.componente;
+      datosComponenteSnapshot = {
+        tipo: comp.tipo,
+        marca: comp.marca,
+        modelo: comp.modelo,
+        numeroSerie: comp.numeroSerie,
+        TSN: comp.TSN,
+        TSO: comp.TSO,
+        TBOHoras: comp.TBOHoras,
+        TBOFecha: comp.TBOFecha,
+        archivo8130: comp.archivo8130,
+      };
+
+      if (comp.propietario) {
+        const p = comp.propietario;
+        datosPropietarioSnapshot = {
+          tipo: p.tipo,
+          nombre: p.nombre,
+          apellido: p.apellido,
+          razonSocial: p.razonSocial,
+          rut: p.rut,
+          cedula: p.cedula,
+          email: p.email,
+          telefono: p.telefono,
+        };
+      }
+    }
+
     const ordenCerrada = await prisma.ordenTrabajo.update({
       where: { id },
       data: {
-        estadoOrden: 'CERRADA', // solo si tenés este campo en el modelo
+        estadoOrden: 'CERRADA',
+        fechaCierre: new Date(),
+        datosAvionSnapshot,
+        datosComponenteSnapshot,
+        datosPropietarioSnapshot,
       },
     });
+
     res.json(ordenCerrada);
   } catch (error) {
     console.error('❌ Error al cerrar orden:', error);
     res.status(500).json({ error: 'Error al cerrar orden' });
   }
 };
-
 
 exports.descargarOrdenPDF = async (req, res) => {
   const id = parseInt(req.params.id);

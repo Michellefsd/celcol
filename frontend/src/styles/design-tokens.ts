@@ -1,3 +1,5 @@
+
+
 export const colors = {
   primary: '#597BFF',   // Azul del logo
   text: '#2C2C2C',      // Gris oscuro

@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useState, ChangeEvent, ReactNode } from 'react';
+import IconButton from './IconButton';
+import { IconEliminar, IconEditar } from './ui/Icons';
 
 export type FieldOption = {
   value: string;
@@ -123,27 +125,6 @@ export default function CrudManager<T extends { id: number }>({
     }
   };
 
-/*const handleDelete = async (id: number) => {
-  if (!confirm('¿Seguro que querés borrar este registro?')) return;
-
-  try {
-    const res = await fetch(`${endpoint}/${id}`, { method: 'DELETE' });
-
-    if (!res.ok) {
-      const data = await res.json();
-      const errorMessage = data?.error || 'Error al eliminar el registro';
-      alert(errorMessage);
-      return;
-    }
-
-    fetchData();
-  } catch (error) {
-    alert('Error al conectar con el servidor');
-    console.error('❌ Error en handleDelete:', error);
-  }
-};
-*/
-
 const handleDelete = async (id: number) => {
   if (!confirm('¿Querés archivar este registro?')) return;
 
@@ -263,64 +244,243 @@ const handleDelete = async (id: number) => {
 
     return 0;
   });
+/*
+ return (
+  <div className="px-4 py-6 max-w-screen-2xl mx-auto">
+    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-5">
+      <h1 className="text-2xl font-bold py-2">{title}</h1>
+      <input
+        type="text"
+        placeholder="Buscar..."
+        className="border px-3 py-2 rounded w-full sm:w-auto"
+        value={searchTerm}
+        onChange={(e) => setSearchTerm(e.target.value)}
+      />
+    </div>
 
-  return (
-    <div className="p-4">
-      <div className="flex justify-between items-center mb-4">
-        <h1 className="text-2xl font-bold">{title}</h1>
+    <button
+      className="mb-6 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition"
+      onClick={() => openModal()}
+    >
+      Crear nuevo
+    </button>
+
+    <div className="overflow-x-auto">
+      <table className="w-full min-w-full border text-sm">
+        <thead className="bg-gray-100 text-rose-900">
+          <tr>
+            {columns.map(col => (
+              <th
+                key={String(col)}
+                className="border px-3 text-center font-semibold cursor-pointer hover:bg-rose-200"
+                onClick={() => handleSort(col)}
+              >
+                {String(col)}{' '}
+                {sortField === col && (sortDirection === 'asc' ? '▲' : '▼')}
+              </th>
+            ))}
+            <th className="border px-3 py-1 text-left font-semibold">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {sortedData.map(item => (
+            <tr key={item.id} className={rowClassName?.(item)}>
+              {columns.map(col => (
+                <td key={String(col)} className="border px-3">
+                  {renderValue(item, col)}
+                </td>
+              ))}
+              <td className="border px-3 py-1">
+                <div className="flex flex-wrap gap-2">
+                  <IconButton
+                    icon={IconEditar}
+                    title="Editar"
+                    className="text-blue-600 hover:text-blue-800"
+                    onClick={() => onEditClick ? onEditClick(item) : openModal(item)}
+                  />
+                  <IconButton
+                    icon={IconEliminar}
+                    title="Eliminar"
+                    className="text-red-600 hover:text-red-800"
+                    onClick={() => handleDelete(item.id)}
+                  />
+                  {extraActions && extraActions(item)}
+                </div>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+
+    {showModal && (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center overflow-y-auto z-50">
+        <div className="bg-white p-6 rounded shadow-md w-full max-w-md mt-20 mb-20 max-h-[90vh] overflow-y-auto">
+          <h2 className="text-xl font-semibold mb-4">
+            {editing ? 'Editar' : 'Crear'} {title}
+          </h2>
+
+          {formFields
+            .filter(field => {
+              const tipoPropietarioActual = (form as { tipoPropietario?: string })?.tipoPropietario;
+
+              if (!tipoPropietarioActual) return true;
+
+              if (['nombreEmpresa', 'rut'].includes(field.name)) {
+                return tipoPropietarioActual === 'INSTITUCION';
+              }
+              if (['nombre', 'apellido'].includes(field.name)) {
+                return tipoPropietarioActual === 'PERSONA';
+              }
+              return true;
+            })
+            .map(field => (
+              <div key={field.name} className="mb-4">
+                <label className="block mb-1 font-medium">
+                  {field.label}
+                  {field.required && <span className="text-red-600">*</span>}
+                </label>
+                {field.type === 'select' ? (
+                  <select
+                    name={field.name}
+                    value={form[field.name as keyof T]?.toString() ?? ''}
+                    onChange={handleChange}
+                    className="w-full border px-3 py-2 bg-white text-black rounded"
+                  >
+                    <option value="">Seleccionar...</option>
+                    {field.options?.map(opt => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    name={field.name}
+                    type={field.type}
+                    value={
+                      field.type === 'checkbox'
+                        ? undefined
+                        : form[field.name as keyof T]?.toString() ?? ''
+                    }
+                    checked={
+                      field.type === 'checkbox'
+                        ? Boolean(form[field.name as keyof T])
+                        : undefined
+                    }
+                    onChange={handleChange}
+                    className="w-full border px-3 py-2 bg-white text-black rounded"
+                  />
+                )}
+              </div>
+            ))}
+
+          <div className="flex justify-end gap-2 mt-6">
+            <button
+              onClick={() => setShowModal(false)}
+              className="px-4 py-2 bg-gray-300 hover:bg-gray-400 rounded"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={handleSubmit}
+              className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded"
+            >
+              Guardar
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+  </div>
+);
+*/
+
+return (
+  <div className="min-h-screen bg-slate-100">
+    <div className="mx-auto w-full lg:w-[80%] max-w-[1800px] px-4 md:px-6 lg:px-8 py-6">
+      {/* Título + búsqueda */}
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-5">
+        <h1 className="text-2xl font-semibold text-slate-900">{title}</h1>
         <input
           type="text"
           placeholder="Buscar..."
-          className="border px-3 py-1 rounded"
+          className="w-full sm:w-auto rounded-xl border border-slate-300 bg-white px-3 py-2
+                     text-slate-800 placeholder:text-slate-400
+                     focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
         />
       </div>
 
-      <button
-        className="mb-4 bg-blue-600 text-white px-4 py-2 rounded"
-        onClick={() => openModal()}
-      >
-        Crear nuevo
-      </button>
+      {/* CTA principal */}
+      <div className="mb-6">
+        <button
+          className="inline-flex items-center justify-center rounded-xl
+                     bg-gradient-to-r from-[#597BFF] to-[#4a6ee0] text-white
+                     font-semibold text-base px-6 py-3 shadow-sm
+                     hover:from-[#4a6ee0] hover:to-[#3658d4]
+                     hover:shadow-lg hover:brightness-110
+                     transform hover:scale-[1.03] transition-all duration-300"
+          onClick={() => openModal()}
+        >
+          Crear nuevo
+        </button>
+      </div>
 
-      <div className="overflow-x-auto">
-        <table className="min-w-full border">
-          <thead>
+      {/* Tabla */}
+      <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <table className="w-full text-sm">
+          <thead className="sticky top-0 z-10 bg-slate-50">
             <tr>
-              {columns.map(col => (
+              {columns.map((col) => (
                 <th
                   key={String(col)}
-                  className="border px-2 py-1 cursor-pointer hover:bg-gray-100"
+                  className="px-3 py-2 text-left font-semibold text-slate-700 border-b border-slate-200 cursor-pointer hover:bg-slate-100"
                   onClick={() => handleSort(col)}
                 >
-                  {String(col)}{' '}
-                  {sortField === col && (sortDirection === 'asc' ? '▲' : '▼')}
+                  <div className="inline-flex items-center gap-1">
+                    <span>{String(col)}</span>
+                    {sortField === col && (
+                      <span className="text-slate-500">{sortDirection === 'asc' ? '▲' : '▼'}</span>
+                    )}
+                  </div>
                 </th>
               ))}
-              <th className="border px-2 py-1">Acciones</th>
+              <th className="px-3 py-2 text-left font-semibold text-slate-700 border-b border-slate-200">
+                Acciones
+              </th>
             </tr>
           </thead>
-          <tbody>
-            {sortedData.map(item => (
-            <tr key={item.id} className={rowClassName?.(item)}>
-
-                {columns.map(col => (
-                  <td key={String(col)} className="border px-2 py-1">
+          <tbody className="divide-y divide-slate-200">
+            {sortedData.map((item, idx) => (
+              <tr
+                key={item.id}
+                className={`${
+                  idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'
+                } hover:bg-slate-50 transition-colors ${rowClassName?.(item) || ''}`}
+              >
+                {columns.map((col) => (
+                  <td key={String(col)} className="px-3 py-2 text-slate-800">
                     {renderValue(item, col)}
                   </td>
                 ))}
-                <td className="border px-2 py-1 flex gap-2">
-                  <button onClick={() => onEditClick ? onEditClick(item) : openModal(item)}>
-                    ✏️ {onEditLabel ? onEditLabel(item) : ''}
-                  </button>
-                  <button
-                    onClick={() => handleDelete(item.id)}
-                    className="text-red-600"
-                  >
-                    🗑️
-                  </button>
-                  {extraActions && extraActions(item)}
+                <td className="px-3 py-2">
+                  <div className="flex flex-wrap gap-2">
+                    <IconButton
+                      icon={IconEditar}
+                      title="Editar"
+                      className="text-slate-700 hover:text-slate-900"
+                      onClick={() => (onEditClick ? onEditClick(item) : openModal(item))}
+                    />
+                    <IconButton
+                      icon={IconEliminar}
+                      title="Eliminar"
+                      className="text-rose-600 hover:text-rose-700"
+                      onClick={() => handleDelete(item.id)}
+                    />
+                    {extraActions && extraActions(item)}
+                  </div>
                 </td>
               </tr>
             ))}
@@ -328,85 +488,93 @@ const handleDelete = async (id: number) => {
         </table>
       </div>
 
+      {/* Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center overflow-y-auto">
-          <div className="bg-white p-6 rounded shadow-md w-full max-w-md mt-20 mb-20 max-h-[90vh] overflow-y-auto">
-            <h2 className="text-xl font-semibold mb-4">
-              {editing ? 'Editar' : 'Crear'} {title}
-            </h2>
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white shadow-xl">
+            <div className="p-6">
+              <h2 className="text-xl font-semibold text-slate-900 mb-4">
+                {editing ? 'Editar' : 'Crear'} {title}
+              </h2>
 
-            {formFields
-              .filter(field => {
-                const tipoPropietarioActual = (form as { tipoPropietario?: string })?.tipoPropietario;
+              {formFields
+                .filter((field) => {
+                  const tipoPropietarioActual = (form as { tipoPropietario?: string })?.tipoPropietario;
+                  if (!tipoPropietarioActual) return true;
+                  if (['nombreEmpresa', 'rut'].includes(field.name)) {
+                    return tipoPropietarioActual === 'INSTITUCION';
+                  }
+                  if (['nombre', 'apellido'].includes(field.name)) {
+                    return tipoPropietarioActual === 'PERSONA';
+                  }
+                  return true;
+                })
+                .map((field) => (
+                  <div key={field.name} className="mb-4">
+                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                      {field.label}
+                      {field.required && <span className="text-rose-600 ml-1">*</span>}
+                    </label>
 
-                if (!tipoPropietarioActual) return true;
+                    {field.type === 'select' ? (
+                      <select
+                        name={field.name}
+                        value={form[field.name as keyof T]?.toString() ?? ''}
+                        onChange={handleChange}
+                        className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-800
+                                   focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
+                        aria-required={field.required ? 'true' : 'false'}
+                      >
+                        <option value="">Seleccionar...</option>
+                        {field.options?.map((opt) => (
+                          <option key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input
+                        name={field.name}
+                        type={field.type}
+                        value={field.type === 'checkbox' ? undefined : form[field.name as keyof T]?.toString() ?? ''}
+                        checked={field.type === 'checkbox' ? Boolean(form[field.name as keyof T]) : undefined}
+                        onChange={handleChange}
+                        className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-800
+                                   focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
+                        aria-required={field.required ? 'true' : 'false'}
+                      />
+                    )}
+                  </div>
+                ))}
 
-                if (['nombreEmpresa', 'rut'].includes(field.name)) {
-                  return tipoPropietarioActual === 'INSTITUCION';
-                }
-                if (['nombre', 'apellido'].includes(field.name)) {
-                  return tipoPropietarioActual === 'PERSONA';
-              }
-                return true;
-              })
-              .map(field => (
-                <div key={field.name} className="mb-3">
-                  <label className="block mb-1">
-                    {field.label}
-                    {field.required && <span className="text-red-600">*</span>}
-                  </label>
-                  {field.type === 'select' ? (
-                    <select
-                      name={field.name}
-                      value={form[field.name as keyof T]?.toString() ?? ''}
-                      onChange={handleChange}
-                      className="w-full border px-2 py-1 bg-white text-black rounded"
-                    >
-                      <option value="">Seleccionar...</option>
-                      {field.options?.map(opt => (
-                        <option key={opt.value} value={opt.value}>
-                          {opt.label}
-                        </option>
-                      ))}
-                    </select>
-                  ) : (
-                    <input
-                      name={field.name}
-                      type={field.type}
-                      value={
-                        field.type === 'checkbox'
-                          ? undefined
-                          : form[field.name as keyof T]?.toString() ?? ''
-                      }
-                      checked={
-                        field.type === 'checkbox'
-                          ? Boolean(form[field.name as keyof T])
-                          : undefined
-                      }
-                      onChange={handleChange}
-                      className="w-full border px-2 py-1 bg-white text-black rounded"
-                    />
-                  )}
-                </div>
-              ))}
+              <div className="mt-6 flex justify-end gap-2">
+                <button
+                  onClick={() => setShowModal(false)}
+                  className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white
+                             px-5 py-2.5 text-slate-700 hover:bg-slate-50 hover:border-slate-400
+                             transform hover:scale-[1.02] transition-all duration-200"
+                >
+                  Cancelar
+                </button>
 
-            <div className="flex justify-end gap-2">
-              <button
-                onClick={() => setShowModal(false)}
-                className="px-4 py-2 bg-gray-300"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleSubmit}
-                className="px-4 py-2 bg-green-600 text-white"
-              >
-                Guardar
-              </button>
+                <button
+                  onClick={handleSubmit}
+                  className="inline-flex items-center justify-center rounded-xl
+                             bg-gradient-to-r from-[#597BFF] to-[#4a6ee0] text-white
+                             font-semibold px-6 py-2.5 shadow-sm
+                             hover:from-[#4a6ee0] hover:to-[#3658d4]
+                             hover:shadow-lg hover:brightness-110
+                             transform hover:scale-[1.03] transition-all duration-300"
+                >
+                  Guardar
+                </button>
+              </div>
             </div>
           </div>
         </div>
       )}
     </div>
-  );
+  </div>
+);
+
 }

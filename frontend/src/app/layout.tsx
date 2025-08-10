@@ -12,7 +12,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="es">
-      <body className="bg-[#FAFAFA] text-[#2C2C2C] font-sans">
+      <body className="bg-slate-100 text-[#2C2C2C] font-sans">
         <header className="bg-white border-b border-gray-200 shadow-sm px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <Link href="/">
@@ -26,9 +26,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <AvisosIcon />
         </header>
 
-        <main className="max-w-4xl mx-auto px-6 py-8">
-          {children}
-        </main>
+       <main className="w-full lg:w-[80%] max-w-[1800px] mx-auto px-6 py-8">
+        {children}
+      </main>
       </body>
     </html>
   );
