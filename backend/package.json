@@ -12,9 +12,12 @@
   "description": "",
   "dependencies": {
     "@prisma/client": "^6.8.2",
+    "argon2": "^0.43.1",
+    "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dotenv": "^16.5.0",
     "express": "^5.1.0",
+    "jsonwebtoken": "^9.0.2",
     "multer": "^2.0.1",
     "node-cron": "^4.2.1",
     "pdfkit": "^0.17.1",
