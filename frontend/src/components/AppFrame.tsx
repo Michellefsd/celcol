@@ -7,7 +7,8 @@ import { useEffect, useRef, useState } from 'react';
 import AvisosIcon from '@/components/AvisosIcon';
 import { useAuth } from '@/context/AuthContext';
 
-const PUBLIC_ROUTES = ['/login'];
+const PUBLIC_ROUTES = ['/login', '/reset', '/reset/[token]',];
+
 
 export default function AppFrame({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() || '';

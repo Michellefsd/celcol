@@ -11,6 +11,8 @@ interface RegistroTrabajo {
   empleadoId: number | '';
   fecha: string;
   horas: number | '';
+  rol: 'TECNICO' | 'CERTIFICADOR' | '';
+  trabajoRealizado?: string;
   guardado?: boolean;
 }
 
@@ -149,54 +151,60 @@ function renderCampo(label: string, valor: any) {
 }
 
 
-  useEffect(() => {
-    if (!id) return;
+useEffect(() => {
+  if (!id) return;
 
-const fetchData = async () => {
-  try {
-    const res = await fetch(api(`/ordenes-trabajo/${id}`));
-    const data: OrdenTrabajo = await res.json();
+  const fetchData = async () => {
+    try {
+      const res = await fetch(api(`/ordenes-trabajo/${id}`));
+      const data: OrdenTrabajo = await res.json();
 
-    // 🚫 Redirigir si está cerrada
-    if (data.estadoOrden === 'CERRADA') {
-      router.replace(`/ordenes-trabajo/${id}/cerrada`);
-      return;
-    }
-
-    if (data.estadoOrden === 'CANCELADA') {
-  router.replace(`/ordenes-trabajo/${id}/cancelada`);
-  return;
-}
-
-    // ✅ Si no está cerrada, seguir con la carga
-    setOrden(data);
-    setEstadoFactura(data.estadoFactura ?? '');
-    setNumeroFactura(data.numeroFactura ?? '');
-    setRegistros(
-      (data.registrosTrabajo ?? []).map((r) => ({
-        ...r,
-        guardado: true,
-      }))
-    );
-  } catch {
-    setOrden(null);
-  }
-};
-
-
-    const fetchPersonal = async () => {
-      try {
-        const res = await fetch(api('/personal'));
-        const data: Empleado[] = await res.json();
-        setPersonal(data);
-      } catch {
-        setPersonal([]);
+      // 🚫 Si no está en edición
+      if (data.estadoOrden === 'CERRADA') {
+        router.replace(`/ordenes-trabajo/${id}/cerrada`);
+        return;
       }
-    };
+      if (data.estadoOrden === 'CANCELADA') {
+        router.replace(`/ordenes-trabajo/${id}/cancelada`);
+        return;
+      }
 
-    fetchData();
-    fetchPersonal();
-  }, [id]);
+      // ✅ Cargar datos en estado
+      setOrden(data);
+      setEstadoFactura(data.estadoFactura ?? '');
+      setNumeroFactura(data.numeroFactura ?? '');
+
+      // ✅ Normalización de registros para el form
+      setRegistros(
+        (data.registrosTrabajo ?? []).map((r: any) => ({
+          id: r.id,
+          empleadoId: r.empleadoId ?? '',
+          fecha: r.fecha ? String(r.fecha).slice(0, 10) : '',
+          horas: typeof r.horas === 'number' ? r.horas : '',
+          rol: (r.rol as 'TECNICO' | 'CERTIFICADOR' | '') ?? '',
+          trabajoRealizado: r.trabajoRealizado ?? '',
+          guardado: true,
+        }))
+      );
+    } catch {
+      setOrden(null);
+    }
+  };
+
+  const fetchPersonal = async () => {
+    try {
+      const res = await fetch(api('/personal'));
+      const data: Empleado[] = await res.json();
+      setPersonal(data);
+    } catch {
+      setPersonal([]);
+    }
+  };
+
+  fetchData();
+  fetchPersonal();
+}, [id, router]);
+
 // Actualizar campos de un registro (por fila)
   const updateRegistro = (index: number, campo: keyof RegistroTrabajo, valor: any) => {
     setRegistros((prev) =>
@@ -209,32 +217,52 @@ const fetchData = async () => {
   };
 
   // Guardar un registro
-  const guardarRegistro = async (index: number) => {
-    const r = registros[index];
-    if (!r.empleadoId || !r.fecha || !r.horas) {
-      alert('Faltan datos en la fila');
-      return;
-    }
+const guardarRegistro = async (index: number) => {
+  const r = registros[index];
+  if (!r.empleadoId || !r.fecha || (!r.horas && r.horas !== 0)) {
+    alert('Faltan datos en la fila');
+    return;
+  }
+  if (!r.rol) {
+    alert('Seleccioná el rol del empleado');
+    return;
+  }
+
+  try {
+    const body = {
+      empleadoId: Number(r.empleadoId),
+      fecha: r.fecha,
+      horas: Number(r.horas),
+      rol: r.rol, // 'TECNICO' | 'CERTIFICADOR'
+      trabajoRealizado: r.trabajoRealizado?.trim() || null,
+    };
 
     const res = await fetch(api(`/ordenes-trabajo/${id}/registro-trabajo`), {
       method: 'POST',
-      body: JSON.stringify(r),
       headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
     });
-
     if (!res.ok) {
-      alert('Error al guardar registro');
-      return;
+      const e = await res.json().catch(() => ({}));
+      throw new Error(e?.error || 'Error al guardar registro');
     }
+    const saved = await res.json();
 
-    const data = await res.json();
-    // Asegurar el formato del registro devuelto
     setRegistros((prev) =>
       prev.map((reg, idx) =>
-        idx === index ? { ...(Array.isArray(data) ? data[0] : data), guardado: true } : reg
+        idx === index ? { ...reg, id: saved.id, guardado: true } : reg
       )
     );
-  };
+
+    // refrescá la OT para que la lista y PDF queden al día
+    fetch(api(`/ordenes-trabajo/${id}`))
+      .then((r) => r.json())
+      .then((data: OrdenTrabajo) => setOrden(data));
+  } catch (err: any) {
+    alert(err.message || 'Error al guardar registro');
+  }
+};
+
 
   // Eliminar fila local (no en backend)
 const eliminarFila = async (index: number) => {
@@ -260,12 +288,13 @@ const eliminarFila = async (index: number) => {
 };
 
   // Agregar nueva fila vacía
-  const agregarFila = () => {
-    setRegistros((prev) => [
-      ...prev,
-      { empleadoId: '', fecha: '', horas: '', guardado: false },
-    ]);
-  };
+const filaVacia: RegistroTrabajo = { empleadoId: '', fecha: '', horas: '', rol: '', trabajoRealizado: '', guardado: false };
+
+const agregarFila = () => {
+  setRegistros((prev) => [...prev, { ...filaVacia }]);
+};
+
+
 
   // Guardar datos de factura (estado y número)
   const guardarFactura = async () => {
@@ -315,373 +344,22 @@ const certificadores = Array.from(
 );
 
 
-/*  return (
-    <div className="p-6 max-w-4xl mx-auto space-y-6">
-      <h1 className="text-2xl font-bold">Fase 4: Cierre y factura</h1>
-      <section className="bg-gray-50 border rounded p-4 space-y-2">
-  <h2 className="text-xl font-semibold">Resumen general</h2>
-<div className="space-y-3 bg-gray-100 p-4 rounded text-sm">
+// roles permitidos por empleado en esta OT
+const rolesPorEmpleado = new Map<number, Array<'TECNICO' | 'CERTIFICADOR'>>();
+(orden?.empleadosAsignados ?? []).forEach((ea) => {
+  const arr = rolesPorEmpleado.get(ea.empleadoId) ?? [];
+  if (!arr.includes(ea.rol)) arr.push(ea.rol);
+  rolesPorEmpleado.set(ea.empleadoId, arr);
+});
+const allowedRoles = (empleadoId: number | '') =>
+  empleadoId ? rolesPorEmpleado.get(Number(empleadoId)) ?? [] : [];
 
-  <p><strong>Tipo:</strong> {orden.avionId ? 'Avión' : 'Componente externo'}</p>
-
-  {orden.avion && (
-    <>
-      <p>
-        <strong>Avión:</strong>{' '}
-        <a
-          href={`/cruds/aviones/${orden.avion.id}`}
-          className="text-blue-600 underline"
-          target="_blank"
-        >
-          {orden.avion.matricula} - {orden.avion.marca} {orden.avion.modelo}
-        </a>
-      </p>
-
-      {renderCampo('Número de serie', orden.avion.numeroSerie)}
-      {orden.avion.TSN != null && <p><strong>TSN:</strong> {orden.avion.TSN} hs</p>}
-      {orden.avion.vencimientoMatricula && (
-        <p><strong>Vencimiento matrícula:</strong> {new Date(orden.avion.vencimientoMatricula).toLocaleDateString()}</p>
-      )}
-      {orden.avion.vencimientoSeguro && (
-        <p><strong>Vencimiento seguro:</strong> {new Date(orden.avion.vencimientoSeguro).toLocaleDateString()}</p>
-      )}
-      {orden.avion.certificadoMatricula && (
-        <div className="flex gap-4 items-center">
-          <a href={orden.avion.certificadoMatricula} target="_blank" className="text-blue-600 underline">Ver certificado de matrícula</a>
-          <a href={orden.avion.certificadoMatricula} download className="text-blue-600 underline">Descargar</a>
-        </div>
-      )}
-
-      {!!orden.avion.componentes?.length && (
-        <div>
-          <p className="font-semibold mt-2">Componentes instalados:</p>
-          <ul className="list-disc ml-5">
-            {orden.avion.componentes.map((c) => (
-              <li key={c.id}>
-                {c.tipo ?? '—'} - {c.marca ?? '—'} {c.modelo ?? ''}
-                {c.numeroSerie && ` (N° Serie: ${c.numeroSerie})`}
-                {c.TSN != null && ` — TSN: ${c.TSN} hs`}
-                {c.TSO != null && ` — TSO: ${c.TSO} hs`}
-                {c.TBOHoras != null && ` — TBO: ${c.TBOHoras} hs`}
-                {c.TBOFecha && ` — Fecha TBO: ${new Date(c.TBOFecha).toLocaleDateString()}`}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-    </>
-  )}
-
-  {orden.componente && (
-    <>
-      <p>
-        <strong>Componente externo:</strong>{' '}
-        <a
-          href={`/propietarios/${orden.componente.propietarioId}`}
-          className="text-blue-600 underline"
-          target="_blank"
-        >
-          {orden.componente.tipo} - {orden.componente.marca} {orden.componente.modelo}
-        </a>
-      </p>
-
-      {renderCampo('N° Serie', orden.componente.numeroSerie)}
-      {renderCampo('TSN', orden.componente.TSN)}
-      {renderCampo('TSO', orden.componente.TSO)}
-      {renderCampo('TBO', orden.componente.TBOHoras)}
-      {orden.componente.TBOFecha && (
-        <p><strong>Fecha TBO:</strong> {new Date(orden.componente.TBOFecha).toLocaleDateString()}</p>
-      )}
-
-      {orden.componente.propietario && (
-        <div className="mt-1">
-          <p className="font-semibold">Propietario:</p>
-          <p>
-            {orden.componente.propietario.tipoPropietario === 'PERSONA'
-              ? `${orden.componente.propietario.nombre} ${orden.componente.propietario.apellido}`
-              : `${orden.componente.propietario.nombreEmpresa} (${orden.componente.propietario.rut})`}
-          </p>
-        </div>
-      )}
-    </>
-  )}
-
-   <div className="mt-4 space-y-2 text-sm bg-gray-100 p-4 rounded"> 
-
-  {(orden.solicitud || orden.solicitadoPor || orden.OTsolicitud || orden.solicitudFirma) && (
-    <div className="mt-4 space-y-1">
-      <h3 className="text-lg font-semibold">Datos de la solicitud original</h3>
-      {renderCampo('Descripción del trabajo solicitado', orden.solicitud)}
-      {renderCampo('Solicitado por', orden.solicitadoPor)}
-      {renderCampo('N.º de OT previa', orden.OTsolicitud)}
-      {orden.solicitudFirma && (
-        <div className="flex gap-4 items-center">
-          <a href={orden.solicitudFirma} className="text-blue-600 underline" target="_blank">Ver archivo de solicitud</a>
-          <a href={orden.solicitudFirma} download className="text-blue-600 underline">Descargar</a>
-        </div>
-      )}
-    </div>
-  )}
-
-  {renderCampo('Inspección al recibir', orden.inspeccionRecibida ? 'Sí' : 'No')}
-  {renderCampo('Daños previos', orden.danosPrevios)}
-  {renderCampo('Acción tomada', orden.accionTomada)}
-  {renderCampo('Observaciones', orden.observaciones)}
-
-  {!!herramientasUnicas.length && (
-    <div>
-      <strong>Herramientas:</strong>
-      <ul className="list-disc ml-6">
-        {herramientasUnicas.map((h, i) => (
-          <li key={i}>
-            {h.herramienta.nombre}
-            {(h.herramienta.marca || h.herramienta.modelo) &&
-              ` (${h.herramienta.marca ?? ''} ${h.herramienta.modelo ?? ''})`}
-          </li>
-        ))}
-      </ul>
-    </div>
-  )}
-
-  {!!stockAgrupado && (
-    <div>
-      <strong>Stock:</strong>
-      <ul className="list-disc ml-6">
-        {Object.values(stockAgrupado).map((s, i) => (
-          <li key={i}>
-            {s.stock.nombre}
-            {(s.stock.marca || s.stock.modelo) &&
-              ` (${s.stock.marca ?? ''} ${s.stock.modelo ?? ''})`}
-            {' - '}
-            {s.cantidadUtilizada} unidad(es)
-          </li>
-        ))}
-      </ul>
-    </div>
-  )}
-
-  {!!orden.empleadosAsignados?.length && (
-    <div className="space-y-2">
-      {!!certificadores.length && (
-        <div>
-          <strong>Certificadores:</strong>
-          <ul className="list-disc ml-6">
-            {certificadores.map((e, i) => (
-              <li key={`cert-${i}`}>
-                {e.empleado.nombre} {e.empleado.apellido}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-      {!!tecnicos.length && (
-        <div>
-          <strong>Técnicos:</strong>
-          <ul className="list-disc ml-6">
-            {tecnicos.map((e, i) => (
-              <li key={`tec-${i}`}>
-                {e.empleado.nombre} {e.empleado.apellido}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-    </div>
-  )}
-</div>
-</div>
-
-
-</section>
-
-*/
-      {/* Registros */}
-
-/*
-      <section>
-        <div className="flex justify-between items-center">
-          <h2 className="text-xl font-semibold">Registro de trabajo</h2>
-          <button
-            onClick={agregarFila}
-            className="bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700"
-          >
-            Agregar fila
-          </button>
-        </div>
-
-        <div className="grid gap-3 mt-4">
-          {registros.map((r, i) => (
-            <div key={i} className="grid grid-cols-6 items-center gap-2">
-              <select
-                value={r.empleadoId}
-                onChange={(e) => updateRegistro(i, 'empleadoId', Number(e.target.value))}
-                className={`border rounded px-2 py-1 ${!r.empleadoId ? 'border-red-500' : ''}`}
-              >
-                <option value="">Seleccionar</option>
-              {orden.empleadosAsignados?.map((ea) => (
-              <option key={ea.empleadoId} value={ea.empleadoId}>
-                {ea.empleado.nombre} {ea.empleado.apellido}
-              </option>
-              ))}
-              </select>
-              <input
-                type="date"
-                value={r.fecha}
-                onChange={(e) => updateRegistro(i, 'fecha', e.target.value)}
-                className={`border rounded px-2 py-1 ${!r.fecha ? 'border-red-500' : ''}`}
-              />
-              <input
-                type="number"
-                step="0.5"
-                min={0}
-                value={r.horas}
-                onChange={(e) => updateRegistro(i, 'horas', e.target.value ? parseFloat(e.target.value) : '')}
-                className={`border rounded px-2 py-1 ${!r.horas ? 'border-red-500' : ''}`}
-              />
-              <button
-                onClick={() => guardarRegistro(i)}
-                className="px-2 py-1 rounded bg-green-500 text-white hover:bg-green-600"
-                title="Guardar registro"
-              >
-                💾
-              </button>
-              <button
-                onClick={() => eliminarFila(i)}
-                className="px-2 py-1 rounded bg-red-500 text-white hover:bg-red-600"
-                title="Eliminar fila"
-              >
-                🗑
-              </button>
-              {r.guardado && <span className="text-green-600">✔</span>}
-            </div>
-          ))}
-        </div>
-      </section>
-*/
-      {/* Factura */}
-
-/*
-      <section>
-        <h2 className="text-xl font-semibold mt-6">Factura</h2>
-
-        <label className="block font-medium mt-4 mb-1">Número de factura</label>
-        <input
-          className="border rounded w-full px-2 py-1"
-          value={numeroFactura}
-          onChange={(e) => setNumeroFactura(e.target.value)}
-        />
-
-        <label className="block font-medium mt-4 mb-1">Estado de factura</label>
-        <select
-          className="border rounded w-full px-2 py-1"
-          value={estadoFactura}
-          onChange={(e) =>
-            setEstadoFactura(
-              e.target.value as OrdenTrabajo['estadoFactura']
-            )
-          }
-        >
-          <option value="">— Seleccionar —</option>
-          <option value="NO_ENVIADA">No enviada</option>
-          <option value="ENVIADA">Enviada</option>
-          <option value="PAGA">Paga</option>
-        </select>
-
-       <div className="mt-6">
-  <button
-    onClick={() => setMostrarSubirFactura(true)}
-    className="bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700"
-  >
-    Subir archivo de factura
-  </button>
-  <SubirArchivo
-    open={mostrarSubirFactura}
-    onClose={() => setMostrarSubirFactura(false)}
-    url={api(`/ordenes-trabajo/${id}/factura`)}
-    label="Subir archivo de factura"
-    nombreCampo="archivoFactura"
-    onUploaded={() => {
-      setMostrarSubirFactura(false);
-      fetch(api(`/ordenes-trabajo/${id}`))
-        .then((res) => res.json())
-        .then((data: OrdenTrabajo) => setOrden(data));
-    }}
-  />
-  {orden.archivoFactura && (
-    <div className="mt-2">
-      Archivo actual:{' '}
-      <a
-        href={orden.archivoFactura}
-        className="text-blue-600 underline"
-        target="_blank"
-        rel="noopener noreferrer"
-      >
-        Ver archivo
-      </a>
-    </div>
-  )}
-</div>
-*/
-
-{/* Disposiciones finales */}
-
-/*
-      </section>
-      <div className="flex justify-between mt-8">
-  <button
-    onClick={() => window.location.href = `/ordenes-trabajo/${id}/fase3`}
-    className="text-blue-600 hover:underline"
-  >
-    ← Fase anterior
-  </button>
-
-<button
-  onClick={async () => {
-    const confirmar = confirm('¿Estás segura que querés cancelar esta orden de trabajo?');
-    if (!confirmar) return;
-
-    const res = await fetch(api(`/ordenes-trabajo/${id}/cancelar`), {
-      method: 'PUT',
-    });
-
-    if (res.ok) {
-      alert('Orden cancelada con éxito');
-      window.location.href = `/ordenes-trabajo/${id}/cancelada`;
-    } else {
-      alert('Error al cancelar la orden');
-    }
-  }}
-  className="bg-gray-600 text-white px-5 py-2 rounded hover:bg-gray-700 font-semibold shadow"
->
-  Cancelar orden
-</button>
-
-<button
-  onClick={async () => {
-    const confirmar = confirm('¿Estás segura que querés cerrar esta orden de trabajo? Esta acción no se puede deshacer.');
-    if (!confirmar) return;
-
-    const res = await fetch(api(`/ordenes-trabajo/${id}/cerrar`), {
-      method: 'PUT',
-    });
-
-    if (res.ok) {
-      alert('Orden cerrada con éxito');
-window.location.href = `/ordenes-trabajo/${id}/cerrada`;    } else {
-      alert('Error al cerrar la orden');
-    }
-  }}
-  className="bg-green-600 text-white px-5 py-2 rounded hover:bg-green-700 font-semibold shadow"
->
-  Cerrar orden de trabajo
-</button>
-
-</div>
-    </div>
-    
-  );
-  */
-
+// opciones de empleado SIN duplicados
+const opcionesEmpleado = Array.from(
+  new Map(
+    (orden?.empleadosAsignados ?? []).map((ea) => [ea.empleadoId, ea.empleado])
+  ).entries()
+).map(([id, emp]) => ({ id, nombre: `${emp.nombre} ${emp.apellido}` }));
 
 
 
@@ -924,21 +602,25 @@ return (
         emp: !r.empleadoId,
         fec: !r.fecha,
         hrs: !r.horas && r.horas !== 0,
+        rol: !r.rol,
       };
+      const roles = allowedRoles(r.empleadoId);
+
       return (
-        <div key={i} className="grid grid-cols-1 md:grid-cols-[1.2fr,0.9fr,0.7fr,auto,auto,auto] items-center gap-2">
+        <div
+          key={i}
+          className="grid grid-cols-1 md:grid-cols-[1.2fr,0.9fr,0.9fr,0.7fr,1.6fr,auto,auto,auto] items-center gap-2"
+        >
           {/* Empleado */}
           <select
             value={r.empleadoId}
-            onChange={(e) => updateRegistro(i, 'empleadoId', Number(e.target.value))}
+            onChange={(e) => updateRegistro(i, 'empleadoId', Number(e.target.value) || '')}
             className={`w-full rounded-xl border px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500
                        ${inval.emp ? 'border-rose-400' : 'border-slate-300'}`}
           >
             <option value="">— Seleccionar empleado —</option>
-            {(orden.empleadosAsignados ?? []).map((ea) => (
-              <option key={ea.empleadoId} value={ea.empleadoId}>
-                {ea.empleado.nombre} {ea.empleado.apellido}
-              </option>
+            {opcionesEmpleado.map((op) => (
+              <option key={op.id} value={op.id}>{op.nombre}</option>
             ))}
           </select>
 
@@ -950,6 +632,19 @@ return (
             className={`w-full rounded-xl border px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500
                        ${inval.fec ? 'border-rose-400' : 'border-slate-300'}`}
           />
+
+          {/* Rol */}
+          <select
+            value={r.rol}
+            onChange={(e) => updateRegistro(i, 'rol', e.target.value)}
+            disabled={!r.empleadoId}
+            className={`w-full rounded-xl border px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500
+                       ${inval.rol ? 'border-rose-400' : 'border-slate-300'} ${!r.empleadoId ? 'bg-slate-100 cursor-not-allowed' : ''}`}
+          >
+            <option value="">— Rol —</option>
+            {roles.includes('TECNICO') && <option value="TECNICO">Técnico</option>}
+            {roles.includes('CERTIFICADOR') && <option value="CERTIFICADOR">Certificador</option>}
+          </select>
 
           {/* Horas */}
           <input
@@ -963,6 +658,15 @@ return (
                        ${inval.hrs ? 'border-rose-400' : 'border-slate-300'}`}
           />
 
+          {/* Trabajo realizado (opcional, para el PDF) */}
+          <input
+            type="text"
+            value={r.trabajoRealizado ?? ''}
+            onChange={(e) => updateRegistro(i, 'trabajoRealizado', e.target.value)}
+            placeholder="Descripción breve del trabajo"
+            className="w-full rounded-xl border border-slate-300 px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
+          />
+
           {/* Guardar */}
           <button
             onClick={() => guardarRegistro(i)}
@@ -973,7 +677,7 @@ return (
             💾
           </button>
 
-          {/* Eliminar */}
+          {/* Eliminar fila */}
           <button
             onClick={() => eliminarFila(i)}
             title="Eliminar fila"
@@ -994,9 +698,7 @@ return (
 
   {/* Totales / hint */}
   <div className="mt-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-    <p className="text-sm text-slate-500">
-      Tip: podés cargar medias horas con “0.5”.
-    </p>
+    <p className="text-sm text-slate-500">Tip: podés cargar medias horas con “0.5”.</p>
     <p className="text-sm font-medium text-slate-700">
       Total horas: {registros.reduce((acc, r) => acc + (typeof r.horas === 'number' ? r.horas : 0), 0)}
     </p>

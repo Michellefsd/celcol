@@ -24,11 +24,16 @@ router.put('/:id/fase3', ordenTrabajoController.updateFase3);
 // 6. Subir archivo y datos de factura (fase 4)
 router.post('/:id/factura', uploadOrdenTrabajo, ordenTrabajoController.subirArchivoFactura);
 
+router.put('/:id/factura', ordenTrabajoController.guardarDatosFactura);
+
 // 7. Agregar registros de trabajo (fase 4)
-router.post('/:id/registro-trabajo', ordenTrabajoController.agregarRegistroTrabajo);
+router.post('/:id/registro-trabajo', ordenTrabajoController.crearRegistroTrabajo);
+
+// 7,5 Editar registro de trabajo
+router.put('/:id/registro-trabajo/:registroId', ordenTrabajoController.editarRegistroTrabajo);
 
 // 8. Eliminar registro de trabajo
-router.delete('/registro-trabajo/:registroId', ordenTrabajoController.eliminarRegistroTrabajo);
+router.delete('/:id/registro-trabajo/:registroId', ordenTrabajoController.eliminarRegistroTrabajo);
 
 // 9. Cerrar orden
 router.put('/:id/cerrar', ordenTrabajoController.cerrarOrden);
@@ -38,6 +43,7 @@ router.put('/:id/cancelar', ordenTrabajoController.cancelarOrden);
 
 // 11. Archivar orden
 router.put('/:id/archivar', ordenTrabajoController.archivarOrden);
+
 
 // 12. Descargar PDF de la orden
 router.get('/:id/pdf', ordenTrabajoController.descargarOrdenPDF);

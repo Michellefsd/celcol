@@ -3,6 +3,10 @@ const prisma = new PrismaClient();
 const cookie = require('cookie');
 const { hashPassword, verifyPassword } = require('../utils/password');
 const { signAccess, signRefresh, signInvite, verifyRefresh, newJti, REFRESH_TTL_SEC } = require('../utils/jwt');
+const argon2 = require('argon2');
+const { newResetToken, verifySecret } = require('../utils/passwordReset');
+const { sendPasswordReset } = require('../utils/mailer');
+
 
 function setRefreshCookie(res, token) {
   res.setHeader('Set-Cookie', cookie.serialize('rt', token, {
@@ -125,4 +129,68 @@ exports.me = async (req, res) => {
   const user = await prisma.usuario.findUnique({ where: { id } });
   if (!user) return res.status(404).json({ error: 'No encontrado' });
   return res.json({ id: user.id, email: user.email, rol: user.rol });
+};
+
+
+
+
+
+
+
+exports.forgotPassword = async (req, res) => {
+  const { email } = req.body || {};
+  // Responder 200 siempre (no revelar si existe o no)
+  try {
+    if (email) {
+      const user = await prisma.usuario.findUnique({ where: { email } });
+      if (user) {
+        await prisma.passwordReset.deleteMany({ where: { userId: user.id, usedAt: null } });
+        const { id, token, tokenHash } = await newResetToken();
+        const expires = new Date(Date.now() + 15 * 60 * 1000);
+        await prisma.passwordReset.create({
+          data: {
+            id, userId: user.id, tokenHash, expiresAt: expires,
+            ip: req.ip, userAgent: req.get('user-agent') || null,
+          },
+        });
+        const base = process.env.APP_BASE_URL || 'http://localhost:3000';
+        const url = `${base}/reset/${token}`;
+        await sendPasswordReset(email, url);
+      }
+    }
+    return res.json({ ok: true });
+  } catch (e) {
+    console.error('forgotPassword error', e);
+    return res.json({ ok: true });
+  }
+};
+
+exports.resetPassword = async (req, res) => {
+  const { token, password } = req.body || {};
+  if (!token || !password) return res.status(400).json({ error: 'Datos incompletos' });
+
+  try {
+    const [id, secret] = token.split('.');
+    if (!id || !secret) return res.status(400).json({ error: 'Token inválido' });
+
+    const pr = await prisma.passwordReset.findUnique({ where: { id } });
+    if (!pr) return res.status(400).json({ error: 'Token inválido' });
+    if (pr.usedAt) return res.status(400).json({ error: 'Token ya utilizado' });
+    if (pr.expiresAt < new Date()) return res.status(400).json({ error: 'Token expirado' });
+
+    const ok = await verifySecret(pr.tokenHash, secret);
+    if (!ok) return res.status(400).json({ error: 'Token inválido' });
+
+    const newHash = await argon2.hash(password, { type: 2 });
+    await prisma.usuario.update({
+      where: { id: pr.userId },
+      data: { hash: newHash, refreshJti: null },
+    });
+    await prisma.passwordReset.update({ where: { id }, data: { usedAt: new Date() } });
+
+    return res.json({ ok: true });
+  } catch (e) {
+    console.error('resetPassword error', e);
+    return res.status(500).json({ error: 'Server error' });
+  }
 };

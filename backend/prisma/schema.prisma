@@ -36,6 +36,11 @@ enum EstadoOrden {
   CANCELADA
 }
 
+enum RolEmpleado {
+  TECNICO
+  CERTIFICADOR
+}
+
 enum RolEmpleadoAsignado {
   TECNICO
   CERTIFICADOR
@@ -185,6 +190,23 @@ model Stock {
   archivo          String? ////// ARCHIVO.  ////
   avisos           Aviso[]      @relation("StockAvisos")
   archivado        Boolean      @default(false)
+
+  facturas         FacturaStock[] @relation("StockFacturas")
+}
+
+model FacturaStock {
+  id        Int      @id @default(autoincrement())
+  stockId   Int
+  stock     Stock    @relation("StockFacturas", fields: [stockId], references: [id], onDelete: Cascade)
+
+  numero    String?  @db.VarChar(64)
+  proveedor String?  @db.VarChar(128)
+  fecha     DateTime?
+  monto     Decimal? @db.Decimal(12, 2)
+  moneda    String?  @db.VarChar(8)
+
+  archivo   String   // ruta "uploads/..."
+  creadoEn  DateTime @default(now())
 }
 
 model OrdenTrabajo {
@@ -232,6 +254,8 @@ model EmpleadoAsignado {
   empleado   Empleado             @relation(fields: [empleadoId], references: [id])
   empleadoId Int
   rol        RolEmpleadoAsignado?
+
+  @@unique([ordenId, empleadoId, rol])
 }
 
 model OrdenStock {
@@ -252,21 +276,27 @@ model OrdenHerramienta {
 }
 
 model RegistroDeTrabajo {
-  id         Int          @id @default(autoincrement())
-  orden      OrdenTrabajo @relation(fields: [ordenId], references: [id])
-  ordenId    Int
-  empleado   Empleado     @relation(fields: [empleadoId], references: [id])
-  empleadoId Int
-  fecha      DateTime
-  horas      Float
+  id               Int          @id @default(autoincrement())
+  ordenId          Int
+  empleadoId       Int
+  fecha            DateTime
+  horas            Float
+  trabajoRealizado String?      // opcional
+  rol              RolEmpleado  @default(TECNICO) // default para backfill automático
+
+  orden    OrdenTrabajo @relation(fields: [ordenId], references: [id], onDelete: Cascade)
+  empleado Empleado     @relation(fields: [empleadoId], references: [id])
+
+  @@index([ordenId, fecha])
+  @@index([empleadoId, fecha])
 }
 
 model Aviso {
-  id       Int      @id @default(autoincrement())
-  mensaje  String
-  tipo     String
-  leido    Boolean  @default(false)
-  creadoEn DateTime @default(now())
+  id         Int      @id @default(autoincrement())
+  mensaje    String
+  tipo       String
+  leido      Boolean  @default(false)
+  creadoEn   DateTime @default(now())
 
   herramientaId Int?
   herramienta   Herramienta? @relation("HerramientaAvisos", fields: [herramientaId], references: [id])
@@ -276,7 +306,15 @@ model Aviso {
 
   avion   Avion? @relation("AvisosDelAvion", fields: [avionId], references: [id])
   avionId Int?
+
+  // Evita duplicados del mismo “tipo” por avión
+  @@unique([tipo, avionId], name: "tipo_avionId")
+
+  // (Opcional) si querés evitar duplicados también por herramienta/stock:
+  // @@unique([tipo, herramientaId], name: "tipo_herramientaId")
+  // @@unique([tipo, stockId], name: "tipo_stockId")
 }
+
 
 model Usuario {
   id            Int           @id @default(autoincrement())
@@ -291,8 +329,9 @@ model Usuario {
   actualizadoEn DateTime      @updatedAt
   refreshJti    String?
 
-  empleado   Empleado?    @relation(fields: [empleadoId], references: [id])
-  LoginAudit LoginAudit[]
+  empleado       Empleado?       @relation(fields: [empleadoId], references: [id])
+  LoginAudit     LoginAudit[]
+  passwordResets PasswordReset[] @relation("UsuarioPasswordResets")
 }
 
 model LoginAudit {
@@ -305,4 +344,19 @@ model LoginAudit {
   creadoEn  DateTime @default(now())
 
   usuario Usuario? @relation(fields: [usuarioId], references: [id])
+}
+
+model PasswordReset {
+  id        String    @id @default(cuid()) // selector
+  userId    Int
+  user      Usuario   @relation("UsuarioPasswordResets", fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String // hash del secreto
+  expiresAt DateTime
+  usedAt    DateTime?
+  ip        String?
+  userAgent String?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
 }

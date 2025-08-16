@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const { subirArchivoGenerico } = require('../utils/archivoupload');
 
-// LISTAR TODAS
+
 // LISTAR TODAS
 exports.listarHerramientas = async (req, res) => {
   try {

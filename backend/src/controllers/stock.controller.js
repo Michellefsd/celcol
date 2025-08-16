@@ -1,7 +1,11 @@
 const fs = require('fs');
 const { PrismaClient } = require('@prisma/client');
 const sharp = require('sharp');
-const { subirArchivoGenerico } = require('../utils/archivoupload'); // al inicio del archivo
+const { subirArchivoGenerico } = require('../utils/archivoupload'); 
+const path = require('path');
+
+
+
 
 // Prisma con logs detallados
 const prisma = new PrismaClient({
@@ -313,3 +317,142 @@ exports.subirImagenStock = async (req, res) => {
   }
 };
 
+
+
+
+
+
+// Listado de facturas vinculadas a un item de stock
+// (para mostrar en detalle del producto)
+
+
+// LISTAR
+exports.listarPorStock = async (req, res) => {
+  const stockId = parseInt(req.params.id);
+  try {
+    const [stock, facturas] = await Promise.all([
+      prisma.stock.findUnique({ where: { id: stockId } }),
+      prisma.facturaStock.findMany({
+        where: { stockId },
+        orderBy: { creadoEn: 'desc' },
+      }),
+    ]);
+
+    // Compatibilidad temporal: si sigue existiendo Stock.archivo, lo expongo como "legacy"
+    if (stock?.archivo) {
+      facturas.unshift({
+        id: `legacy-${stockId}`,
+        stockId,
+        numero: null,
+        proveedor: null,
+        fecha: stock.fechaIngreso ?? null,
+        monto: null,
+        moneda: null,
+        archivo: stock.archivo,
+        creadoEn: stock.fechaIngreso ?? new Date(),
+        legacy: true,
+      });
+    }
+
+    res.json(facturas);
+  } catch (e) {
+    console.error('Error listando facturas de stock:', e);
+    res.status(500).json({ error: 'No se pudieron obtener las facturas' });
+  }
+};
+
+// CREAR
+exports.crear = async (req, res) => {
+  const stockId = parseInt(req.params.id);
+  const file = req.file; // uploadUnico.single('archivo')
+  const { numero, proveedor, fecha, monto, moneda } = req.body;
+
+  if (!file) return res.status(400).json({ error: 'Debe adjuntar un archivo' });
+
+  try {
+    const existe = await prisma.stock.findUnique({ where: { id: stockId } });
+    if (!existe) return res.status(404).json({ error: 'Stock no encontrado' });
+
+    const nuevo = await prisma.facturaStock.create({
+      data: {
+        stockId,
+        numero: numero || null,
+        proveedor: proveedor || null,
+        fecha: fecha ? new Date(fecha) : null,
+        monto: monto ? Number(monto) : null,
+        moneda: moneda || null,
+        archivo: `uploads/${file.filename}`,
+      },
+    });
+
+    res.status(201).json(nuevo);
+  } catch (e) {
+    console.error('Error creando factura de stock:', e);
+    res.status(500).json({ error: 'No se pudo crear la factura' });
+  }
+};
+
+// ELIMINAR
+exports.eliminar = async (req, res) => {
+  const facturaId = req.params.facturaId;
+  try {
+    // Soporte "legacy"
+    if (String(facturaId).startsWith('legacy-')) {
+      const stockId = parseInt(String(facturaId).split('legacy-')[1]);
+      const stock = await prisma.stock.findUnique({ where: { id: stockId } });
+      if (!stock || !stock.archivo) return res.status(404).json({ error: 'Factura legacy no encontrada' });
+
+      const absPath = path.join(__dirname, '..', '..', stock.archivo);
+      if (fs.existsSync(absPath)) fs.unlinkSync(absPath);
+
+      await prisma.stock.update({ where: { id: stockId }, data: { archivo: null } });
+      return res.json({ mensaje: 'Factura legacy eliminada' });
+    }
+
+    // Normal
+    const id = parseInt(facturaId);
+    const factura = await prisma.facturaStock.findUnique({ where: { id } });
+    if (!factura) return res.status(404).json({ error: 'Factura no encontrada' });
+
+    const absPath = path.join(__dirname, '..', '..', factura.archivo);
+    if (fs.existsSync(absPath)) fs.unlinkSync(absPath);
+
+    await prisma.facturaStock.delete({ where: { id } });
+    res.json({ mensaje: 'Factura eliminada' });
+  } catch (e) {
+    console.error('Error eliminando factura de stock:', e);
+    res.status(500).json({ error: 'No se pudo eliminar la factura' });
+  }
+};
+
+exports.actualizar = async (req, res) => {
+  const id = parseInt(req.params.facturaId);
+  const { numero, proveedor, fecha, monto, moneda } = req.body;
+
+  // No permitir actualizar “legacy”
+  if (Number.isNaN(id)) {
+    return res.status(400).json({ error: 'ID de factura inválido' });
+  }
+
+  try {
+    const existe = await prisma.facturaStock.findUnique({ where: { id } });
+    if (!existe) return res.status(404).json({ error: 'Factura no encontrada' });
+
+    const actualizado = await prisma.facturaStock.update({
+      where: { id },
+      data: {
+        numero: numero ?? null,
+        proveedor: proveedor ?? null,
+        fecha: fecha ? new Date(fecha) : null,
+        // Para Decimal en Prisma, usar string o null es lo más seguro
+        monto: (monto !== undefined && monto !== '' && monto !== null) ? String(monto) : null,
+        moneda: moneda ?? null,
+      },
+    });
+
+    res.json(actualizado);
+  } catch (e) {
+    console.error('Error actualizando factura de stock:', e);
+    res.status(500).json({ error: 'No se pudo actualizar la factura' });
+  }
+};

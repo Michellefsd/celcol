@@ -489,90 +489,93 @@ return (
       </div>
 
       {/* Modal */}
-      {showModal && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white shadow-xl">
-            <div className="p-6">
-              <h2 className="text-xl font-semibold text-slate-900 mb-4">
-                {editing ? 'Editar' : 'Crear'} {title}
-              </h2>
+{/* Modal */}
+{showModal && (
+  <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 backdrop-blur-sm p-4">
+    <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white shadow-xl flex flex-col">
+      {/* Header */}
+      <div className="px-6 pt-6">
+        <h2 className="text-xl font-semibold text-slate-900">
+          {editing ? 'Editar' : 'Crear'} {title}
+        </h2>
+      </div>
 
-              {formFields
-                .filter((field) => {
-                  const tipoPropietarioActual = (form as { tipoPropietario?: string })?.tipoPropietario;
-                  if (!tipoPropietarioActual) return true;
-                  if (['nombreEmpresa', 'rut'].includes(field.name)) {
-                    return tipoPropietarioActual === 'INSTITUCION';
-                  }
-                  if (['nombre', 'apellido'].includes(field.name)) {
-                    return tipoPropietarioActual === 'PERSONA';
-                  }
-                  return true;
-                })
-                .map((field) => (
-                  <div key={field.name} className="mb-4">
-                    <label className="block text-sm font-medium text-slate-700 mb-1">
-                      {field.label}
-                      {field.required && <span className="text-rose-600 ml-1">*</span>}
-                    </label>
+      {/* Body scrolleable */}
+      <div className="px-6 py-4 max-h-[70vh] overflow-y-auto">
+        {formFields
+          .filter((field) => {
+            const tipoPropietarioActual = (form as { tipoPropietario?: string })?.tipoPropietario;
+            if (!tipoPropietarioActual) return true;
+            if (['nombreEmpresa', 'rut'].includes(field.name)) return tipoPropietarioActual === 'INSTITUCION';
+            if (['nombre', 'apellido'].includes(field.name)) return tipoPropietarioActual === 'PERSONA';
+            return true;
+          })
+          .map((field) => (
+            <div key={field.name} className="mb-4">
+              <label className="block text-sm font-medium text-slate-700 mb-1">
+                {field.label}
+                {field.required && <span className="text-rose-600 ml-1">*</span>}
+              </label>
 
-                    {field.type === 'select' ? (
-                      <select
-                        name={field.name}
-                        value={form[field.name as keyof T]?.toString() ?? ''}
-                        onChange={handleChange}
-                        className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-800
-                                   focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
-                        aria-required={field.required ? 'true' : 'false'}
-                      >
-                        <option value="">Seleccionar...</option>
-                        {field.options?.map((opt) => (
-                          <option key={opt.value} value={opt.value}>
-                            {opt.label}
-                          </option>
-                        ))}
-                      </select>
-                    ) : (
-                      <input
-                        name={field.name}
-                        type={field.type}
-                        value={field.type === 'checkbox' ? undefined : form[field.name as keyof T]?.toString() ?? ''}
-                        checked={field.type === 'checkbox' ? Boolean(form[field.name as keyof T]) : undefined}
-                        onChange={handleChange}
-                        className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-800
-                                   focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
-                        aria-required={field.required ? 'true' : 'false'}
-                      />
-                    )}
-                  </div>
-                ))}
-
-              <div className="mt-6 flex justify-end gap-2">
-                <button
-                  onClick={() => setShowModal(false)}
-                  className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white
-                             px-5 py-2.5 text-slate-700 hover:bg-slate-50 hover:border-slate-400
-                             transform hover:scale-[1.02] transition-all duration-200"
+              {field.type === 'select' ? (
+                <select
+                  name={field.name}
+                  value={form[field.name as keyof T]?.toString() ?? ''}
+                  onChange={handleChange}
+                  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-800
+                             focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
+                  aria-required={field.required ? 'true' : 'false'}
                 >
-                  Cancelar
-                </button>
-
-                <button
-                  onClick={handleSubmit}
-                  className="inline-flex items-center justify-center rounded-xl
-                             bg-gradient-to-r from-[#597BFF] to-[#4a6ee0] text-white
-                             font-semibold px-6 py-2.5 shadow-sm
-                             hover:from-[#4a6ee0] hover:to-[#3658d4]
-                             hover:shadow-lg hover:brightness-110
-                             transform hover:scale-[1.03] transition-all duration-300"
-                >
-                  Guardar
-                </button>
-              </div>
+                  <option value="">Seleccionar...</option>
+                  {field.options?.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  name={field.name}
+                  type={field.type}
+                  value={field.type === 'checkbox' ? undefined : form[field.name as keyof T]?.toString() ?? ''}
+                  checked={field.type === 'checkbox' ? Boolean(form[field.name as keyof T]) : undefined}
+                  onChange={handleChange}
+                  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-800
+                             focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
+                  aria-required={field.required ? 'true' : 'false'}
+                />
+              )}
             </div>
-          </div>
-        </div>
-      )}
+          ))}
+      </div>
+
+      {/* Footer fijo */}
+      <div className="px-6 pb-6 pt-2 border-t border-slate-200 flex justify-end gap-2">
+        <button
+          onClick={() => setShowModal(false)}
+          className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white
+                     px-5 py-2.5 text-slate-700 hover:bg-slate-50 hover:border-slate-400
+                     transform hover:scale-[1.02] transition-all duration-200"
+        >
+          Cancelar
+        </button>
+
+        <button
+          onClick={handleSubmit}
+          className="inline-flex items-center justify-center rounded-xl
+                     bg-gradient-to-r from-[#597BFF] to-[#4a6ee0] text-white
+                     font-semibold px-6 py-2.5 shadow-sm
+                     hover:from-[#4a6ee0] hover:to-[#3658d4]
+                     hover:shadow-lg hover:brightness-110
+                     transform hover:scale-[1.03] transition-all duration-300"
+        >
+          Guardar
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+
     </div>
   </div>
 );

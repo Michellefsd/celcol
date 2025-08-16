@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import BaseCard from '@/components/BaseCard';
 import BaseHeading from '@/components/BaseHeading';
+import Link from 'next/link';
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -58,7 +59,9 @@ export default function LoginPage() {
             </div>
 
             {err && <div className="text-red-600 text-sm">{err}</div>}
-
+<Link href="/reset" className="text-sm text-cyan-700 hover:underline">
+  Olvidé mi contraseña
+</Link>
             <button
               type="submit"
               disabled={loading}

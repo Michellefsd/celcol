@@ -42,8 +42,6 @@ const avion = await prisma.avion.create({
   }
 });
 
-await crearAvisoPorAvionSinPropietario(avion, prisma); 
-
     res.json(avion);
   } catch (error) {
     console.error('Error al crear avión:', error);
@@ -308,12 +306,14 @@ await crearAvisoPorAvionSinPropietario(avionConPropietarios, prisma);
   }
 };
 
-// Subir certificado de matrícula
-exports.subirCertificadoMatricula = (req, res) =>
-  subirArchivoGenerico({
+// SUBIR CERTIFICADO DE MATRÍCULA
+exports.subirCertificadoMatricula = (req, res) => {
+  return subirArchivoGenerico({
     req,
     res,
     modeloPrisma: prisma.avion,
-    campoArchivo: 'certificadoMatricula',
+    campoArchivo: 'certificadoMatricula', // <-- DEBE matchear el name del multer
     nombreRecurso: 'Avión',
+    campoParam: 'id', // <-- usa :id de la ruta /aviones/:id/certificadoMatricula
   });
+};

@@ -13,6 +13,7 @@ interface RegistroDeTrabajo {
   ordenId: number;
   solicitud: string;
   rol: 'TECNICO' | 'CERTIFICADOR' | 'NO_ESPECIFICADO';
+  trabajoRealizado?: string | null;   // <- NUEVO
 }
 
 
@@ -79,6 +80,12 @@ export default function EmpleadoRegistrosPage() {
   return ['pdf', 'jpg', 'jpeg', 'png', 'webp'].includes(extension || '');
 };
 
+const urlCarne = empleado?.carneSalud?.startsWith('http')
+  ? empleado.carneSalud
+  : empleado?.carneSalud
+  ? api(`/${empleado.carneSalud}`)
+  : '';
+
 
 useEffect(() => {
   if (!empleadoId) return;
@@ -107,155 +114,6 @@ useEffect(() => {
 }, [empleadoId]);
 
 
-/*  return (
-    <div>
-      <VolverAtras texto="Volver a la lista de empleados" />
-      
-      <h1 className="text-2xl font-bold mb-6">Detalles del Empleado</h1>  
-    <div className="p-4 space-y-6">
-      {empleado && (
-        <div className="border p-4 rounded shadow bg-white space-y-4">
-          <h1 className="text-2xl font-bold">{empleado.nombre} {empleado.apellido}</h1>
-          <p className="text-sm text-gray-600">
-            {empleado.esCertificador ? '✅ Certificador' : ''} {empleado.esTecnico ? '✅ Técnico' : ''}
-          </p>
-
-          <div className="space-y-1 text-sm text-gray-700">
-            <p><strong>Teléfono:</strong> {empleado.telefono}</p>
-            <p><strong>Email:</strong> {empleado.email}</p>
-            <p><strong>Dirección:</strong> {empleado.direccion}</p>
-            <p><strong>Licencia:</strong> {empleado.tipoLicencia} - {empleado.numeroLicencia}</p>
-            <p><strong>Vencimiento:</strong> {empleado.vencimientoLicencia?.slice(0, 10)}</p>
-            <p><strong>Fecha de alta:</strong> {empleado.fechaAlta?.slice(0, 10)}</p>
-          </div>
-
-          {empleado.carneSalud ? (
-  <div className="pt-4 space-y-2">
-    <h2 className="font-semibold">Carné de salud</h2>
-
-    <div className="flex flex-wrap gap-4 mt-2">
-      {esVisualizableEnNavegador(empleado.carneSalud) && (
-        <a
-          href={empleado.carneSalud}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="bg-gray-100 text-blue-600 px-4 py-2 rounded-lg text-sm border border-gray-300 hover:bg-gray-200 transition"
-        >
-          Ver carné
-        </a>
-      )}
-
-      <a
-        href={empleado.carneSalud}
-        download
-        target="_blank"
-        rel="noopener noreferrer"
-        className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700 transition"
-      >
-        Descargar carné
-      </a>
-
-      <button
-        onClick={() => setMostrarSubirCarne(true)}
-        className="text-sm text-blue-600 underline"
-      >
-        Reemplazar carné
-      </button>
-    </div>
-  </div>
-) : (
-  <div className="pt-4">
-    <button
-      onClick={() => setMostrarSubirCarne(true)}
-      className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700 transition"
-    >
-      Subir carné de salud
-    </button>
-  </div>
-)}
-
-*/
-          {/* 🧾 MODAL SUBIDA */}
-  /*
-  
-  <SubirArchivo
-            open={mostrarSubirCarne}
-            onClose={() => setMostrarSubirCarne(false)}
-            url={api(`/personal/${empleado.id}/carneSalud`)}
-            label="Subir carné de salud"
-            nombreCampo="carneSalud"
-            onUploaded={fetchEmpleado}
-          />
-        </div>
-      )}
-*/
-
-
-      {/* 📊 REGISTROS DE TRABAJO */}
-/*
-
-
-<div className="border p-4 rounded shadow bg-white">
-        <h2 className="text-xl font-semibold mb-2">Registros de trabajo</h2>
-
-        <div className="flex gap-4 items-end mb-4">
-          <div>
-            <label className="block text-sm">Desde</label>
-            <input type="date" value={desde} onChange={e => setDesde(e.target.value)} className="input" />
-          </div>
-          <div>
-            <label className="block text-sm">Hasta</label>
-            <input type="date" value={hasta} onChange={e => setHasta(e.target.value)} className="input" />
-          </div>
-          <button onClick={cargarRegistros} className="btn-primary">Filtrar</button>
-        </div>
-
-        <table className="w-full text-sm border">
-          <thead>
-            <tr className="bg-gray-100">
-              <th className="border px-2 py-1">Fecha</th>
-              <th className="border px-2 py-1">Horas</th>
-              <th className="border px-2 py-1">Orden ID</th>
-              <th className="border px-2 py-1">Solicitud</th>
-              <th className="border px-2 py-1">Rol</th>
-            </tr>
-          </thead>
-          <tbody>
-            {registros.map(r => (
-              <tr key={r.id}>
-                <td className="border px-2 py-1">{r.fecha.slice(0, 10)}</td>
-                <td className="border px-2 py-1">{r.horas}</td>
-                <td className="border px-2 py-1">{r.ordenId}</td>
-                <td className="border px-2 py-1">{r.solicitud}</td>
-                <td className="border px-2 py-1">{r.rol}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-
-        <p className="mt-4 font-semibold">Total de horas: {totalHoras}</p>
-
-        <button
-  onClick={() => {
-    const url = api(`/personal/${empleadoId}/registros-trabajo/pdf?desde=${desde}&hasta=${hasta}`);
-    window.open(url, '_blank');
-  }}
-  className="mt-4 bg-green-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-green-700 transition"
->
-  Descargar PDF
-</button>
-
-      </div>
-    </div>
-    </div>
-  );
-  */
-
-
-
-
-
-
 
   return (
   <div className="min-h-screen bg-slate-100">
@@ -267,10 +125,33 @@ useEffect(() => {
       {empleado && (
         <section className="rounded-2xl border border-slate-200 bg-white shadow-sm p-6 space-y-4">
           <h2 className="text-xl font-semibold">{empleado.nombre} {empleado.apellido}</h2>
-          <p className="text-sm text-slate-600">
-            {empleado.esCertificador && '✅ Certificador '}
-            {empleado.esTecnico && '✅ Técnico'}
-          </p>
+          {/* Habilitaciones del empleado */}
+<div className="flex flex-wrap items-center gap-2 text-sm">
+  {empleado.esTecnico && (
+    <span className="inline-flex items-center rounded-full border px-2 py-0.5 border-emerald-300 text-emerald-700">
+      TÉCNICO habilitado
+    </span>
+  )}
+  {empleado.esCertificador && (
+    <span className="inline-flex items-center rounded-full border px-2 py-0.5 border-indigo-300 text-indigo-700">
+      CERTIFICADOR habilitado
+    </span>
+  )}
+  {!empleado.esTecnico && !empleado.esCertificador && (
+    <span className="text-slate-500">Sin habilitaciones registradas</span>
+  )}
+</div>
+
+{/* Aviso sobre reglas de rol */}
+<div className="mt-3 rounded-xl border border-amber-300 bg-amber-50 p-3 text-amber-900 text-sm leading-6">
+  <p>
+    Este empleado puede asignarse como <strong>TÉCNICO</strong> y como <strong>CERTIFICADOR</strong> en la misma OT.
+    Lo que <strong>no</strong> se permite es duplicarlo dentro del <strong>mismo</strong> rol.
+  </p>
+  <p className="mt-1">
+    Para registrar horas con un rol, primero debe estar asignado a la OT con ese rol en Fase 3.
+  </p>
+</div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-1 text-sm">
             <p><span className="text-slate-500">Teléfono:</span> {empleado.telefono}</p>
@@ -282,14 +163,16 @@ useEffect(() => {
           </div>
 
           {/* Carné de salud */}
+          
           <div className="pt-4">
             {empleado.carneSalud ? (
               <div className="space-y-2">
                 <h3 className="font-semibold">Carné de salud</h3>
                 <div className="flex flex-wrap gap-3">
-                  {esVisualizableEnNavegador(empleado.carneSalud) && (
+                 {esVisualizableEnNavegador(urlCarne) && (
                     <a
-                      href={empleado.carneSalud}
+href={urlCarne}
+
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-1 text-cyan-600 hover:text-cyan-800 underline underline-offset-2"
@@ -298,7 +181,7 @@ useEffect(() => {
                     </a>
                   )}
                   <a
-                    href={empleado.carneSalud}
+                    href={urlCarne}
                     download
                     target="_blank"
                     rel="noopener noreferrer"
@@ -358,26 +241,46 @@ useEffect(() => {
 
         <div className="overflow-x-auto">
           <table className="w-full text-sm border border-slate-200 rounded-lg overflow-hidden">
-            <thead>
-              <tr className="bg-slate-50 text-slate-600">
-                <th className="border px-2 py-1">Fecha</th>
-                <th className="border px-2 py-1">Horas</th>
-                <th className="border px-2 py-1">Orden ID</th>
-                <th className="border px-2 py-1">Solicitud</th>
-                <th className="border px-2 py-1">Rol</th>
-              </tr>
-            </thead>
-            <tbody>
-              {registros.map(r => (
-                <tr key={r.id} className="hover:bg-slate-50">
-                  <td className="border px-2 py-1">{r.fecha.slice(0, 10)}</td>
-                  <td className="border px-2 py-1">{r.horas}</td>
-                  <td className="border px-2 py-1">{r.ordenId}</td>
-                  <td className="border px-2 py-1">{r.solicitud}</td>
-                  <td className="border px-2 py-1">{r.rol}</td>
-                </tr>
-              ))}
-            </tbody>
+           <thead>
+  <tr className="bg-slate-50 text-slate-600">
+    <th className="border px-2 py-1">Fecha</th>
+    <th className="border px-2 py-1">Horas</th>
+    <th className="border px-2 py-1">Orden ID</th>
+    <th className="border px-2 py-1">Solicitud</th>
+    <th className="border px-2 py-1">Rol</th>
+    <th className="border px-2 py-1">Trabajo realizado</th> {/* NUEVO */}
+  </tr>
+</thead>
+<tbody>
+  {registros.length === 0 ? (
+    <tr>
+      <td className="border px-2 py-3 text-center text-slate-500" colSpan={6}>
+        Sin registros en el rango seleccionado
+      </td>
+    </tr>
+  ) : (
+    registros.map(r => (
+      <tr key={r.id} className="hover:bg-slate-50">
+        <td className="border px-2 py-1">{r.fecha.slice(0, 10)}</td>
+        <td className="border px-2 py-1">{r.horas}</td>
+        <td className="border px-2 py-1">{r.ordenId}</td>
+        <td className="border px-2 py-1">{r.solicitud}</td>
+        <td className="border px-2 py-1">{r.rol}</td>
+        <td className="border px-2 py-1">
+          {/* muestra entero, con salto de línea si es largo, y tooltip al pasar */}
+          <div
+            className="max-w-[520px] whitespace-pre-wrap break-words"
+            title={r.trabajoRealizado || ''}
+          >
+            {r.trabajoRealizado || '—'}
+          </div>
+        </td>
+      </tr>
+    ))
+  )}
+</tbody>
+
+
           </table>
         </div>
 

@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const stockController = require('../controllers/stock.controller');
 const { uploadStock } = require('../../middleware/upload.middleware');
+const facturaStockController = require('../controllers/stock.controller');
+const { uploadUnico } = require('../../middleware/upload.middleware');
 
 // Crear producto de stock con imagen y factura
 router.post('/', uploadStock, stockController.crearStock);
@@ -23,6 +25,14 @@ router.patch('/archivar/:id', stockController.archivarStock);
 
 // Subir factura PDF (archivo)
 router.post('/:id/archivo', uploadStock, stockController.subirArchivoStock);
+
+
+// Facturas vinculadas a un item de stock
+router.get('/:id/facturas', facturaStockController.listarPorStock);
+router.post('/:id/facturas', uploadUnico, facturaStockController.crear);
+router.delete('/facturas/:facturaId', facturaStockController.eliminar);
+router.put('/facturas/:facturaId', facturaStockController.actualizar);
+
 
 // Subir imagen optimizada
 router.post('/:id/imagen', uploadStock, stockController.subirImagenStock);

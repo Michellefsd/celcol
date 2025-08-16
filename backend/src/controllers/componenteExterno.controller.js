@@ -2,6 +2,7 @@ const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const fs = require('fs');
 const path = require('path');
+const { subirArchivoGenerico } = require('../utils/archivoupload');
 
 // LISTAR
 exports.listarComponentesExternos = async (req, res) => {
@@ -141,7 +142,7 @@ if (componenteActual.archivado) {
 };
 
 // SUBIR ARCHIVO 8130 (por separado y reemplazando si ya existe)
-exports.subirArchivo8130 = async (req, res) => {
+/*exports.subirArchivo8130 = async (req, res) => {
   const componenteId = parseInt(req.params.componenteId);
   const archivo = req.file;
 
@@ -173,6 +174,18 @@ exports.subirArchivo8130 = async (req, res) => {
     res.status(500).json({ error: 'Error al subir el archivo 8130' });
   }
 };
+*/
+
+// SUBIR ARCHIVO 8130 usando función genérica
+exports.subirArchivo8130 = (req, res) =>
+  subirArchivoGenerico({
+    req,
+    res,
+    modeloPrisma: prisma.componenteExterno,
+    campoArchivo: 'archivo8130',
+    nombreRecurso: 'Componente externo',
+  });
+
 
 // ELIMINAR COMPONENTE
 {/*exports.eliminarComponenteExterno = async (req, res) => {

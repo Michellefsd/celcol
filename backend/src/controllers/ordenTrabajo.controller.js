@@ -8,7 +8,7 @@ const fs = require('fs');
 
 // 1. Listar todas las órdenes
 exports.getAllOrdenes = async (req, res) => {
-  try {
+try {
     const ordenes = await prisma.ordenTrabajo.findMany({
       include: {
         avion: true,
@@ -16,7 +16,13 @@ exports.getAllOrdenes = async (req, res) => {
         empleadosAsignados: { include: { empleado: true } },
         herramientas: { include: { herramienta: true } },
         stockAsignado: { include: { stock: true } },
-        registrosTrabajo: true,
+        registrosTrabajo: {
+          orderBy: { fecha: 'asc' },
+          select: {
+            id: true, empleadoId: true, fecha: true, horas: true,
+            trabajoRealizado: true, rol: true
+          }
+        },
       },
       orderBy: { fechaApertura: 'desc' },
     });
@@ -60,8 +66,15 @@ exports.getOrdenById = async (req, res) => {
           },
         },
         registrosTrabajo: {
-          include: {
-            empleado: true, // ✅ necesario
+          orderBy: { fecha: 'asc' },
+          select: {
+            id: true,
+            empleadoId: true,
+            fecha: true,
+            horas: true,
+            trabajoRealizado: true,
+            rol: true,
+            empleado: { select: { id: true, nombre: true, apellido: true } },
           },
         },
       },
@@ -123,11 +136,13 @@ exports.createOrden = async (req, res) => {
         archivoFactura,
         estadoFactura,
 
-        empleadosAsignados: {
-          create: empleados?.map((e) => ({
-            empleado: { connect: { id: e.id } },
-          })),
-        },
+      empleadosAsignados: {
+        create: empleados?.map((e) => ({
+          empleado: { connect: { id: e.id } },
+          rol: e.rol, // 'TECNICO' | 'CERTIFICADOR'
+        })),
+      },
+
         herramientas: {
           create: herramientas?.map((h) => ({
             herramienta: { connect: { id: h.id } },
@@ -189,48 +204,88 @@ exports.subirArchivoOrden = (req, res) =>
     nombreRecurso: 'Orden de trabajo' // 👈 solo para los mensajes de respuesta
   });
 
-// Fase 3: Actualizar inspección y asignación de recursos cuando el avión está con Celcol
+// Fase 3: Actualizar inspección y asignaciones (con ajuste de stock y sin duplicados)
 exports.updateFase3 = async (req, res) => {
-  console.log('stock recibido:', req.body.stock);
+  const id = Number(req.params.id);
 
-  const id = parseInt(req.params.id);
-  const {
-    inspeccionRecibida,
-    danosPrevios,
-    accionTomada,
-    observaciones,
-    herramientas,
-    stock = [],
-    certificadores = [],
-    tecnicos = [],
-  } = req.body;
+  // 1) Normalización de inputs
+  const raw = req.body || {};
+  const inspeccionRecibida = Boolean(raw.inspeccionRecibida);
+  const danosPrevios = inspeccionRecibida ? (raw.danosPrevios ?? null) : null; // si NO hay inspección => null
+  const accionTomada = raw.accionTomada ?? null;
+  const observaciones = raw.observaciones ?? null;
 
-  try {
-    const certificadoresUnicos = [...new Set(certificadores)];
-    const tecnicosUnicos = [...new Set(tecnicos)];
-    const alertas = [];
+  const herramientas = Array.isArray(raw.herramientas) ? raw.herramientas.map(Number).filter(Boolean) : [];
+  const stock = Array.isArray(raw.stock)
+    ? raw.stock
+        .map((s) => ({ stockId: Number(s.stockId), cantidad: Number(s.cantidad) }))
+        .filter((s) => s.stockId && s.cantidad && s.cantidad > 0)
+    : [];
+  const certificadores = Array.isArray(raw.certificadores) ? raw.certificadores.map(Number).filter(Boolean) : [];
+  const tecnicos = Array.isArray(raw.tecnicos) ? raw.tecnicos.map(Number).filter(Boolean) : [];
 
-    // Validación: evitar asignación doble como técnico y certificador
-const idsDuplicados = certificadoresUnicos.filter(id => tecnicosUnicos.includes(id));
-if (idsDuplicados.length > 0) {
-  return res.status(400).json({
-    error: `El empleado con ID ${idsDuplicados.join(', ')} está asignado como técnico y certificador.`,
+// 2) Unicidad por rol (permitir doble rol) + validación opcional de aptitudes
+const certificadoresUnicos = [...new Set(certificadores)];
+const tecnicosUnicos = [...new Set(tecnicos)];
+
+// ✅ Permitimos doble rol; NO permitimos duplicados dentro de cada rol (Set ya lo evita).
+
+// (Opcional) Validar aptitudes declaradas del empleado
+const empleadosIds = Array.from(new Set([...certificadoresUnicos, ...tecnicosUnicos]));
+if (empleadosIds.length) {
+  const empleadosInfo = await prisma.empleado.findMany({
+    where: { id: { in: empleadosIds } },
+    select: { id: true, nombre: true, apellido: true, esTecnico: true, esCertificador: true },
   });
+  const infoMap = new Map(empleadosInfo.map(e => [e.id, e]));
+
+  for (const eId of tecnicosUnicos) {
+    const e = infoMap.get(eId);
+    if (!e || !e.esTecnico) {
+      return res.status(400).json({
+        error: `El empleado ${e ? `${e.nombre} ${e.apellido}` : eId} no está habilitado como TÉCNICO.`,
+      });
+    }
+  }
+  for (const eId of certificadoresUnicos) {
+    const e = infoMap.get(eId);
+    if (!e || !e.esCertificador) {
+      return res.status(400).json({
+        error: `El empleado ${e ? `${e.nombre} ${e.apellido}` : eId} no está habilitado como CERTIFICADOR.`,
+      });
+    }
+  }
 }
 
 
-    await prisma.$transaction(async (tx) => {
-      // 1. Obtener stock previo
-      const stockPrevio = await tx.ordenStock.findMany({
-        where: { ordenId: id },
-      });
+  // 3) Unicidad de herramientas
+  const herramientasUnicas = [...new Set(herramientas)];
 
-      const stockMapPrevio = new Map();
-      for (const item of stockPrevio) {
-        stockMapPrevio.set(item.stockId, item.cantidadUtilizada);
+  try {
+    await prisma.$transaction(async (tx) => {
+      // A) Stock previamente asignado para calcular diferencias
+      const stockPrevio = await tx.ordenStock.findMany({ where: { ordenId: id } });
+      const stockMapPrevio = new Map(stockPrevio.map((i) => [i.stockId, i.cantidadUtilizada]));
+
+      // B) Validar que no se consuma más de lo disponible (considerando lo ya asignado antes)
+      for (const s of stock) {
+        const anterior = stockMapPrevio.get(s.stockId) ?? 0;
+        const adicional = Math.max(0, s.cantidad - anterior);
+        if (adicional > 0) {
+          const item = await tx.stock.findUnique({
+            where: { id: s.stockId },
+            select: { cantidad: true, nombre: true },
+          });
+          if (!item) throw new Error(`Stock ID ${s.stockId} inexistente`);
+          if (adicional > item.cantidad) {
+            throw new Error(
+              `No hay stock suficiente de "${item.nombre}". Solicitado adicional: ${adicional}, disponible: ${item.cantidad}.`
+            );
+          }
+        }
       }
 
-      // 2. Limpiar herramientas, stock, personal
+      // C) Limpiar asignaciones y actualizar campos
       await tx.ordenTrabajo.update({
         where: { id },
         data: {
@@ -244,127 +299,124 @@ if (idsDuplicados.length > 0) {
         },
       });
 
-      // 3. Crear herramientas
-      for (const hId of herramientas ?? []) {
+      // D) Re-crear herramientas (únicas)
+      for (const hId of herramientasUnicas) {
         await tx.ordenHerramienta.create({
-          data: {
-            ordenId: id,
-            herramientaId: hId,
-          },
+          data: { ordenId: id, herramientaId: hId },
         });
       }
 
-      // 4. Crear stock nuevo y ajustar cantidades
+      // E) Re-crear stock y ajustar inventario por diferencia vs. previo
       const stockIdsActuales = stock.map((s) => s.stockId);
-      for (const s of stock) {
-        if (!s.stockId || !s.cantidad) continue;
 
+      for (const s of stock) {
         const anterior = stockMapPrevio.get(s.stockId) ?? 0;
         const diferencia = s.cantidad - anterior;
 
         if (diferencia > 0) {
-          // Se están usando más unidades → descontar del stock
           await tx.stock.update({
             where: { id: s.stockId },
-            data: {
-              cantidad: { decrement: diferencia },
-            },
+            data: { cantidad: { decrement: diferencia } },
           });
         } else if (diferencia < 0) {
-          // Se usaron menos unidades que antes → devolver al stock
           await tx.stock.update({
             where: { id: s.stockId },
-            data: {
-              cantidad: { increment: Math.abs(diferencia) },
-            },
+            data: { cantidad: { increment: Math.abs(diferencia) } },
           });
         }
 
-        // Verificar si está por debajo del mínimo
+        await tx.ordenStock.create({
+          data: { ordenId: id, stockId: s.stockId, cantidadUtilizada: s.cantidad },
+        });
+
+        // Aviso por stock mínimo
         const stockActual = await tx.stock.findUnique({
           where: { id: s.stockId },
           select: { cantidad: true, stockMinimo: true, nombre: true },
         });
 
         if (stockActual && stockActual.cantidad <= (stockActual.stockMinimo ?? 0)) {
-          alertas.push(`⚠️ El stock de "${stockActual.nombre}" está por debajo del mínimo (${stockActual.cantidad} unidades).`);
-
           const existeAviso = await tx.aviso.findFirst({
             where: {
               mensaje: { contains: `"${stockActual.nombre}"` },
               leido: false,
+              tipo: 'stock',
+              stockId: s.stockId,
             },
           });
-
-if (!existeAviso) {
-  await tx.aviso.create({
-    data: {
-      mensaje: `El producto "${stockActual.nombre}" alcanzó el stock mínimo (${stockActual.cantidad} unidades)`,
-      leido: false,
-      tipo: 'stock',
-      stockId: s.stockId,
-    },
-  });
-}
-
+          if (!existeAviso) {
+            await tx.aviso.create({
+              data: {
+                mensaje: `El producto "${stockActual.nombre}" alcanzó el stock mínimo (${stockActual.cantidad} unidades)`,
+                leido: false,
+                tipo: 'stock',
+                stockId: s.stockId,
+              },
+            });
+          }
         }
-
-        // Registrar nuevo stock asignado
-        await tx.ordenStock.create({
-          data: {
-            ordenId: id,
-            stockId: s.stockId,
-            cantidadUtilizada: s.cantidad,
-          },
-        });
       }
 
-      // 5. Devolver ítems que ya no están
+      // F) Devolver inventario de ítems que existían antes y ahora ya no
       for (const anterior of stockPrevio) {
-        const sigueExistiendo = stockIdsActuales.includes(anterior.stockId);
-        if (!sigueExistiendo) {
+        if (!stockIdsActuales.includes(anterior.stockId)) {
           await tx.stock.update({
             where: { id: anterior.stockId },
-            data: {
-              cantidad: { increment: anterior.cantidadUtilizada },
-            },
+            data: { cantidad: { increment: anterior.cantidadUtilizada } },
           });
         }
       }
 
-      // 6. Crear técnicos y certificadores
+      // G) Crear certificadores
       for (const idCert of certificadoresUnicos) {
-       await tx.empleadoAsignado.create({
-  data: {
-    ordenId: id,
-    empleadoId: idCert,
-    rol: 'CERTIFICADOR',
-  },
-});
+        await tx.empleadoAsignado.create({
+          data: { ordenId: id, empleadoId: idCert, rol: 'CERTIFICADOR' },
+        });
       }
-      
 
+      // H) Crear técnicos
       for (const idTec of tecnicosUnicos) {
         await tx.empleadoAsignado.create({
-          data: {
-            ordenId: id,
-            empleadoId: idTec,
-            rol: 'TECNICO',
-          },
+          data: { ordenId: id, empleadoId: idTec, rol: 'TECNICO' },
         });
       }
     });
 
-    res.json({
-      mensaje: 'Fase 3 actualizada correctamente',
-      alertas,
+    // Devolvemos la OT completa para que el front pueda hacer setOrden(updated)
+    const ordenActualizada = await prisma.ordenTrabajo.findUnique({
+      where: { id },
+      include: {
+        avion: { include: { ComponenteAvion: true, propietarios: true } },
+        componente: { include: { propietario: true } },
+        empleadosAsignados: { include: { empleado: true } },
+        herramientas: { include: { herramienta: true } },
+        stockAsignado: { include: { stock: true } },
+        registrosTrabajo: {
+          orderBy: { fecha: 'asc' },
+          select: {
+            id: true,
+            empleadoId: true,
+            fecha: true,
+            horas: true,
+            trabajoRealizado: true,
+            rol: true,
+            empleado: { select: { id: true, nombre: true, apellido: true } },
+          },
+        },
+      },
     });
 
+    return res.json(ordenActualizada);
   } catch (error) {
     console.error('❌ Error al actualizar fase 3:', error);
-    res.status(500).json({ error: 'Error al actualizar fase 3' });
+    const msg = String(error?.message || error);
+    if (msg.includes('stock suficiente')) {
+      return res.status(400).json({ error: msg });
+    }
+    return res.status(500).json({ error: 'Error al actualizar fase 3' });
   }
 };
+
 
 // Archivar orden (solo si está cerrada o cancelada)
 exports.archivarOrden = async (req, res) => {
@@ -408,55 +460,120 @@ exports.deleteOrden = async (req, res) => {
   }
 };
 
+// Fase 4: crear registro SIN duplicar 
+exports.crearRegistroTrabajo = async (req, res) => {
+  const ordenId = Number(req.params.id);
+  const { empleadoId, fecha, horas, trabajoRealizado, rol } = req.body;
 
-// Fase 4: Agregar uno o varios registros de trabajo
-exports.agregarRegistroTrabajo = async (req, res) => {
-  const ordenId = parseInt(req.params.id);
-  const registros = Array.isArray(req.body) ? req.body : [req.body];
+  if (!empleadoId || !fecha || !horas || !rol) {
+    return res.status(400).json({ error: 'empleadoId, fecha, horas y rol son obligatorios' });
+  }
+  if (!['TECNICO', 'CERTIFICADOR'].includes(rol)) {
+    return res.status(400).json({ error: 'rol inválido' });
+  }
+  if (Number(horas) <= 0) {
+    return res.status(400).json({ error: 'Las horas deben ser > 0' });
+  }
 
   try {
-    // 1. Validar que todos los empleados estén asignados a la OT
-    const asignados = await prisma.empleadoAsignado.findMany({
-      where: { ordenId },
-      select: { empleadoId: true }
+    const empId = Number(empleadoId);
+    const h = Number(horas);
+    const f = new Date(fecha);
+    const desc = (trabajoRealizado ?? '').trim() || null;
+
+    // validar que el empleado esté asignado con ese rol a la OT
+    const asignado = await prisma.empleadoAsignado.findFirst({
+      where: { ordenId, empleadoId: empId, rol },
+      select: { id: true },
     });
-
-    const empleadosValidos = new Set(asignados.map(a => a.empleadoId));
-
-    for (const r of registros) {
-      if (!empleadosValidos.has(r.empleadoId)) {
-        return res.status(400).json({ error: `Empleado ${r.empleadoId} no está asignado a la orden.` });
-      }
+    if (!asignado) {
+      return res.status(400).json({ error: 'El empleado no está asignado a la OT con ese rol' });
     }
 
-    // 2. Eliminar registros previos de los mismos empleados en esta orden
-    const empleadosAActualizar = [...new Set(registros.map(r => r.empleadoId))];
+    // ventana: mismo día
+    const inicioDia = new Date(f.getFullYear(), f.getMonth(), f.getDate(), 0, 0, 0, 0);
+    const finDia = new Date(f.getFullYear(), f.getMonth(), f.getDate() + 1, 0, 0, 0, 0);
 
-    await prisma.registroDeTrabajo.deleteMany({
+    // existe uno equivalente ese día?
+    const existente = await prisma.registroDeTrabajo.findFirst({
       where: {
         ordenId,
-        empleadoId: { in: empleadosAActualizar },
+        empleadoId: empId,
+        rol,
+        trabajoRealizado: desc,
+        fecha: { gte: inicioDia, lt: finDia },
       },
     });
 
-    // 3. Crear nuevos registros
-    const nuevosRegistros = await Promise.all(
-      registros.map((r) =>
-        prisma.registroDeTrabajo.create({
-          data: {
-            ordenId,
-            empleadoId: r.empleadoId,
-            fecha: new Date(r.fecha),
-            horas: parseFloat(r.horas),
-          },
-        })
-      )
-    );
+    let registro;
+    if (existente) {
+      registro = await prisma.registroDeTrabajo.update({
+        where: { id: existente.id },
+        data: { horas: existente.horas + h },
+        include: { empleado: true },
+      });
+    } else {
+      registro = await prisma.registroDeTrabajo.create({
+        data: {
+          ordenId,
+          empleadoId: empId,
+          fecha: f,
+          horas: h,
+          trabajoRealizado: desc,
+          rol,
+        },
+        include: { empleado: true },
+      });
+    }
 
-    res.status(201).json(nuevosRegistros);
-  } catch (error) {
-    console.error('❌ Error al agregar registros de trabajo:', error);
-    res.status(500).json({ error: 'Error al guardar registros de trabajo' });
+    res.json(registro);
+  } catch (e) {
+    console.error('❌ Error creando registro:', e);
+    res.status(500).json({ error: 'Error creando registro' });
+  }
+};
+
+// Fase 5: Editar registro de trabajo
+exports.editarRegistroTrabajo = async (req, res) => {
+  const ordenId = Number(req.params.id);
+  const id = Number(req.params.registroId);
+  const { fecha, horas, trabajoRealizado, rol } = req.body;
+
+  if (rol && !['TECNICO', 'CERTIFICADOR'].includes(rol)) {
+    return res.status(400).json({ error: 'rol inválido' });
+  }
+  if (horas !== undefined && Number(horas) <= 0) {
+    return res.status(400).json({ error: 'Las horas deben ser > 0' });
+  }
+
+  try {
+    const actual = await prisma.registroDeTrabajo.findUnique({ where: { id } });
+    if (!actual) return res.status(404).json({ error: 'Registro no encontrado' });
+    if (actual.ordenId !== ordenId) {
+      return res.status(400).json({ error: 'El registro no pertenece a esta OT' });
+    }
+
+    if (rol && !await prisma.empleadoAsignado.findFirst({
+      where: { ordenId, empleadoId: actual.empleadoId, rol },
+      select: { id: true }
+    })) {
+      return res.status(400).json({ error: 'El empleado no está asignado a la OT con ese rol' });
+    }
+
+    const registro = await prisma.registroDeTrabajo.update({
+      where: { id },
+      data: {
+        fecha: fecha ? new Date(fecha) : undefined,
+        horas: horas !== undefined ? Number(horas) : undefined,
+        trabajoRealizado: trabajoRealizado !== undefined ? trabajoRealizado?.trim() || null : undefined,
+        rol: rol || undefined,
+      },
+      include: { empleado: true },
+    });
+    res.json(registro);
+  } catch (e) {
+    console.error('❌ Error editando registro:', e);
+    res.status(500).json({ error: 'Error editando registro' });
   }
 };
 
@@ -469,6 +586,26 @@ exports.subirArchivoFactura = (req, res) =>
     campoArchivo: 'archivoFactura',
     nombreRecurso: 'Orden de trabajo (factura)',
   });
+
+ // Fase 4: Guardar datos de factura (número y estado)
+  exports.guardarDatosFactura = async (req, res) => {
+  const id = Number(req.params.id);
+  const { numeroFactura, estadoFactura } = req.body || {};
+  try {
+    const orden = await prisma.ordenTrabajo.update({
+      where: { id },
+      data: {
+        numeroFactura: numeroFactura ?? null,
+        estadoFactura: estadoFactura ?? null,
+      },
+      select: { id: true, numeroFactura: true, estadoFactura: true },
+    });
+    res.json(orden);
+  } catch (e) {
+    console.error('❌ Error guardando datos de factura:', e);
+    res.status(500).json({ error: 'Error guardando datos de factura' });
+  }
+};
 
 
 // Cancelar orden de trabajo
@@ -550,20 +687,6 @@ exports.cancelarOrden = async (req, res) => {
   } catch (error) {
     console.error('Error al cancelar orden:', error);
     res.status(500).json({ error: 'Error al cancelar orden' });
-  }
-};
-
-
-
-// eliminar registro de trabajos
-exports.eliminarRegistroTrabajo = async (req, res) => {
-  const id = parseInt(req.params.registroId);
-  try {
-    await prisma.registroDeTrabajo.delete({ where: { id } });
-    res.json({ mensaje: 'Registro de trabajo eliminado con éxito' });
-  } catch (error) {
-    console.error('❌ Error al eliminar registro de trabajo:', error);
-    res.status(500).json({ error: 'Error al eliminar registro de trabajo' });
   }
 };
 
@@ -706,6 +829,18 @@ if (orden.avion) {
   }
 };
 
+// Helper global para dibujar la línea divisoria en el PDF
+function drawLine(doc) {
+  doc
+    .moveTo(doc.x, doc.y + 2)
+    .lineTo(550, doc.y + 2)
+    .strokeColor('#e5e7eb')
+    .stroke()
+    .fillColor('#000')
+    .moveDown(0.6);
+}
+
+// Descargar OT en PDF (solo CERRADA o CANCELADA)
 exports.descargarOrdenPDF = async (req, res) => {
   const id = parseInt(req.params.id);
   try {
@@ -715,21 +850,32 @@ exports.descargarOrdenPDF = async (req, res) => {
         stockAsignado: { include: { stock: true } },
         herramientas:  { include: { herramienta: true } },
         empleadosAsignados: { include: { empleado: true } },
-        registrosTrabajo: true,
+        registrosTrabajo: { orderBy: { fecha: 'asc' }, include: { empleado: true } },
+        avion: { include: { ComponenteAvion: true, propietarios: true } },
+        componente: { include: { propietario: true } },
       }
     });
+
     if (!orden) return res.status(404).json({ error: 'Orden no encontrada' });
 
+    // Solo CERRADA o CANCELADA
+    if (!['CERRADA', 'CANCELADA'].includes(orden.estadoOrden)) {
+      return res.status(400).json({ error: 'La descarga solo está disponible para órdenes CERRADAS o CANCELADAS' });
+    }
+
     const fmt = d => d ? new Date(d).toLocaleDateString('es-UY') : '—';
-    const baseUrl = `${req.protocol}://${req.get('host')}`;
+    const toolLabel = (h) => {
+      const nombre = h?.nombre ?? '—';
+      const marca  = h?.marca?.trim();
+      const modelo = h?.modelo?.trim();
+      let dentro = '';
+      if (marca && modelo) dentro = `${marca} ${modelo}`;
+      else if (modelo)     dentro = modelo;
+      return dentro ? `${nombre} (${dentro})` : nombre;
+    };
 
-    const av   = orden.datosAvionSnapshot || null;
-    const comp = orden.datosComponenteSnapshot || null;
-    const prop = orden.datosPropietarioSnapshot || null;
-
-    const esCerrada = orden.estadoOrden === 'CERRADA';
-    const etiquetaFecha = esCerrada ? 'Fecha de cierre' : 'Fecha de cancelación';
-    const fechaCambio = esCerrada ? orden.fechaCierre : (orden.fechaCancelacion || null); // si no tenés el campo, mostrará '—'
+    // ¿Fue trabajo sobre avión?
+    const trabajoEnAvion = !!orden.datosAvionSnapshot || !!orden.avionId;
 
     const doc = new PDFDocument({ size: 'A4', margin: 40 });
     const filename = `orden-${id}.pdf`;
@@ -737,149 +883,138 @@ exports.descargarOrdenPDF = async (req, res) => {
     res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
     doc.pipe(res);
 
-    // Logo + encabezado
+    // Logo
     try {
       const logoPath = path.join(process.cwd(), 'public', 'celcol-logo.jpeg');
       if (fs.existsSync(logoPath)) doc.image(logoPath, 40, 30, { width: 80 });
     } catch {}
+
     doc.fontSize(18).text('Celcol | Orden de Trabajo', 130, 40);
     doc.moveDown(2);
 
-    // Portada
+    // Encabezado
     doc.fontSize(16).text(`OT N.º ${orden.id}`, { underline: true });
     doc.fontSize(12).moveDown(0.5);
     doc.text(`Estado: ${orden.estadoOrden}`);
     doc.text(`Fecha de apertura: ${fmt(orden.fechaApertura)}`);
-    doc.text(`${etiquetaFecha}: ${fmt(fechaCambio)}`);
+    if (orden.estadoOrden === 'CERRADA') doc.text(`Fecha de cierre: ${fmt(orden.fechaCierre)}`);
+    else doc.text(`Fecha de cancelación: ${fmt(orden.fechaCancelacion)}`);
     doc.moveDown();
+
+    // Snapshot
+    if (trabajoEnAvion) {
+      doc.fontSize(14).text('Datos de avión (snapshot)');
+      drawLine(doc);
+      doc.fontSize(12);
+      const av = orden.datosAvionSnapshot || null;
+      if (av) {
+        doc.text(`Matrícula: ${av.matricula ?? '—'}`);
+        doc.text(`Marca/Modelo: ${av.marca ?? '—'} ${av.modelo ?? ''}`);
+        doc.text(`N.º de serie: ${av.numeroSerie ?? '—'}`);
+        doc.text(`TSN: ${av.TSN ?? '—'}`);
+      } else {
+        doc.fillColor('#666').text('Sin snapshot disponible').fillColor('#000');
+      }
+      doc.moveDown();
+    } else {
+      doc.fontSize(14).text('Componente externo (snapshot)');
+      drawLine(doc);
+      doc.fontSize(12);
+      const comp = orden.datosComponenteSnapshot || null;
+      if (comp) {
+        doc.text(`Tipo: ${comp.tipo ?? '—'}`);
+        doc.text(`Marca/Modelo: ${comp.marca ?? '—'} ${comp.modelo ?? ''}`);
+        doc.text(`N.º de serie / parte: ${comp.numeroSerie ?? '—'} / ${comp.numeroParte ?? '—'}`);
+      } else {
+        doc.fillColor('#666').text('Sin snapshot disponible').fillColor('#000');
+      }
+      doc.moveDown();
+
+      doc.fontSize(14).text('Propietario (snapshot)');
+      drawLine(doc);
+      doc.fontSize(12);
+      const prop = orden.datosPropietarioSnapshot || null;
+      if (prop) {
+        const nombre = prop.razonSocial ?? [prop.nombre, prop.apellido].filter(Boolean).join(' ');
+        doc.text(`Nombre/Razón Social: ${nombre || '—'}`);
+        doc.text(`RUT/Cédula: ${prop.rut ?? prop.cedula ?? '—'}`);
+        if (prop.email)    doc.text(`Email: ${prop.email}`);
+        if (prop.telefono) doc.text(`Teléfono: ${prop.telefono}`);
+      } else {
+        doc.fillColor('#666').text('Sin snapshot disponible').fillColor('#000');
+      }
+      doc.moveDown();
+    }
 
     // Datos de solicitud
     doc.fontSize(14).text('Datos de solicitud');
-    line(doc);
+    drawLine(doc);
     doc.fontSize(12);
     doc.text(`Descripción: ${orden.solicitud ?? '—'}`);
     doc.text(`Solicitado por: ${orden.solicitadoPor ?? '—'}`);
-    doc.text(`N.º OT previa: ${orden.OTsolicitud ?? '—'}`);
-    if (orden.solicitudFirma) doc.text(`Archivo de solicitud: ${baseUrl}/${orden.solicitudFirma}`);
-    doc.moveDown();
-
-    // Avión (snapshot)
-    doc.fontSize(14).text('Avión (snapshot)');
-    line(doc);
-    doc.fontSize(12);
-    if (av) {
-      doc.text(`Matrícula: ${av.matricula ?? '—'}`);
-      doc.text(`Marca/Modelo: ${av.marca ?? '—'} ${av.modelo ?? ''}`);
-      doc.text(`Serie: ${av.numeroSerie ?? '—'}`);
-      doc.text(`TSN: ${av.TSN ?? '—'}`);
-      if (av.certificadoMatricula) doc.text(`Certificado: ${baseUrl}/${av.certificadoMatricula}`);
-    } else {
-      doc.fillColor('#666').text('Sin datos').fillColor('#000');
+    const flag = !!orden.inspeccionRecibida;
+    doc.text(`Inspección de recibimiento: ${flag ? 'Sí' : 'No'}`);
+    if (flag) {
+      if (orden.danosPrevios)  doc.text(`Daños previos: ${orden.danosPrevios}`);
+      if (orden.accionTomada)  doc.text(`Acción tomada: ${orden.accionTomada}`);
+      if (orden.observaciones) doc.text(`Observaciones: ${orden.observaciones}`);
     }
     doc.moveDown();
 
-    // Componente externo (snapshot)
-    doc.fontSize(14).text('Componente externo (snapshot)');
-    line(doc);
-    doc.fontSize(12);
-    if (comp) {
-      doc.text(`Tipo: ${comp.tipo ?? '—'}`);
-      doc.text(`Marca/Modelo: ${comp.marca ?? '—'} ${comp.modelo ?? ''}`);
-      doc.text(`Serie/Parte: ${comp.numeroSerie ?? '—'} / ${comp.numeroParte ?? '—'}`);
-      if (comp.archivo8130) doc.text(`Archivo 8130: ${baseUrl}/${comp.archivo8130}`);
-    } else {
-      doc.fillColor('#666').text('Sin datos').fillColor('#000');
+    // Trabajos realizados (sin horas)
+    if (orden.registrosTrabajo?.length) {
+      doc.fontSize(14).text('Trabajos realizados');
+      drawLine(doc);
+      doc.fontSize(12);
+      orden.registrosTrabajo.forEach(r => {
+        const nombre = [r.empleado?.nombre, r.empleado?.apellido].filter(Boolean).join(' ').trim();
+        const rol = r.rol || '—';
+        const desc = r.trabajoRealizado || '—';
+        doc.text(`- ${fmt(r.fecha)} · ${nombre || '—'} (${rol}) · ${desc}`);
+      });
+      doc.moveDown();
     }
-    doc.moveDown();
-
-    // Propietario (snapshot)
-    doc.fontSize(14).text('Propietario (snapshot)');
-    line(doc);
-    doc.fontSize(12);
-    if (prop) {
-      const nombre = prop.razonSocial ?? [prop.nombre, prop.apellido].filter(Boolean).join(' ');
-      doc.text(`Nombre/Razón Social: ${nombre || '—'}`);
-      doc.text(`RUT/Cédula: ${prop.rut ?? prop.cedula ?? '—'}`);
-      if (prop.email) doc.text(`Email: ${prop.email}`);
-      if (prop.telefono) doc.text(`Teléfono: ${prop.telefono}`);
-    } else {
-      doc.fillColor('#666').text('Sin datos').fillColor('#000');
-    }
-    doc.moveDown();
 
     // Herramientas
     if (orden.herramientas?.length) {
       doc.fontSize(14).text('Herramientas asignadas');
-      line(doc);
+      drawLine(doc);
       doc.fontSize(12);
       orden.herramientas.forEach(h => {
-        doc.text(`- ${h.herramienta?.nombre ?? '—'} ${h.herramienta?.marca ?? ''} ${h.herramienta?.modelo ?? ''}`);
+        const label = toolLabel(h.herramienta);
+        const fv = h.herramienta?.fechaVencimiento || h.herramienta?.vencimiento || h.herramienta?.fechaCalibracion || null;
+        const venc = fv ? ` · Vence: ${fmt(fv)}` : '';
+        doc.text(`- ${label}${venc}`);
       });
       doc.moveDown();
     }
 
     // Stock
     if (orden.stockAsignado?.length) {
-      doc.fontSize(14).text('Stock utilizado');
-      line(doc);
+      doc.fontSize(14).text('Stock y cantidades');
+      drawLine(doc);
       doc.fontSize(12);
       orden.stockAsignado.forEach(s => {
-        doc.text(`- ${s.stock?.nombre ?? '—'}  · Cantidad: ${s.cantidad ?? '—'}`);
+        doc.text(`- ${s.stock?.nombre ?? '—'} · Cantidad: ${s.cantidadUtilizada ?? '—'}`);
       });
       doc.moveDown();
     }
 
-    // Personal
-    if (orden.empleadosAsignados?.length) {
-      doc.fontSize(14).text('Personal asignado');
-      line(doc);
-      doc.fontSize(12);
-      orden.empleadosAsignados.forEach(e => {
-        const nombre = [e.empleado?.nombre, e.empleado?.apellido].filter(Boolean).join(' ');
-        doc.text(`- ${nombre || '—'}  · Rol: ${e.rol}`);
-      });
-      doc.moveDown();
-    }
-
-    // Horas trabajadas
-    if (orden.registrosTrabajo?.length) {
-      doc.fontSize(14).text('Horas trabajadas');
-      line(doc);
-      doc.fontSize(12);
-      orden.registrosTrabajo.forEach(r => {
-        doc.text(`- ${fmt(r.fecha)}  · ${r.horas} h`);
-      });
-      doc.moveDown();
-    }
-
-    // Observaciones y factura
-    doc.fontSize(14).text('Observaciones y factura');
-    line(doc);
-    doc.fontSize(12);
-    doc.text(`Inspección recibida: ${orden.inspeccionRecibida ? 'Sí' : 'No'}`);
-    doc.text(`Daños previos: ${orden.danosPrevios ?? '—'}`);
-    doc.text(`Acción tomada: ${orden.accionTomada ?? '—'}`);
-    doc.text(`Observaciones: ${orden.observaciones ?? '—'}`);
-    doc.moveDown(0.6);
-    doc.text(`Factura Nº: ${orden.numeroFactura ?? '—'}`);
-    doc.text(`Estado factura: ${orden.estadoFactura ?? '—'}`);
-    if (orden.archivoFactura) doc.text(`Archivo factura: ${baseUrl}/${orden.archivoFactura}`);
-
+    // No incluimos: N.º OT previa, archivo solicitud, datos de comp/prop si fue avión, ni factura
     doc.end();
   } catch (error) {
     console.error('Error al generar PDF de OT:', error);
-    if (!res.headersSent) {
-      res.status(500).json({ error: 'Error al generar el PDF' });
-    }
+    if (!res.headersSent) res.status(500).json({ error: 'Error al generar el PDF' });
   }
 };
 
-function line(doc) {
-  doc
-    .moveTo(doc.x, doc.y + 2)
-    .lineTo(550, doc.y + 2)
-    .strokeColor('#e5e7eb')
-    .stroke()
-    .fillColor('#000')
-    .moveDown(0.6);
-}
+exports.eliminarRegistroTrabajo = async (req, res) => {
+  const id = Number(req.params.registroId);
+  try {
+    await prisma.registroDeTrabajo.delete({ where: { id } });
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('❌ Error eliminando registro:', e);
+    res.status(500).json({ error: 'Error eliminando registro' });
+  }
+};
