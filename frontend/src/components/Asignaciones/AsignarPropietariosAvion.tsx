@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { api } from '@/services/api'; 
+import { api, fetchJson } from '@/services/api'; 
 
 type PropietarioOption = {
   value: string;
@@ -41,15 +41,12 @@ export default function AsignarPropietariosAvionModal({
       return;
     }
     try {
-      const res = await fetch(api(`/aviones/${avionId}/asignar-propietarios`), {
+      await fetchJson(`/aviones/${avionId}/asignar-propietarios`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ propietariosIds: seleccionados.map(id => parseInt(id)) }),
+        // tu helper no stringify automáticamente → lo hacemos aquí
+        body: JSON.stringify({ propietariosIds: seleccionados.map(id => parseInt(id, 10)) }),
       });
-
-      if (!res.ok) throw new Error('Error al asignar propietarios');
-
-      if (onSuccess) onSuccess();
+      onSuccess?.();
       onClose();
     } catch (err) {
       setError('Error al asignar propietarios');

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { api } from '@/services/api'; 
+import { api, fetchJson } from '@/services/api'; 
 
 interface Props {
   avionId: number;
@@ -39,13 +39,12 @@ export default function AgregarComponenteAvionModal({ avionId, onClose, onSaved 
       avionId
     };
 
-    await fetch(api("/componentes-avion"), {
+await fetchJson("/componentes-avion", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body)
+      body: JSON.stringify(body), // tu helper no stringify solo
     });
 
-    if (onSaved) onSaved();
+    onSaved?.();
     onClose();
   };
 

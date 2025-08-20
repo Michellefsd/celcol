@@ -10,6 +10,70 @@ Node.js 22.x (recomendado instalar con nvm)
 PostgreSQL 17.5
 Git
 
+
+
+
+# Celcol (monorepo)
+
+## Apps
+- `frontend/` (Next.js 14)
+- `backend/` (Express + Prisma + Postgres)
+
+## Dev local
+### Backend
+1. Crear `backend/.env` (ver ejemplo en README / arriba)
+2. `cd backend`
+3. `npm i`
+4. `npx prisma migrate dev`
+5. `npm run dev` (o `node index.js` si no tienes script)
+
+### Frontend
+1. Crear `frontend/.env.local`
+2. `cd frontend`
+3. `npm i`
+4. `npm run dev` → http://localhost:3000
+
+### Keycloak local
+- URL: `http://localhost:8080`
+- Realm: `Cellcol`
+- Client: `cellcol-app` (OIDC, confidential)
+- Redirect URI: `http://localhost:3000/api/auth/callback`
+- Web origin: `http://localhost:3000`
+
+## Rutas útiles
+- Backend health: `GET http://localhost:3001/health`
+- Login: botón en `/` o `/login` → redirige a Keycloak
+- Callback: `GET /api/auth/callback` (backend)
+- Área protegida: `GET /me` (requiere cookie `cc_access`)
+
+## Deploy (staging)
+- Frontend: Vercel apuntando a `frontend/`
+- Backend: Render / Railway apuntando a `backend/`
+- DB: Neon / Render Postgres
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 1️⃣ Clonar el repositorio
 git clone https://github.com/Michellefsd/celcol
 cd celcol
@@ -62,3 +126,5 @@ docker run --name celcol-db \
   -d postgres:17.5
 .env:
 DATABASE_URL="postgresql://postgres:1234@localhost:5432/celcol?schema=public"
+
+

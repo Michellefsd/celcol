@@ -1,7 +1,7 @@
 'use client';
 
 import { ChangeEvent, useEffect, useState } from 'react';
-import { api } from '@/services/api'; 
+import { api, apiFetch } from '@/services/api'; 
 
 interface Componente {
   id: number;
@@ -79,12 +79,10 @@ export default function EditarComponenteModal({
       if (TBOFecha) body.append('TBOFecha', TBOFecha);
       if (archivo8130) body.append('archivo8130', archivo8130);
 
-      const res = await fetch(api(`/componentes/${componente.id}`), {
+     await apiFetch(`/componentes/${componente.id}`, {
         method: 'PUT',
-        body,
+        body, // FormData → el helper gestiona headers + cookies + refresh
       });
-
-      if (!res.ok) throw new Error('No se pudo actualizar');
 
       onSaved?.();
       onClose();

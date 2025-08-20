@@ -1,7 +1,7 @@
 'use client';
 
 import { ChangeEvent, useState } from 'react';
-import { api } from '@/services/api'; 
+import { api, apiFetch } from '@/services/api'; 
 
 interface Props {
   propietarioId: number;
@@ -53,12 +53,10 @@ export default function AgregarComponenteModal({ propietarioId, open, onClose, o
         if (value) body.append(key, value);
       }
 
-      const res = await fetch(api('/componentes'), {
+      await apiFetch('/componentes', {
         method: 'POST',
-        body,
+        body, // FormData ⇒ el helper maneja headers + cookies + refresh
       });
-      if (!res.ok) throw new Error('No se pudo guardar');
-
       onSaved?.();
       onClose();
     } catch (err) {

@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import BaseButton from '@/components/BaseButton';
-import { api } from '@/services/api';
+import { api, fetchJson } from '@/services/api';
 import ComboboxBuscador from '@/components/ComboBoxBuscador';
 
 export default function NuevaOrdenPage() {
@@ -24,22 +24,22 @@ export default function NuevaOrdenPage() {
   // Cargar aviones o propietarios al elegir modo
   useEffect(() => {
     if (modo === 'AVION') {
-      fetch(api('/aviones'))
-        .then((res) => res.json())
-        .then(setAviones);
+      fetchJson<any[]>('/aviones')
+        .then(setAviones)
+        .catch(() => setAviones([]));
     } else if (modo === 'COMPONENTE') {
-      fetch(api('/propietarios'))
-        .then((res) => res.json())
-        .then(setPropietarios);
+      fetchJson<any[]>('/propietarios')
+        .then(setPropietarios)
+        .catch(() => setPropietarios([]));
     }
   }, [modo]);
 
   // Cargar componentes externos al elegir propietario
   useEffect(() => {
     if (modo === 'COMPONENTE' && propietarioId) {
-      fetch(api(`/componentes?propietarioId=${propietarioId}`))
-        .then((res) => res.json())
-        .then(setComponentes);
+      fetchJson<any[]>(`/componentes?propietarioId=${propietarioId}`)
+        .then(setComponentes)
+        .catch(() => setComponentes([]));
     }
   }, [modo, propietarioId]);
 
@@ -54,17 +54,14 @@ export default function NuevaOrdenPage() {
 
     if (!body) return alert('Seleccioná un elemento válido');
 
-    const res = await fetch(api('/ordenes-trabajo'), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
-
-    if (res.ok) {
-      const data = await res.json();
+    try {
+      const data = await fetchJson<{ id: number }>('/ordenes-trabajo', {
+        method: 'POST',
+        body: JSON.stringify(body), // stringify explícito
+      });
       router.push(`/ordenes-trabajo/${data.id}/fase2`);
-    } else {
-      alert('Error al crear la orden');
+    } catch (e: any) {
+      alert(e?.body?.error || e?.message || 'Error al crear la orden');
     }
   }
   

@@ -2,17 +2,16 @@
 
 import { useEffect, useState } from 'react';
 import { Bell } from 'lucide-react';
-import { api } from '@/services/api';
+import { api, fetchJson } from '@/services/api';
 import Link from 'next/link';
 
 export default function AvisosIcon() {
   const [noLeidos, setNoLeidos] = useState(0);
 
   useEffect(() => {
-    fetch(api('/avisos'))
-      .then((res) => res.json())
-      .then((avisos) => {
-        const cantidad = avisos.filter((a: any) => !a.leido).length;
+    fetchJson<any[]>('/avisos')
+      .then((avisos: any[]) => {
+        const cantidad = avisos.filter((a) => !a.leido).length;
         setNoLeidos(cantidad);
       })
       .catch(() => setNoLeidos(0));

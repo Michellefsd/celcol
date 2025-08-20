@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import SubirArchivo from '@/components/Asignaciones/SubirArchivo';
-import { api } from '@/services/api'; 
+import { api, fetchJson } from '@/services/api';
 import VolverAtras from '@/components/Arrow';
 
 interface RegistroDeTrabajo {
@@ -45,13 +45,11 @@ export default function EmpleadoRegistrosPage() {
   const [hasta, setHasta] = useState('');
   const [mostrarSubirCarne, setMostrarSubirCarne] = useState(false);
 
-  const fetchEmpleado = async () => {
+ const fetchEmpleado = async () => {
     if (!empleadoId) return;
     try {
-      const res = await fetch(api(`/personal/${empleadoId}`));
-      if (!res.ok) throw new Error('No se pudo cargar el empleado');
-      const data = await res.json();
-      setEmpleado(data);
+      const data = await fetchJson<EmpleadoDetalle>(`/personal/${empleadoId}`);
+       setEmpleado(data);
     } catch (err) {
       console.error(err);
       alert('Error al cargar los datos del empleado');
@@ -62,16 +60,30 @@ export default function EmpleadoRegistrosPage() {
     fetchEmpleado();
   }, [empleadoId]);
 
-  const cargarRegistros = async () => {
-    if (!empleadoId) return;
-    const query = [];
-    if (desde) query.push(`desde=${desde}`);
-    if (hasta) query.push(`hasta=${hasta}`);
-    const url = api(`/personal/${empleadoId}/registros-trabajo`) + (query.length ? `?${query.join('&')}` : '');
-    const res = await fetch(url);
+const cargarRegistros = async () => {
+  if (!empleadoId) return;
+
+  const query: string[] = [];
+  if (desde) query.push(`desde=${desde}`);
+  if (hasta) query.push(`hasta=${hasta}`);
+
+  const url = api(
+    `/personal/${empleadoId}/registros-trabajo${query.length ? `?${query.join('&')}` : ''}`
+  );
+
+  try {
+    const res = await fetch(url, {
+      credentials: 'include',               // 👈 manda cookies
+      headers: { Accept: 'application/json' } // 👈 sin Content-Type en GET
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
-    setRegistros(data);
-  };
+    setRegistros(Array.isArray(data) ? data : []);
+  } catch (err) {
+    console.error('❌ Error al filtrar registros:', err);
+  }
+};
+
 
   const totalHoras = registros.reduce((sum, r) => sum + r.horas, 0);
 
@@ -104,9 +116,9 @@ useEffect(() => {
 
   // Cargar registros automáticamente
   const cargar = async () => {
-    const url = api(`/personal/${empleadoId}/registros-trabajo?desde=${desdeStr}&hasta=${hastaStr}`);
-    const res = await fetch(url);
-    const data = await res.json();
+    const data = await fetchJson<RegistroDeTrabajo[]>(
+      `/personal/${empleadoId}/registros-trabajo?desde=${desdeStr}&hasta=${hastaStr}`
+    );
     setRegistros(data);
   };
 
@@ -140,17 +152,6 @@ useEffect(() => {
   {!empleado.esTecnico && !empleado.esCertificador && (
     <span className="text-slate-500">Sin habilitaciones registradas</span>
   )}
-</div>
-
-{/* Aviso sobre reglas de rol */}
-<div className="mt-3 rounded-xl border border-amber-300 bg-amber-50 p-3 text-amber-900 text-sm leading-6">
-  <p>
-    Este empleado puede asignarse como <strong>TÉCNICO</strong> y como <strong>CERTIFICADOR</strong> en la misma OT.
-    Lo que <strong>no</strong> se permite es duplicarlo dentro del <strong>mismo</strong> rol.
-  </p>
-  <p className="mt-1">
-    Para registrar horas con un rol, primero debe estar asignado a la OT con ese rol en Fase 3.
-  </p>
 </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-1 text-sm">
@@ -190,6 +191,7 @@ href={urlCarne}
                     Descargar
                   </a>
                   <button
+                    type="button"
                     onClick={() => setMostrarSubirCarne(true)}
                     className="text-sm text-cyan-600 underline underline-offset-2 hover:text-cyan-800"
                   >
@@ -199,6 +201,7 @@ href={urlCarne}
               </div>
             ) : (
               <button
+                type="button"
                 onClick={() => setMostrarSubirCarne(true)}
                 className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-[#597BFF] to-[#4a6ee0] text-white font-semibold px-5 py-2.5 shadow-sm hover:from-[#4a6ee0] hover:to-[#3658d4] hover:shadow-lg hover:brightness-110 transform hover:scale-[1.03] transition-all duration-300"
               >
@@ -232,61 +235,59 @@ href={urlCarne}
             <input type="date" value={hasta} onChange={e => setHasta(e.target.value)} className="input" />
           </div>
           <button
+            type="button"
             onClick={cargarRegistros}
             className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-[#597BFF] to-[#4a6ee0] text-white font-semibold px-5 py-2.5 shadow-sm hover:from-[#4a6ee0] hover:to-[#3658d4] hover:shadow-lg hover:brightness-110 transform hover:scale-[1.03] transition-all duration-300"
           >
             Filtrar
           </button>
         </div>
-
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm border border-slate-200 rounded-lg overflow-hidden">
-           <thead>
-  <tr className="bg-slate-50 text-slate-600">
-    <th className="border px-2 py-1">Fecha</th>
-    <th className="border px-2 py-1">Horas</th>
-    <th className="border px-2 py-1">Orden ID</th>
-    <th className="border px-2 py-1">Solicitud</th>
-    <th className="border px-2 py-1">Rol</th>
-    <th className="border px-2 py-1">Trabajo realizado</th> {/* NUEVO */}
-  </tr>
-</thead>
-<tbody>
-  {registros.length === 0 ? (
-    <tr>
-      <td className="border px-2 py-3 text-center text-slate-500" colSpan={6}>
-        Sin registros en el rango seleccionado
-      </td>
-    </tr>
-  ) : (
-    registros.map(r => (
-      <tr key={r.id} className="hover:bg-slate-50">
-        <td className="border px-2 py-1">{r.fecha.slice(0, 10)}</td>
-        <td className="border px-2 py-1">{r.horas}</td>
-        <td className="border px-2 py-1">{r.ordenId}</td>
-        <td className="border px-2 py-1">{r.solicitud}</td>
-        <td className="border px-2 py-1">{r.rol}</td>
-        <td className="border px-2 py-1">
-          {/* muestra entero, con salto de línea si es largo, y tooltip al pasar */}
-          <div
-            className="max-w-[520px] whitespace-pre-wrap break-words"
-            title={r.trabajoRealizado || ''}
-          >
-            {r.trabajoRealizado || '—'}
-          </div>
-        </td>
+<div className="overflow-x-auto">
+  <table className="w-full text-sm border border-slate-200 rounded-lg overflow-hidden">
+    <thead>
+      <tr className="bg-slate-50 text-slate-600">
+        <th className="border px-2 py-1">Fecha</th>
+        <th className="border px-2 py-1">Horas</th>
+        <th className="border px-2 py-1">Orden ID</th>
+        <th className="border px-2 py-1">Solicitud</th>
+        <th className="border px-2 py-1">Rol</th>
+        <th className="border px-2 py-1">Trabajo realizado</th>
       </tr>
-    ))
-  )}
-</tbody>
-
-
-          </table>
-        </div>
+    </thead>
+    <tbody>
+      {registros.length === 0 ? (
+        <tr>
+          <td className="border px-2 py-3 text-center text-slate-500" colSpan={6}>
+            Sin registros en el rango seleccionado
+          </td>
+        </tr>
+      ) : (
+        registros.map((r) => (
+          <tr key={r.id} className="hover:bg-slate-50">
+            <td className="border px-2 py-1">{r.fecha.slice(0, 10)}</td>
+            <td className="border px-2 py-1">{r.horas}</td>
+            <td className="border px-2 py-1">{r.ordenId}</td>
+            <td className="border px-2 py-1">{r.solicitud}</td>
+            <td className="border px-2 py-1">{r.rol}</td>
+            <td className="border px-2 py-1">
+              <div
+                className="max-w-[520px] whitespace-pre-wrap break-words"
+                title={r.trabajoRealizado || ''}
+              >
+                {r.trabajoRealizado || '—'}
+              </div>
+            </td>
+          </tr>
+        ))
+      )}
+    </tbody>
+  </table>
+</div>
 
         <p className="mt-4 font-semibold">Total de horas: {totalHoras}</p>
 
         <button
+          type="button"
           onClick={() => {
             const url = api(`/personal/${empleadoId}/registros-trabajo/pdf?desde=${desde}&hasta=${hasta}`);
             window.open(url, '_blank');

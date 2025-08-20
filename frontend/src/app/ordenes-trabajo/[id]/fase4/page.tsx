@@ -3,7 +3,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { api } from '@/services/api';
+import { api, fetchJson } from '@/services/api';
 import SubirArchivo from '@/components/Asignaciones/SubirArchivo';
 
 interface RegistroTrabajo {
@@ -156,8 +156,7 @@ useEffect(() => {
 
   const fetchData = async () => {
     try {
-      const res = await fetch(api(`/ordenes-trabajo/${id}`));
-      const data: OrdenTrabajo = await res.json();
+      const data = await fetchJson<OrdenTrabajo>(`/ordenes-trabajo/${id}`);
 
       // 🚫 Si no está en edición
       if (data.estadoOrden === 'CERRADA') {
@@ -193,8 +192,7 @@ useEffect(() => {
 
   const fetchPersonal = async () => {
     try {
-      const res = await fetch(api('/personal'));
-      const data: Empleado[] = await res.json();
+      const data = await fetchJson<Empleado[]>(`/personal`);
       setPersonal(data);
     } catch {
       setPersonal([]);
@@ -237,16 +235,10 @@ const guardarRegistro = async (index: number) => {
       trabajoRealizado: r.trabajoRealizado?.trim() || null,
     };
 
-    const res = await fetch(api(`/ordenes-trabajo/${id}/registro-trabajo`), {
+    const saved = await fetchJson<{ id: number }>(`/ordenes-trabajo/${id}/registro-trabajo`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });
-    if (!res.ok) {
-      const e = await res.json().catch(() => ({}));
-      throw new Error(e?.error || 'Error al guardar registro');
-    }
-    const saved = await res.json();
 
     setRegistros((prev) =>
       prev.map((reg, idx) =>
@@ -255,9 +247,7 @@ const guardarRegistro = async (index: number) => {
     );
 
     // refrescá la OT para que la lista y PDF queden al día
-    fetch(api(`/ordenes-trabajo/${id}`))
-      .then((r) => r.json())
-      .then((data: OrdenTrabajo) => setOrden(data));
+    fetchJson<OrdenTrabajo>(`/ordenes-trabajo/${id}`).then(setOrden);
   } catch (err: any) {
     alert(err.message || 'Error al guardar registro');
   }
@@ -273,20 +263,16 @@ const eliminarFila = async (index: number) => {
     const confirmar = confirm('¿Querés eliminar este registro de trabajo definitivamente?');
     if (!confirmar) return;
 
-    const res = await fetch(api(`/ordenes-trabajo/registro-trabajo/${r.id}`), {
-      method: 'DELETE',
-    });
-
-    if (!res.ok) {
+    try {
+      await fetchJson(`/ordenes-trabajo/registro-trabajo/${r.id}`, { method: 'DELETE' });
+    } catch {
       alert('Error al eliminar el registro del servidor');
       return;
     }
-  }
-
+} 
   // En todos los casos, lo eliminamos del estado local
   setRegistros((prev) => prev.filter((_, i) => i !== index));
 };
-
   // Agregar nueva fila vacía
 const filaVacia: RegistroTrabajo = { empleadoId: '', fecha: '', horas: '', rol: '', trabajoRealizado: '', guardado: false };
 
@@ -298,15 +284,16 @@ const agregarFila = () => {
 
   // Guardar datos de factura (estado y número)
   const guardarFactura = async () => {
-    const res = await fetch(api(`/ordenes-trabajo/${id}/factura`), {
-      method: 'PUT',
-      body: JSON.stringify({ estadoFactura, numeroFactura }),
-      headers: { 'Content-Type': 'application/json' },
-    });
-    if (res.ok) alert('Factura guardada');
-    else alert('Error al guardar factura');
+    try {
+      await fetchJson(`/ordenes-trabajo/${id}/factura`, {
+        method: 'PUT',
+        body: JSON.stringify({ estadoFactura, numeroFactura }),
+      });
+      alert('Factura guardada');
+    } catch (e: any) {
+      alert(e?.body?.error || 'Error al guardar factura');
+    }
   };
-
   if (!orden) return <p className="p-4">Cargando orden...</p>;
 
   // Agrupar stock por ID y sumar cantidades
@@ -452,7 +439,7 @@ return (
         <p>
           <span className="text-slate-500">Componente externo:</span>{' '}
           <a
-            href={`/propietarios/${orden.componente.propietarioId}`}
+            href={`/cruds/propietarios/${orden.componente.propietarioId}`}
             className="text-cyan-600 hover:text-cyan-800 underline underline-offset-2"
             target="_blank"
             rel="noopener noreferrer"
@@ -499,7 +486,7 @@ return (
         {orden.solicitudFirma && (
           <div className="mt-1.5 flex flex-wrap items-center gap-3 text-[14px] leading-6">
             <a
-              href={api(`/${orden.solicitudFirma}`)}
+              href={orden.solicitudFirma}
               className="inline-flex items-center gap-1 text-cyan-600 hover:text-cyan-800 underline underline-offset-2"
               target="_blank"
               rel="noopener noreferrer"
@@ -507,7 +494,7 @@ return (
               👁️ Ver archivo de solicitud
             </a>
             <a
-              href={api(`/${orden.solicitudFirma}`)}
+              href={orden.solicitudFirma}
               download
               className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-slate-700 hover:bg-slate-50"
             >
@@ -739,14 +726,12 @@ return (
           <SubirArchivo
             open={mostrarSubirFactura}
             onClose={() => setMostrarSubirFactura(false)}
-            url={api(`/ordenes-trabajo/${id}/factura`)}
+            url={`/ordenes-trabajo/${id}/factura`}
             label="Subir archivo de factura"
             nombreCampo="archivoFactura"
             onUploaded={() => {
               setMostrarSubirFactura(false);
-              fetch(api(`/ordenes-trabajo/${id}`))
-                .then((res) => res.json())
-                .then((data: OrdenTrabajo) => setOrden(data));
+              fetchJson<OrdenTrabajo>(`/ordenes-trabajo/${id}`).then(setOrden);
             }}
           />
 
@@ -754,7 +739,7 @@ return (
             <div className="mt-2">
               <span className="text-slate-500">Archivo actual: </span>
               <a
-                href={api(`/${orden.archivoFactura}`)}
+                href={api(orden.archivoFactura)}
                 className="text-cyan-600 hover:text-cyan-800 underline underline-offset-2"
                 target="_blank"
                 rel="noopener noreferrer"
@@ -782,12 +767,12 @@ return (
             onClick={async () => {
               const confirmar = confirm('¿Estás segura que querés cancelar esta orden de trabajo?');
               if (!confirmar) return;
-              const res = await fetch(api(`/ordenes-trabajo/${id}/cancelar`), { method: 'PUT' });
-              if (res.ok) {
+              try {
+                await fetchJson(`/ordenes-trabajo/${id}/cancelar`, { method: 'PUT' });
                 alert('Orden cancelada con éxito');
                 window.location.href = `/ordenes-trabajo/${id}/cancelada`;
-              } else {
-                alert('Error al cancelar la orden');
+              } catch (e: any) {
+                alert(e?.body?.error || 'Error al cancelar la orden');
               }
             }}
             className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white
@@ -801,12 +786,12 @@ return (
             onClick={async () => {
               const confirmar = confirm('¿Estás segura que querés cerrar esta orden de trabajo? Esta acción no se puede deshacer.');
               if (!confirmar) return;
-              const res = await fetch(api(`/ordenes-trabajo/${id}/cerrar`), { method: 'PUT' });
-              if (res.ok) {
+              try {
+                await fetchJson(`/ordenes-trabajo/${id}/cerrar`, { method: 'PUT' });
                 alert('Orden cerrada con éxito');
                 window.location.href = `/ordenes-trabajo/${id}/cerrada`;
-              } else {
-                alert('Error al cerrar la orden');
+              } catch (e: any) {
+                alert(e?.body?.error || 'Error al cerrar la orden');
               }
             }}
             className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 text-white

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { api } from '@/services/api';
+import { api, fetchJson } from '@/services/api';
 
 interface Aviso {
   id: number;
@@ -15,9 +15,8 @@ export default function AvisosPage() {
 
   const fetchAvisos = async () => {
     try {
-      const res = await fetch(api('/avisos'));
-      const data = await res.json();
-      setAvisos(data);
+      const data = await fetchJson<Aviso[]>('/avisos');
+      setAvisos(data ?? []);
     } catch {
       setAvisos([]);
     }
@@ -29,7 +28,7 @@ export default function AvisosPage() {
 
   const marcarComoLeido = async (id: number) => {
     try {
-      await fetch(api(`/avisos/${id}/leido`), { method: 'PUT' });
+      await fetchJson(`/avisos/${id}/leido`, { method: 'PUT' });
       fetchAvisos();
     } catch (error) {
       console.error('Error al marcar como leído:', error);
@@ -41,7 +40,7 @@ export default function AvisosPage() {
     if (!confirmar) return;
 
     try {
-      await fetch(api(`/avisos/${id}`), { method: 'DELETE' });
+      await fetchJson(`/avisos/${id}`, { method: 'DELETE' });
       fetchAvisos();
     } catch (error) {
       console.error('Error al eliminar aviso:', error);

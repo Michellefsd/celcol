@@ -1,5 +1,6 @@
 'use client';
 import { useState } from 'react';
+import { api, apiFetch } from '@/services/api';
 
 type Props = {
   componenteId: number;
@@ -29,16 +30,19 @@ export default function SubirArchivo8130Modal({
 
     try {
       setSubiendo(true);
-      const res = await fetch(`/api/componentes/${componenteId}/archivo8130`, {
+      // 👇 Usa apiFetch para que mande cookies y refresque en 401
+      await apiFetch(api(`/componentes/${componenteId}/archivo8130`), {
         method: 'POST',
-        body: formData,
+        body: formData, // no seteamos Content-Type (lo pone el navegador)
       });
-
-      if (!res.ok) throw new Error('Error al subir el archivo');
 
       if (onUploaded) onUploaded();
       onClose();
-    } catch (err) {
+   } catch (err: any) {
+      if (err?.status === 401) {
+        // opcional: redirigir si falló el refresh
+        // router.push('/login');
+      }
       setError('Hubo un problema al subir el archivo.');
       console.error(err);
     } finally {
@@ -58,8 +62,12 @@ export default function SubirArchivo8130Modal({
         <input
           type="file"
           accept=".pdf,.png,.jpg,.jpeg"
-          onChange={(e) => setArchivo(e.target.files?.[0] || null)}
+          onChange={(e) => {
+            setArchivo(e.target.files?.[0] || null);
+            setError('');
+          }}
           className="mb-4"
+          disabled={subiendo}
         />
 
         <div className="flex justify-end space-x-2">

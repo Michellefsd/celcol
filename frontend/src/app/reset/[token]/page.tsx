@@ -2,7 +2,7 @@
 import { useParams, useRouter } from 'next/navigation';
 import { useState, FormEvent } from 'react';
 import Link from 'next/link';
-import { api } from '@/services/api';
+import { api, fetchJson } from '@/services/api';
 
 export default function ResetDoPage() {
   const { token } = useParams<{ token: string }>();
@@ -24,20 +24,14 @@ export default function ResetDoPage() {
 
     setLoading(true);
     try {
-      const r = await fetch(api('/auth/reset-password'), {
+await fetchJson('/auth/reset-password', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ token, password }),
+        body: JSON.stringify({ token, password }), // tu helper no stringify objetos
       });
-      if (!r.ok) {
-        const j = await r.json().catch(()=>({error:'Error'}));
-        throw new Error(j.error || 'No se pudo restablecer');
-      }
       setMsg('Contraseña actualizada. Redirigiendo…');
       setTimeout(()=> router.replace('/login'), 1000);
     } catch (e:any) {
-      setErr(e.message || 'Error');
+      setErr(e?.body?.error || e?.message || 'Error');
     } finally {
       setLoading(false);
     }

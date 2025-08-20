@@ -1,5 +1,7 @@
 'use client';
 import { useState } from 'react';
+import { apiFetch } from '@/services/api';
+
 
 type Props = {
   url: string; // endpoint al que enviar el archivo
@@ -35,13 +37,11 @@ export default function SubirArchivo({
 
     try {
       setSubiendo(true);
-      const res = await fetch(url, {
+      await apiFetch(url, {
         method: 'POST',
-        body: formData,
+        body: formData, // ✅ NO setear Content-Type; lo maneja el helper
       });
-
-      if (!res.ok) throw new Error('Error al subir el archivo');
-
+ 
       if (onUploaded) onUploaded();
       onClose();
     } catch (err: any) {

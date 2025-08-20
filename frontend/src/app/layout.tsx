@@ -1,7 +1,7 @@
 import './globals.css';
 import type { Metadata } from 'next';
 import { AuthProvider } from '@/context/AuthContext';
-import AuthGate from '@/components/AuthGate';
+import AuthEntry from '@/components/AuthEntry';
 import AppFrame from '@/components/AppFrame';
 
 export const metadata: Metadata = {
@@ -14,9 +14,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="es">
       <body className="bg-slate-100 text-[#2C2C2C] font-sans">
         <AuthProvider>
-          <AuthGate>
             <AppFrame>{children}</AppFrame>
-          </AuthGate>
         </AuthProvider>
       </body>
     </html>

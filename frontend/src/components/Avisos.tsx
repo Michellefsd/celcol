@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Mail } from 'lucide-react'; // ✅ IMPORTANTE
-import { api } from '@/services/api';
+import { api, fetchJson } from '@/services/api';
 
 interface Aviso {
   id: number;
@@ -15,8 +15,7 @@ export default function Avisos() {
   const [avisos, setAvisos] = useState<Aviso[]>([]);
 
   useEffect(() => {
-    fetch(api('/avisos'))
-      .then((res) => res.json())
+    fetchJson<Aviso[]>('/avisos')
       .then(setAvisos)
       .catch(() => setAvisos([]));
   }, []);

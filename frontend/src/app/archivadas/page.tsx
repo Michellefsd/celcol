@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { api } from '@/services/api';
+import { api, fetchJson } from '@/services/api';
 import BaseCard from '@/components/BaseCard';
 import BaseHeading from '@/components/BaseHeading';
 import TrabajoCard from '@/components/Home/TrabajoCard';
@@ -11,9 +11,8 @@ export default function ArchivadosPage() {
   const [tipo, setTipo] = useState<string>('ordenes');
 
   useEffect(() => {
-    fetch(api('/archivados'))
-      .then((res) => res.json())
-      .then((data) => setData(data))
+    fetchJson<any>('/archivados')
+      .then(setData)
       .catch((err) => console.error('Error al cargar archivados:', err));
   }, []);
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { api } from '@/services/api'; 
+import { api, fetchJson } from '@/services/api'; 
 
 interface ComponenteAvion {
   id: number;
@@ -71,14 +71,16 @@ export default function EditarAvionComponentes({ componente, onClose, onSaved }:
       TBOHoras: formData.TBOHoras ? parseFloat(formData.TBOHoras) : null
     };
 
-    await fetch(api(`/componentes-avion/${componente.id}`), {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body)
-    });
+await fetchJson(`/componentes-avion/${componente.id}`, {
+  method: "PUT",
+  headers: {
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify(body), 
+});
 
-    if (onSaved) onSaved();
-    onClose();
+onSaved?.();
+onClose();
   };
 
   return (

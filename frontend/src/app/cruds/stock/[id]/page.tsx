@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import SubirArchivo from '@/components/Asignaciones/SubirArchivo';
-import { api } from '@/services/api';
+import { api, fetchJson } from '@/services/api';
 import VolverAtras from '@/components/Arrow';
 
 interface StockItem {
@@ -56,9 +56,8 @@ export default function DetalleStockPage() {
   const cargarProducto = async () => {
     if (!id) return;
     try {
-      const res = await fetch(api(`/stock/${id}`));
-      if (!res.ok) throw new Error(`No se pudo obtener el producto (${res.status})`);
-      const data = await res.json();
+      // ✔ cookies incluidas → sin 401
+      const data = await fetchJson<StockItem>(`/stock/${id}`);
       setItem(data);
     } catch (err) {
       console.error('❌ Error al cargar el producto de stock:', err);
@@ -68,9 +67,8 @@ export default function DetalleStockPage() {
   const cargarFacturas = async () => {
     if (!id) return;
     try {
-      const res = await fetch(api(`/stock/${id}/facturas`));
-      if (!res.ok) throw new Error(`No se pudieron obtener las facturas (${res.status})`);
-      const data = (await res.json()) as FacturaStock[];
+      // ✔ cookies incluidas → sin 401
+      const data = await fetchJson<FacturaStock[]>(`/stock/${id}/facturas`);
       setFacturas(data);
     } catch (err) {
       console.error('❌ Error al cargar facturas:', err);
@@ -93,7 +91,10 @@ export default function DetalleStockPage() {
   const eliminarFactura = async (facturaId: IdLike) => {
     if (!confirm('¿Eliminar esta factura? Esta acción no se puede deshacer.')) return;
     try {
-      const res = await fetch(api(`/stock/facturas/${facturaId}`), { method: 'DELETE' });
+      const res = await fetch(api(`/stock/facturas/${facturaId}`), {
+        method: 'DELETE',
+        credentials: 'include', // ✔ envía cookies
+      });
       if (!res.ok) throw new Error(`No se pudo eliminar la factura (${res.status})`);
       await cargarFacturas();
     } catch (err) {
@@ -340,6 +341,7 @@ function EditFacturaModal({
       setSaving(true);
       const res = await fetch(api(`/stock/facturas/${initial.id}`), {
         method: 'PUT',
+        credentials: 'include', // ✔ envía cookies
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...form,

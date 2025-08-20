@@ -1,13 +1,132 @@
-export const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+// src/services/api.ts
 
+export const API_URL =
+  process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+
+function isAbsoluteUrl(path: string) {
+  return /^https?:\/\//i.test(path);
+}
+
+// Devuelve URL absoluta al backend */
 export function api(path: string) {
-  return `${API_URL}${path}`;
+  if (isAbsoluteUrl(path)) return path;
+  const base = API_URL.replace(/\/+$/, '');
+  const rel = path.startsWith('/') ? path : `/${path}`;
+  return `${base}${rel}`;
 }
 
-export async function getAvionPorMatricula(matricula: string) {
-  const res = await fetch(api(`/avion/${matricula}`));  // 👈 aquí usamos la función api()
-  if (!res.ok) {
-    throw new Error('Error al obtener el avión');
-  }
-  return res.json();
+// Construye hrefs absolutos (archivos subidos, descargas, etc.) */
+export function apiUrl(path: string) {
+  return api(path);
 }
+
+// Intenta refrescar sesión usando cookies HTTP-only */
+async function refreshAuth(): Promise<boolean> {
+  try {
+    const res = await fetch(api('/api/auth/refresh'), {
+      method: 'POST',
+      credentials: 'include',
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+// Hace fetch con cookies + refresh automático + parseo de respuesta */
+export async function apiFetch<T = unknown>(
+  path: string,
+  init: RequestInit = {}
+): Promise<T> {
+  const url = api(path);
+
+  const doFetch = () => {
+    const isForm =
+      typeof FormData !== 'undefined' && init.body instanceof FormData;
+
+    const needsJson =
+      !isForm &&
+      (init.body != null ||
+        (init.method && init.method.toUpperCase() !== 'GET'));
+
+    const headers: HeadersInit = {
+      Accept: 'application/json',
+      ...(needsJson ? { 'Content-Type': 'application/json' } : {}),
+      ...(init.headers || {}),
+    };
+
+    return fetch(url, {
+      credentials: 'include',
+      headers,
+      ...init,
+    });
+  };
+
+  let res = await doFetch();
+
+  const shouldTryRefresh = (s: number) => s === 401 || s === 403 || s === 419;
+  const isRefreshCall =
+    path.includes('/auth/refresh') || path.includes('/api/auth/refresh');
+
+  if (!isRefreshCall && shouldTryRefresh(res.status)) {
+    const ok = await refreshAuth();
+    if (ok) res = await doFetch();
+  }
+
+  const ct = res.headers.get('content-type') || '';
+  let body: any = null;
+  try {
+    if (ct.includes('application/json')) body = await res.json();
+    else body = await res.text();
+  } catch {
+    body = null;
+  }
+
+  if (!res.ok) {
+    const err: any = new Error(`HTTP ${res.status}`);
+    err.status = res.status;
+    err.body = body;
+    throw err;
+  }
+
+  return body as T;
+}
+
+// Alias semántico cuando esperás JSON */
+export async function fetchJson<T = unknown>(
+  path: string,
+  init: RequestInit = {}
+): Promise<T> {
+  return apiFetch<T>(path, init);
+}
+
+/** Útil para descargas de texto/CSV/etc */
+export async function fetchText(
+  path: string,
+  init: RequestInit = {}
+): Promise<string> {
+  const text = await apiFetch<string>(path, {
+    ...init,
+    headers: {
+      Accept: 'text/plain, text/csv, application/json;q=0.1',
+      ...(init.headers || {}),
+    },
+  });
+  return typeof text === 'string' ? text : String(text ?? '');
+}
+
+/** Ejemplo de helper: obtener avión por matrícula */
+export async function getAvionPorMatricula(matricula: string) {
+  return fetchJson(`/avion/${encodeURIComponent(matricula)}`);
+}
+
+
+
+
+
+
+
+
+
+
+

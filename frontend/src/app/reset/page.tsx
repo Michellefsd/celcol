@@ -1,49 +1,44 @@
 'use client';
-import { useState, FormEvent } from 'react';
+
 import Link from 'next/link';
-import { api } from '@/services/api';
+import Image from 'next/image';
 
 export default function ResetRequestPage() {
-  const [email, setEmail] = useState('');
-  const [sent, setSent] = useState(false);
-  const [loading, setLoading] = useState(false);
-
-  const submit = async (e: FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    await fetch(api('/auth/forgot-password'), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({ email }),
-    }).catch(() => {});
-    setSent(true);
-    setLoading(false);
+  const goToKeycloakReset = () => {
+    const base = process.env.NEXT_PUBLIC_KC_BASE!;
+    const clientId = process.env.NEXT_PUBLIC_KC_CLIENT_ID!;
+    const redirect = process.env.NEXT_PUBLIC_APP_REDIRECT!;
+    const url =
+      `${base}/realms/Celcol/login-actions/reset-credentials` +
+      `?client_id=${encodeURIComponent(clientId)}` +
+      `&redirect_uri=${encodeURIComponent(redirect)}`;
+    window.location.href = url;
   };
 
   return (
-    <div className="max-w-md mx-auto mt-12 space-y-4">
-      <h1 className="text-xl font-semibold">Recuperar contraseña</h1>
-      {sent ? (
+    <div className="min-h-screen flex items-start justify-center pt-16 px-4">
+      <div className="w-full max-w-md space-y-5 bg-white/80 backdrop-blur p-6 rounded-2xl shadow-lg">
+        <div className="flex flex-col items-center gap-3">
+          <Image src="/celcol.png" alt="Celcol" width={64} height={64} />
+          <h1 className="text-xl font-semibold">Recuperar contraseña</h1>
+        </div>
+
         <p className="text-gray-600">
-          Si el email existe, te enviamos un enlace para restablecerla. Revisá tu bandeja (y spam).
+          Te vamos a redirigir a la página segura de Keycloak para solicitar el enlace de recuperación.
         </p>
-      ) : (
-        <form onSubmit={submit} className="space-y-3">
-          <label className="block text-sm text-gray-700">Email</label>
-          <input
-            type="email"
-            className="w-full border rounded-xl px-3 py-2"
-            value={email}
-            onChange={e => setEmail(e.target.value)}
-            required
-          />
-          <button disabled={loading} className="rounded-2xl px-4 py-2 bg-cyan-500 text-white">
-            {loading ? 'Enviando…' : 'Enviar enlace'}
-          </button>
-        </form>
-      )}
-      <Link href="/login" className="text-sm text-cyan-700 hover:underline">Volver a iniciar sesión</Link>
+        <button
+          onClick={goToKeycloakReset}
+          className="w-full rounded-2xl px-4 py-2 bg-cyan-500 text-white hover:bg-cyan-600"
+        >
+          Ir a “Olvidé mi contraseña”
+        </button>
+
+        <div className="text-center">
+          <Link href="/login" className="text-sm text-cyan-700 hover:underline">
+            Volver a iniciar sesión
+          </Link>
+        </div>
+      </div>
     </div>
   );
 }
