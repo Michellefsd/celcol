@@ -92,7 +92,7 @@ export default function AgregarComponenteModal({ propietarioId, open, onClose, o
       name={name}
       onChange={handleChange}
       className="border p-2 rounded"
-      accept={type === 'file' ? 'application/pdf' : undefined}
+      accept={type === 'file' ? 'application/pdf,image/png,image/jpeg,image/webp' : undefined}
       {...(type !== 'file' ? { value: formData[name as keyof typeof formData] as string } : {})}
     />
   </div>

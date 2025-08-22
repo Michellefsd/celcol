@@ -4,17 +4,6 @@ const avionController = require('../controllers/avion.controller');
 const { uploadAvion } = require('../../middleware/upload.middleware');
 const { revisarAvionesSinPropietario } = require('../utils/avisos');
 
-console.log('[avion.routes] tipos =>', {
-  uploadAvion: typeof uploadAvion,
-  crearAvion: typeof avionController.crearAvion,
-  actualizarAvion: typeof avionController.actualizarAvion,
-  listarAviones: typeof avionController.listarAviones,
-  obtenerAvion: typeof avionController.obtenerAvion,
-  archivarAvion: typeof avionController.archivarAvion,
-  asignarPropietarios: typeof avionController.asignarPropietarios,
-  subirCertificadoMatricula: typeof avionController.subirCertificadoMatricula,
-});
-
 
 // Crear avión
 router.post('/', uploadAvion, avionController.crearAvion);

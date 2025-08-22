@@ -112,7 +112,7 @@ export default function EditarComponenteModal({
 <input
   type="file"
   name="archivo8130"                         // 👈 necesario para que multer lo acepte
-  accept="application/pdf"
+  accept="application/pdf,image/png,image/jpeg,image/webp"
   onChange={handleFile}
 />
 

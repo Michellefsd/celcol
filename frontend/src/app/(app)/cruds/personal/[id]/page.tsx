@@ -159,8 +159,8 @@ useEffect(() => {
             <p><span className="text-slate-500">Email:</span> {empleado.email}</p>
             <p><span className="text-slate-500">Dirección:</span> {empleado.direccion}</p>
             <p><span className="text-slate-500">Licencia:</span> {empleado.tipoLicencia} - {empleado.numeroLicencia}</p>
-            <p><span className="text-slate-500">Vencimiento:</span> {empleado.vencimientoLicencia?.slice(0, 10)}</p>
             <p><span className="text-slate-500">Fecha de alta:</span> {empleado.fechaAlta?.slice(0, 10)}</p>
+            <p><span className="text-slate-500">Vencimiento:</span> {empleado.vencimientoLicencia?.slice(0, 10)}</p>
           </div>
 
           {/* Carné de salud */}

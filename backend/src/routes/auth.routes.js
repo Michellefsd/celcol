@@ -1,11 +1,10 @@
-const express = require('express');
+/*const express = require('express');
 const cookie = require('cookie');
-const crypto = require('crypto'); // <— PKCE
 const router = express.Router();
 require('dotenv').config();
 
 const {
-  APP_URL = 'http://localhost:3000',
+  APP_URL = 'http://localhost:3000', // front
   KC_BASE,
   KC_REALM,
   KC_CLIENT_ID,
@@ -17,59 +16,38 @@ const {
 const isProd = NODE_ENV === 'production';
 const COOKIE_NAME_ACCESS = 'cc_access';
 const COOKIE_NAME_REFRESH = 'cc_refresh';
-const COOKIE_NAME_PKCE = 'pkce_verifier';
+const COOKIE_NAME_ID = 'cc_id'; // ⬅️ para id_token (logout)
 
-// --- helpers PKCE ---
-function base64url(buf) {
-  return buf.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-}
-function genCodeVerifier() {
-  // 43–128 chars; 32 bytes -> 43 b64url chars
-  return base64url(crypto.randomBytes(32));
-}
-function codeChallengeS256(verifier) {
-  const hash = crypto.createHash('sha256').update(verifier).digest();
-  return base64url(hash);
+function baseCookieOpts() {
+  return {
+    httpOnly: true,
+    secure: isProd,          // si front y KC están en dominios distintos, usar secure:true y sameSite:'none'
+    sameSite: 'lax',
+    path: '/',
+    domain: COOKIE_DOMAIN || undefined,
+  };
 }
 
 // Arma redirect_uri del callback en backend
 function buildCallbackUrl(req) {
-  const base = `${req.protocol}://${req.get('host')}${req.baseUrl}`; // /api/auth
+  const base = `${req.protocol}://${req.get('host')}${req.baseUrl}`; // ej: http://localhost:3001/api/auth
   return `${base}/callback`;
 }
 
-// ---------- LOGIN (con PKCE) ----------
+// ---------- LOGIN (SIN PKCE) ----------
 router.get('/login', (req, res) => {
   const redirectUri = buildCallbackUrl(req);
-
-  // PKCE: generamos/verificamos
-  const codeVerifier = genCodeVerifier();
-  const codeChallenge = codeChallengeS256(codeVerifier);
-
-  // Guardamos el verifier en cookie httpOnly (corta vida)
-  const pkceCookie = cookie.serialize(COOKIE_NAME_PKCE, codeVerifier, {
-    httpOnly: true,
-    secure: isProd,
-    sameSite: 'lax',
-    path: '/',
-    domain: COOKIE_DOMAIN || undefined,
-    maxAge: 5 * 60, // 5 minutos
-  });
-  res.setHeader('Set-Cookie', pkceCookie);
 
   const authUrl = new URL(`${KC_BASE}/realms/${KC_REALM}/protocol/openid-connect/auth`);
   authUrl.searchParams.set('client_id', KC_CLIENT_ID);
   authUrl.searchParams.set('redirect_uri', redirectUri);
   authUrl.searchParams.set('response_type', 'code');
   authUrl.searchParams.set('scope', 'openid profile email');
-  // PKCE
-  authUrl.searchParams.set('code_challenge', codeChallenge);
-  authUrl.searchParams.set('code_challenge_method', 'S256');
 
   return res.redirect(authUrl.toString());
 });
 
-// ---------- CALLBACK (con PKCE) ----------
+// ---------- CALLBACK (usa client_secret, SIN code_verifier) ----------
 router.get('/callback', async (req, res) => {
   try {
     const code = req.query.code;
@@ -77,22 +55,13 @@ router.get('/callback', async (req, res) => {
 
     const redirectUri = buildCallbackUrl(req);
 
-    // Recuperar code_verifier de cookie
-    const cookies = cookie.parse(req.headers.cookie || '');
-    const codeVerifier = cookies[COOKIE_NAME_PKCE];
-    if (!codeVerifier) {
-      console.error('Missing PKCE code_verifier cookie');
-      return res.status(400).send('Missing PKCE verifier');
-    }
-
     const tokenUrl = `${KC_BASE}/realms/${KC_REALM}/protocol/openid-connect/token`;
     const body = new URLSearchParams({
       grant_type: 'authorization_code',
       code,
       client_id: KC_CLIENT_ID,
-      client_secret: KC_CLIENT_SECRET, // sigue siendo confidential
+      client_secret: KC_CLIENT_SECRET,
       redirect_uri: redirectUri,
-      code_verifier: codeVerifier,     // <— PKCE
     });
 
     const r = await fetch(tokenUrl, {
@@ -109,36 +78,31 @@ router.get('/callback', async (req, res) => {
 
     const tok = await r.json();
 
-    const baseCookie = {
-      httpOnly: true,
-      secure: isProd,
-      sameSite: 'lax',
-      path: '/',
-      domain: COOKIE_DOMAIN || undefined,
-    };
+    const opts = baseCookieOpts();
 
     res.setHeader('Set-Cookie', [
-      // limpiamos el pkce verifier
-      cookie.serialize(COOKIE_NAME_PKCE, '', { ...baseCookie, maxAge: 0 }),
       cookie.serialize(COOKIE_NAME_ACCESS, tok.access_token, {
-        ...baseCookie,
+        ...opts,
         maxAge: (tok.expires_in || 3600),
       }),
       cookie.serialize(COOKIE_NAME_REFRESH, tok.refresh_token || '', {
-        ...baseCookie,
+        ...opts,
         maxAge: (tok.refresh_expires_in || 2592000),
+      }),
+      // ⬇️ guardamos también el id_token para usarlo como id_token_hint en logout
+      cookie.serialize(COOKIE_NAME_ID, tok.id_token || '', {
+        ...opts,
+        maxAge: (tok.expires_in || 3600),
       }),
     ]);
 
-    return res.redirect(`${APP_URL}/`);
+    // después de loguear, mandamos a la app interna
+    return res.redirect(`${APP_URL}/privado`);
   } catch (e) {
     console.error(e);
     return res.status(400).send('Auth error');
   }
 });
-
-
-
 
 // ---------- REFRESH ----------
 router.post('/refresh', async (req, res) => {
@@ -164,39 +128,35 @@ router.post('/refresh', async (req, res) => {
     if (!r.ok) {
       const txt = await r.text().catch(() => '');
       console.error('Refresh failed:', txt);
-      // limpiamos cookies inválidas
-      const baseCookie = {
-        httpOnly: true,
-        secure: isProd,
-        sameSite: 'lax',
-        path: '/',
-        domain: COOKIE_DOMAIN || undefined,
+
+      const expired = {
+        ...baseCookieOpts(),
         maxAge: 0,
       };
+
       res.setHeader('Set-Cookie', [
-        cookie.serialize(COOKIE_NAME_ACCESS, '', baseCookie),
-        cookie.serialize(COOKIE_NAME_REFRESH, '', baseCookie),
+        cookie.serialize(COOKIE_NAME_ACCESS, '', expired),
+        cookie.serialize(COOKIE_NAME_REFRESH, '', expired),
+        cookie.serialize(COOKIE_NAME_ID, '', expired),
       ]);
       return res.status(401).json({ error: 'refresh_failed' });
     }
 
     const tok = await r.json();
-    const baseCookie = {
-      httpOnly: true,
-      secure: isProd,
-      sameSite: 'lax', // ajustaremos LUEGO según el Paso B
-      path: '/',
-      domain: COOKIE_DOMAIN || undefined,
-    };
+    const opts = baseCookieOpts();
 
     res.setHeader('Set-Cookie', [
       cookie.serialize(COOKIE_NAME_ACCESS, tok.access_token, {
-        ...baseCookie,
+        ...opts,
         maxAge: (tok.expires_in || 3600),
       }),
       cookie.serialize(COOKIE_NAME_REFRESH, tok.refresh_token || refreshToken, {
-        ...baseCookie,
+        ...opts,
         maxAge: (tok.refresh_expires_in || 2592000),
+      }),
+      cookie.serialize(COOKIE_NAME_ID, tok.id_token || cookies[COOKIE_NAME_ID] || '', {
+        ...opts,
+        maxAge: (tok.expires_in || 3600),
       }),
     ]);
 
@@ -207,24 +167,345 @@ router.post('/refresh', async (req, res) => {
   }
 });
 
+// ---------- ME (ping de sesión para la landing) ----------
+router.get('/me', (req, res) => {
+  try {
+    const cookies = cookie.parse(req.headers.cookie || '');
+    const access = cookies[COOKIE_NAME_ACCESS];
+    if (access) return res.sendStatus(200);
+    return res.sendStatus(401);
+  } catch {
+    return res.sendStatus(401);
+  }
+});
+
+// ---------- LOGOUT (redirige a KC end_session) ----------
+router.get('/logout', (req, res) => {
+  const cookiesObj = cookie.parse(req.headers.cookie || '');
+  const idToken = cookiesObj[COOKIE_NAME_ID];
+
+  const expired = {
+    ...baseCookieOpts(),
+    maxAge: 0,
+  };
+
+  // limpia cookies locales
+  res.setHeader('Set-Cookie', [
+    cookie.serialize(COOKIE_NAME_ACCESS, '', expired),
+    cookie.serialize(COOKIE_NAME_REFRESH, '', expired),
+    cookie.serialize(COOKIE_NAME_ID, '', expired),
+  ]);
+
+  // arma URL de end_session
+  const postLogout = `${APP_URL}/login`; // a dónde vuelve tu front tras cerrar sesión en KC
+  const endSession = new URL(`${KC_BASE}/realms/${KC_REALM}/protocol/openid-connect/logout`);
+  endSession.searchParams.set('post_logout_redirect_uri', postLogout);
+  if (idToken) endSession.searchParams.set('id_token_hint', idToken);
+
+  return res.redirect(endSession.toString());
+});
+
+module.exports = router;
+*/
 
 
 
-// ---------- LOGOUT ----------
-router.post('/logout', (req, res) => {
-  const baseCookie = {
+
+
+
+
+
+
+
+
+
+
+
+
+
+const express = require('express');
+const cookie = require('cookie');
+const router = express.Router();
+require('dotenv').config();
+
+const {
+  APP_URL = 'http://localhost:3000', // front
+  KC_BASE = 'http://localhost:9090',
+  KC_REALM,
+  KC_CLIENT_ID,
+  KC_CLIENT_SECRET,
+  NODE_ENV,
+  COOKIE_DOMAIN,
+  // para /password-email
+  KC_ADMIN_CLIENT_ID,
+  KC_ADMIN_CLIENT_SECRET,
+} = process.env;
+
+const isProd = NODE_ENV === 'production';
+const COOKIE_NAME_ACCESS = 'cc_access';
+const COOKIE_NAME_REFRESH = 'cc_refresh';
+const COOKIE_NAME_ID = 'cc_id'; // id_token para end_session
+
+function baseCookieOpts() {
+  return {
     httpOnly: true,
-    secure: isProd,
+    secure: isProd, // en prod: true
     sameSite: 'lax',
     path: '/',
     domain: COOKIE_DOMAIN || undefined,
-    maxAge: 0,
   };
+}
+
+// Normaliza a una sola barra final (p.ej. "http://localhost:3000/")
+function ensureTrailingSlash(u) {
+  return `${u || ''}`.replace(/\/?$/, '/');
+}
+
+// Helpers para /password-email
+async function getAdminToken() {
+  if (!KC_ADMIN_CLIENT_ID || !KC_ADMIN_CLIENT_SECRET) {
+    throw new Error('admin_client_not_configured');
+  }
+  const tokenUrl = `${KC_BASE}/realms/${KC_REALM}/protocol/openid-connect/token`;
+  const body = new URLSearchParams({
+    grant_type: 'client_credentials',
+    client_id: KC_ADMIN_CLIENT_ID,
+    client_secret: KC_ADMIN_CLIENT_SECRET,
+  });
+  const r = await fetch(tokenUrl, {
+    method: 'POST',
+    headers: { 'content-type': 'application/x-www-form-urlencoded' },
+    body,
+  });
+  if (!r.ok) {
+    const t = await r.text().catch(() => '');
+    console.error('admin token error:', t);
+    throw new Error('admin_token_failed');
+  }
+  const j = await r.json();
+  return j.access_token;
+}
+
+async function getUserInfo(accessToken) {
+  const url = `${KC_BASE}/realms/${KC_REALM}/protocol/openid-connect/userinfo`;
+  const r = await fetch(url, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!r.ok) throw new Error('userinfo_failed');
+  return r.json(); // { sub, email, ... }
+}
+
+// arma redirect_uri del callback en backend
+function buildCallbackUrl(req) {
+  const base = `${req.protocol}://${req.get('host')}${req.baseUrl}`; // ej: http://localhost:3001/api/auth
+  return `${base}/callback`;
+}
+
+// ---------- LOGIN ----------
+router.get('/login', (req, res) => {
+  const redirectUri = buildCallbackUrl(req);
+
+  const authUrl = new URL(`${KC_BASE}/realms/${KC_REALM}/protocol/openid-connect/auth`);
+  authUrl.searchParams.set('client_id', KC_CLIENT_ID);
+  authUrl.searchParams.set('redirect_uri', redirectUri);
+  authUrl.searchParams.set('response_type', 'code');
+  authUrl.searchParams.set('scope', 'openid profile email');
+
+  return res.redirect(authUrl.toString());
+});
+
+// ---------- CALLBACK ----------
+router.get('/callback', async (req, res) => {
+  try {
+    const code = req.query.code;
+    if (!code) return res.status(400).send('Missing code');
+
+    const redirectUri = buildCallbackUrl(req);
+
+    const tokenUrl = `${KC_BASE}/realms/${KC_REALM}/protocol/openid-connect/token`;
+    const body = new URLSearchParams({
+      grant_type: 'authorization_code',
+      code,
+      client_id: KC_CLIENT_ID,
+      client_secret: KC_CLIENT_SECRET,
+      redirect_uri: redirectUri,
+    });
+
+    const r = await fetch(tokenUrl, {
+      method: 'POST',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      body,
+    });
+
+    if (!r.ok) {
+      const txt = await r.text().catch(() => '');
+      console.error('Token exchange failed:', txt);
+      return res.status(500).send('Auth error (token exchange)');
+    }
+
+    const tok = await r.json();
+
+    const opts = baseCookieOpts();
+
+    res.setHeader('Set-Cookie', [
+      cookie.serialize(COOKIE_NAME_ACCESS, tok.access_token, {
+        ...opts,
+        maxAge: (tok.expires_in || 3600),
+      }),
+      cookie.serialize(COOKIE_NAME_REFRESH, tok.refresh_token || '', {
+        ...opts,
+        maxAge: (tok.refresh_expires_in || 2592000),
+      }),
+      cookie.serialize(COOKIE_NAME_ID, tok.id_token || '', {
+        ...opts,
+        maxAge: (tok.expires_in || 3600),
+      }),
+    ]);
+
+    return res.redirect(`${APP_URL}/privado`);
+  } catch (e) {
+    console.error(e);
+    return res.status(400).send('Auth error');
+  }
+});
+
+// ---------- REFRESH ----------
+router.post('/refresh', async (req, res) => {
+  try {
+    const cookies = cookie.parse(req.headers.cookie || '');
+    const refreshToken = cookies[COOKIE_NAME_REFRESH];
+    if (!refreshToken) return res.status(401).json({ error: 'No refresh token' });
+
+    const tokenUrl = `${KC_BASE}/realms/${KC_REALM}/protocol/openid-connect/token`;
+    const body = new URLSearchParams({
+      grant_type: 'refresh_token',
+      client_id: KC_CLIENT_ID,
+      client_secret: KC_CLIENT_SECRET,
+      refresh_token: refreshToken,
+    });
+
+    const r = await fetch(tokenUrl, {
+      method: 'POST',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      body,
+    });
+
+    if (!r.ok) {
+      const txt = await r.text().catch(() => '');
+      console.error('Refresh failed:', txt);
+
+      const expired = { ...baseCookieOpts(), maxAge: 0 };
+
+      res.setHeader('Set-Cookie', [
+        cookie.serialize(COOKIE_NAME_ACCESS, '', expired),
+        cookie.serialize(COOKIE_NAME_REFRESH, '', expired),
+        cookie.serialize(COOKIE_NAME_ID, '', expired),
+      ]);
+      return res.status(401).json({ error: 'refresh_failed' });
+    }
+
+    const tok = await r.json();
+    const opts = baseCookieOpts();
+
+    res.setHeader('Set-Cookie', [
+      cookie.serialize(COOKIE_NAME_ACCESS, tok.access_token, {
+        ...opts,
+        maxAge: (tok.expires_in || 3600),
+      }),
+      cookie.serialize(COOKIE_NAME_REFRESH, tok.refresh_token || refreshToken, {
+        ...opts,
+        maxAge: (tok.refresh_expires_in || 2592000),
+      }),
+      cookie.serialize(COOKIE_NAME_ID, tok.id_token || cookies[COOKIE_NAME_ID] || '', {
+        ...opts,
+        maxAge: (tok.expires_in || 3600),
+      }),
+    ]);
+
+    return res.status(204).end();
+  } catch (e) {
+    console.error('Refresh error:', e);
+    return res.status(500).json({ error: 'internal' });
+  }
+});
+
+// ---------- ME ----------
+router.get('/me', (req, res) => {
+  try {
+    const cookiesObj = cookie.parse(req.headers.cookie || '');
+    const access = cookiesObj[COOKIE_NAME_ACCESS];
+    if (access) return res.sendStatus(200);
+    return res.sendStatus(401);
+  } catch {
+    return res.sendStatus(401);
+  }
+});
+
+// ---------- PASSWORD EMAIL (envía link de "Actualizar contraseña") ----------
+router.post('/password-email', async (req, res) => {
+  try {
+    const cookiesObj = cookie.parse(req.headers.cookie || '');
+    const access = cookiesObj[COOKIE_NAME_ACCESS];
+    if (!access) return res.status(401).json({ error: 'no_session' });
+
+    const info = await getUserInfo(access); // { sub, email, ... }
+    const userId = info.sub;
+
+    const adminToken = await getAdminToken();
+
+    // 🔑 redirect_uri debe existir exactamente en "Valid Redirect URIs" del cliente celcol-app
+    const redirectUri = ensureTrailingSlash(APP_URL); // ej: "http://localhost:3000/"
+
+    const params = new URLSearchParams({
+      client_id: KC_CLIENT_ID,
+      redirect_uri: redirectUri,
+      // lifespan: String(86400), // opcional (1 día)
+    });
+    const url = `${KC_BASE}/admin/realms/${KC_REALM}/users/${userId}/execute-actions-email?${params.toString()}`;
+
+    const r = await fetch(url, {
+      method: 'PUT',
+      headers: {
+        Authorization: `Bearer ${adminToken}`,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify(['UPDATE_PASSWORD']),
+    });
+
+    if (!r.ok) {
+      const t = await r.text().catch(() => '');
+      console.error('execute-actions-email error:', t);
+      return res.status(500).json({ error: 'send_email_failed', detail: t });
+    }
+
+    return res.status(204).end();
+  } catch (e) {
+    console.error('password-email error:', e);
+    return res.status(500).json({ error: 'internal' });
+  }
+});
+
+// ---------- LOGOUT (redirige a KC y vuelve a landing "/") ----------
+router.get('/logout', (req, res) => {
+  const cookiesObj = cookie.parse(req.headers.cookie || '');
+  const idToken = cookiesObj[COOKIE_NAME_ID];
+
+  const expired = { ...baseCookieOpts(), maxAge: 0 };
+
+  // limpia cookies locales
   res.setHeader('Set-Cookie', [
-    cookie.serialize(COOKIE_NAME_ACCESS, '', baseCookie),
-    cookie.serialize(COOKIE_NAME_REFRESH, '', baseCookie),
+    cookie.serialize(COOKIE_NAME_ACCESS, '', expired),
+    cookie.serialize(COOKIE_NAME_REFRESH, '', expired),
+    cookie.serialize(COOKIE_NAME_ID, '', expired),
   ]);
-  return res.status(204).end();
+
+  // end_session → vuelve a la landing pública
+  const postLogout = ensureTrailingSlash(APP_URL); // "http://localhost:3000/"
+  const endSession = new URL(`${KC_BASE}/realms/${KC_REALM}/protocol/openid-connect/logout`);
+  endSession.searchParams.set('post_logout_redirect_uri', postLogout);
+  if (idToken) endSession.searchParams.set('id_token_hint', idToken);
+
+  return res.redirect(endSession.toString());
 });
 
 module.exports = router;

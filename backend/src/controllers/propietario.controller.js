@@ -114,64 +114,87 @@ exports.actualizarPropietario = async (req, res) => {
 };
 */}
 
-// ARCHIVAR (con validación de uso en OTs abiertas)
+
+// ARCHIVAR PROPIETARIO con bloqueos por OTs abiertas y aviones vinculados
 exports.archivarPropietario = async (req, res) => {
   const id = parseInt(req.params.id);
+
   try {
     const propietario = await prisma.propietario.findUnique({ where: { id } });
-
     if (!propietario) {
       return res.status(404).json({ error: 'Propietario no encontrado' });
     }
-
     if (propietario.archivado) {
       return res.status(400).json({ error: 'El propietario ya está archivado.' });
     }
 
-    // Obtener aviones y componentes externos asociados
-    const [aviones, componentes] = await Promise.all([
-      prisma.avion.findMany({ where: { propietarioId: id } }),
-      prisma.componenteExterno.findMany({ where: { propietarioId: id } }),
+    // 1) Bloquear si hay OTs ABIERTAS que referencien aviones o componentes de este propietario
+    const otAbierta = await prisma.ordenTrabajo.findFirst({
+      where: {
+        estadoOrden: 'ABIERTA', // ⚠️ cambia a tu campo real si usás 'estado'
+        OR: [
+          // Orden sobre AVIÓN cuyo set de propietarios incluya a este id
+          {
+            avion: {
+              propietarios: {
+                some: { propietarioId: id } // usa { some: { id } } si tu relación es implícita
+              }
+            }
+          },
+          // Orden sobre COMPONENTE EXTERNO del propietario
+          {
+            componente: {
+              propietarioId: id
+            }
+          }
+        ]
+      },
+      select: { id: true }
+    });
+
+    if (otAbierta) {
+      return res.status(400).json({
+        error: `No se puede archivar: existe una OT ABIERTA que involucra a este propietario (OT ID ${otAbierta.id}).`
+      });
+    }
+
+    // 2) Bloquear si aún tiene AVIONES vinculados (no archivados). Debe desvincularse primero.
+    const avionesVinc = await prisma.avionPropietario.findMany({
+      where: {
+        propietarioId: id,
+        avion: { archivado: false },
+      },
+      select: { avion: { select: { id: true, matricula: true } } }
+    });
+
+    if (avionesVinc.length > 0) {
+      const listado = avionesVinc
+        .map(v => `#${v.avion.id}${v.avion.matricula ? ` (${v.avion.matricula})` : ''}`)
+        .join(', ');
+      return res.status(400).json({
+        error: `No se puede archivar: primero desvinculá estos aviones del propietario: ${listado}.`
+      });
+    }
+
+    // 3) Archivar EN CASCADA componentes externos del propietario + propietario (transacción)
+    const [compResult] = await prisma.$transaction([
+      prisma.componenteExterno.updateMany({
+        where: { propietarioId: id, archivado: false },
+        data: { archivado: true }
+      }),
+      prisma.propietario.update({
+        where: { id },
+        data: { archivado: true }
+      })
     ]);
 
-    const avionIds = aviones.map((a) => a.id);
-    const componenteIds = componentes.map((c) => c.id);
-
-    if (avionIds.length === 0 && componenteIds.length === 0) {
-      // Si no tiene recursos, permitir archivado directamente
-      await prisma.propietario.update({
-        where: { id },
-        data: { archivado: true },
-      });
-      return res.json({ mensaje: 'Propietario archivado correctamente (sin recursos asociados).' });
-    }
-
-    // Verificar si alguno está en uso en una OT abierta
-    const ordenAbierta = await prisma.ordenTrabajo.findFirst({
-      where: {
-        estadoOrden: 'ABIERTA',
-        OR: [
-          { avionId: { in: avionIds } },
-          { componenteId: { in: componenteIds } },
-        ],
-      },
+    return res.json({
+      mensaje: 'Propietario archivado correctamente.',
+      componentesArchivados: compResult.count
     });
 
-    if (ordenAbierta) {
-      return res.status(400).json({
-        error: `No se puede archivar: el propietario tiene recursos en uso en la orden de trabajo ID ${ordenAbierta.id}.`,
-      });
-    }
-
-    // Si no hay OTs abiertas, permitir archivado
-    await prisma.propietario.update({
-      where: { id },
-      data: { archivado: true },
-    });
-
-    res.json({ mensaje: 'Propietario archivado correctamente.' });
   } catch (error) {
     console.error('Error al archivar propietario:', error);
-    res.status(500).json({ error: 'Error al archivar el propietario' });
+    return res.status(500).json({ error: 'Error al archivar el propietario' });
   }
 };

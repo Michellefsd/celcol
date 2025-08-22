@@ -5,7 +5,10 @@ const fs = require('fs');
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
+
 // CREATE
+const ALLOWED_LIC = ['MOTOR', 'AERONAVE', 'AVIÓNICA'];
+
 exports.crearPersonal = async (req, res) => {
   try {
     const {
@@ -16,7 +19,7 @@ exports.crearPersonal = async (req, res) => {
       esCertificador,
       esTecnico,
       direccion,
-      tipoLicencia,
+      tipoLicencia,               // puede venir "MOTOR" o ["MOTOR", "AERONAVE"]
       numeroLicencia,
       vencimientoLicencia,
       fechaAlta,
@@ -25,16 +28,31 @@ exports.crearPersonal = async (req, res) => {
 
     const archivos = req.files || {};
 
+    // normalizar y validar tipoLicencia -> array de enums válidos en mayúsculas
+    let lic = tipoLicencia;
+    if (typeof lic === 'string') lic = [lic];
+    if (!Array.isArray(lic)) lic = [];
+
+    lic = lic
+      .map(v => String(v).trim().toUpperCase())
+      .filter(v => ALLOWED_LIC.includes(v));
+
+    if (lic.length === 0) {
+      return res.status(400).json({
+        error: 'tipoLicencia inválido. Valores permitidos: MOTOR, AERONAVE, AVIÓNICA'
+      });
+    }
+
     const nuevo = await prisma.empleado.create({
       data: {
         nombre,
         apellido,
         email,
         telefono,
-        esCertificador: esCertificador || false,
-        esTecnico: esTecnico || false,
+        esCertificador: Boolean(esCertificador),
+        esTecnico: Boolean(esTecnico),
         direccion,
-        tipoLicencia,
+        tipoLicencia: { set: lic }, 
         numeroLicencia,
         vencimientoLicencia: vencimientoLicencia ? new Date(vencimientoLicencia) : null,
         fechaAlta: fechaAlta ? new Date(fechaAlta) : null,
@@ -101,13 +119,46 @@ exports.actualizarPersonal = async (req, res) => {
       fs.unlinkSync(actual.carneSalud);
     }
 
+    // Extraemos los campos que vamos a normalizar y dejamos el resto tal cual
+    const {
+      tipoLicencia,             // puede venir string | array | undefined
+      vencimientoLicencia,
+      fechaAlta,
+      horasTrabajadas,
+      ...resto                  // el resto de los campos quedan como venían
+    } = req.body;
+
     const data = {
-      ...req.body,
-      vencimientoLicencia: req.body.vencimientoLicencia ? new Date(req.body.vencimientoLicencia) : null,
-      fechaAlta: req.body.fechaAlta ? new Date(req.body.fechaAlta) : null,
-      horasTrabajadas: req.body.horasTrabajadas ? parseFloat(req.body.horasTrabajadas) : 0,
+      ...resto,
+      vencimientoLicencia: vencimientoLicencia ? new Date(vencimientoLicencia) : null,
+      fechaAlta: fechaAlta ? new Date(fechaAlta) : null,
+      horasTrabajadas: horasTrabajadas ? parseFloat(horasTrabajadas) : 0,
     };
+
     if (carneNuevo) data.carneSalud = carneNuevo;
+
+    // --- Normalización de tipoLicencia (enum list) ---
+    // Solo si el cliente lo envía, lo actualizamos; si no, lo dejamos como está.
+    if (typeof tipoLicencia !== 'undefined') {
+      const ALLOWED = ['MOTOR', 'AERONAVE', 'AVIÓNICA'];
+
+      let lic = tipoLicencia;
+      if (typeof lic === 'string') lic = [lic];
+      if (!Array.isArray(lic)) lic = [];
+
+      lic = lic
+        .map(v => String(v).trim().toUpperCase())
+        .filter(v => ALLOWED.includes(v));
+
+      // Si querés impedir que quede vacío al actualizar, descomentá:
+      // if (lic.length === 0) {
+      //   return res.status(400).json({ error: 'tipoLicencia inválido. Use MOTOR, AERONAVE o ELECTRONICA' });
+      // }
+
+      // Asignamos el set (permite también vaciar enviando [])
+      data.tipoLicencia = { set: lic };
+    }
+    // --- fin tipoLicencia ---
 
     const actualizado = await prisma.empleado.update({ where: { id }, data });
     res.json(actualizado);
@@ -116,6 +167,7 @@ exports.actualizarPersonal = async (req, res) => {
     res.status(500).json({ error: 'Error al actualizar el personal' });
   }
 };
+
 
 
 // DELETE

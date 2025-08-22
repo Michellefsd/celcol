@@ -11,10 +11,14 @@ import VolverAtras from '@/components/Arrow';
 
 interface Propietario {
   id: number;
-  tipo: 'PERSONA' | 'ORGANIZACION';
+  tipoPropietario: 'PERSONA' | 'INSTITUCION' | string; // 👈 nombre real del schema
   nombre?: string;
   apellido?: string;
   nombreEmpresa?: string;
+  rut?: string;
+  email?: string;
+  telefono?: string;
+  direccion?: string;
 }
 
 interface ComponenteAvion {
@@ -174,7 +178,7 @@ export default function AvionDetallePage() {
               <ul className="flex flex-wrap gap-2">
                 {avion.propietarios.map(({ propietario }) => {
                   const nombre =
-                    propietario.tipo === 'ORGANIZACION'
+                    propietario.tipoPropietario === 'INSTITUCION'
                       ? (propietario.nombreEmpresa || '—')
                       : `${propietario.nombre ?? ''} ${propietario.apellido ?? ''}`.trim() || '—';
                   return (
