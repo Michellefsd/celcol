@@ -1,16 +1,21 @@
-const { createRemoteJWKSet, jwtVerify } = require('jose');
-const fetch = global.fetch || require('node-fetch');
+// src/auth/oidc.js
+import { createRemoteJWKSet, jwtVerify } from 'jose';
 
-const KC_BASE = process.env.KC_BASE;
-const KC_REALM = process.env.KC_REALM;
-const KC_CLIENT_ID = process.env.KC_CLIENT_ID;
-const KC_CLIENT_SECRET = process.env.KC_CLIENT_SECRET;
+const {
+  KC_BASE,
+  KC_REALM,
+  KC_CLIENT_ID,
+  KC_CLIENT_SECRET,
+  JWT_AUDIENCE, // ej: "account" o tu client-id
+} = process.env;
 
 const tokenEndpoint = `${KC_BASE}/realms/${KC_REALM}/protocol/openid-connect/token`;
 const jwksUri = `${KC_BASE}/realms/${KC_REALM}/protocol/openid-connect/certs`;
+const ISSUER = `${KC_BASE}/realms/${KC_REALM}`;
+
 const JWKS = createRemoteJWKSet(new URL(jwksUri));
 
-async function exchangeCodeForToken(code, redirectUri) {
+export async function exchangeCodeForToken(code, redirectUri) {
   const body = new URLSearchParams({
     grant_type: 'authorization_code',
     code,
@@ -19,24 +24,35 @@ async function exchangeCodeForToken(code, redirectUri) {
     client_secret: KC_CLIENT_SECRET,
   });
 
-  const res = await fetch(tokenEndpoint, {
+  const r = await fetch(tokenEndpoint, {
     method: 'POST',
     headers: { 'content-type': 'application/x-www-form-urlencoded' },
     body,
   });
-
-  if (!res.ok) {
-    const txt = await res.text();
-    throw new Error(`Token exchange failed: ${res.status} ${txt}`);
-  }
-  return res.json(); // { access_token, id_token, refresh_token, ... }
+  if (!r.ok) throw new Error(`Token exchange failed: ${r.status} ${await r.text()}`);
+  return r.json(); // { access_token, id_token, refresh_token, ... }
 }
 
-async function verifyAccessToken(token) {
+export async function refreshWithToken(refreshToken) {
+  const body = new URLSearchParams({
+    grant_type: 'refresh_token',
+    client_id: KC_CLIENT_ID,
+    client_secret: KC_CLIENT_SECRET,
+    refresh_token: refreshToken,
+  });
+  const r = await fetch(tokenEndpoint, {
+    method: 'POST',
+    headers: { 'content-type': 'application/x-www-form-urlencoded' },
+    body,
+  });
+  if (!r.ok) throw new Error(`Refresh failed: ${r.status} ${await r.text()}`);
+  return r.json();
+}
+
+export async function verifyAccessToken(token) {
   const { payload } = await jwtVerify(token, JWKS, {
-    issuer: `${KC_BASE}/realms/${KC_REALM}`,
+    issuer: ISSUER,
+    audience: JWT_AUDIENCE || KC_CLIENT_ID, // si usás "account" dejá JWT_AUDIENCE
   });
   return payload;
 }
-
-module.exports = { exchangeCodeForToken, verifyAccessToken };

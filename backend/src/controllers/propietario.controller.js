@@ -1,12 +1,10 @@
-const { PrismaClient } = require('@prisma/client');
+import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 // CREATE
-exports.crearPropietario = async (req, res) => {
+export async function crearPropietario(req, res) {
   try {
-    const nuevo = await prisma.propietario.create({
-      data: req.body
-    });
+    const nuevo = await prisma.propietario.create({ data: req.body });
     res.status(201).json(nuevo);
   } catch (error) {
     console.error('Error al crear propietario:', error);
@@ -15,11 +13,9 @@ exports.crearPropietario = async (req, res) => {
 };
 
 // READ ALL
-exports.listarPropietarios = async (req, res) => {
+export async function listarPropietarios(req, res) {
   try {
-    const lista = await prisma.propietario.findMany({
-      where: { archivado: false }
-    });
+    const lista = await prisma.propietario.findMany({ where: { archivado: false } });
     res.json(lista);
   } catch (error) {
     console.error('Error al obtener propietarios:', error);
@@ -27,38 +23,67 @@ exports.listarPropietarios = async (req, res) => {
   }
 };
 
-// READ ONE (con relaciones)
-exports.obtenerPropietario = async (req, res) => {
-  const id = parseInt(req.params.id);
+// READ ONE (con relaciones y soporte includeArchived)
+export async function obtenerPropietario(req, res) {
   try {
-    const propietario = await prisma.propietario.findFirst({
-      where: { id, archivado: false },
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) {
+      return res.status(400).json({ error: 'ID inválido' });
+    }
+
+    // ?includeArchived=1 | true | yes
+    const includeArchived = ['1', 'true', 'yes'].includes(
+      String(req.query.includeArchived || '').toLowerCase()
+    );
+
+    // Traemos SIEMPRE por id y luego filtramos según archivado
+    const base = await prisma.propietario.findUnique({
+      where: { id },
       include: {
-        aviones: { include: { avion: true } },
-        componentes: true
-      }
+        aviones: {
+          ...(includeArchived ? {} : { where: { avion: { archivado: false } } }),
+          include: {
+            avion: {
+              select: {
+                id: true, marca: true, modelo: true,
+                matricula: true, archivado: true,
+              },
+            },
+          },
+        },
+        componentes: { ...(includeArchived ? {} : { where: { archivado: false } }) },
+      },
     });
 
-    if (!propietario) {
+    if (!base || (!includeArchived && base.archivado)) {
       return res.status(404).json({ error: 'Propietario no encontrado' });
     }
 
-    const aviones = propietario.aviones.map(rel => rel.avion);
+    // Aplanar AvionPropietario → Avion[]
+    const aviones = base.aviones.map((rel) => rel.avion);
 
-    res.json({
-      ...propietario,
+    return res.json({
+      id: base.id,
+      tipoPropietario: base.tipoPropietario,
+      nombre: base.nombre,
+      apellido: base.apellido,
+      nombreEmpresa: base.nombreEmpresa,
+      rut: base.rut,
+      telefono: base.telefono,
+      email: base.email,
+      direccion: base.direccion,
       aviones,
-      componentesExternos: propietario.componentes
+      componentesExternos: base.componentes,
     });
   } catch (error) {
     console.error('Error al obtener propietario:', error);
-    res.status(500).json({ error: 'Error al obtener el propietario' });
+    return res.status(500).json({ error: 'Error al obtener el propietario' });
   }
 };
 
 // UPDATE
-exports.actualizarPropietario = async (req, res) => {
-  const id = parseInt(req.params.id);
+export async function actualizarPropietario(req, res) {
+  const id = parseInt(req.params.id, 10);
   try {
     const propietario = await prisma.propietario.findUnique({ where: { id } });
 
@@ -68,7 +93,7 @@ exports.actualizarPropietario = async (req, res) => {
 
     const actualizado = await prisma.propietario.update({
       where: { id },
-      data: req.body
+      data: req.body,
     });
 
     res.json(actualizado);
@@ -78,123 +103,77 @@ exports.actualizarPropietario = async (req, res) => {
   }
 };
 
-// DELETE
-{/*exports.eliminarPropietario = async (req, res) => {
-  const id = parseInt(req.params.id);
-  try {
-    const aviones = await prisma.avion.findMany({ where: { propietarioId: id } });
-    const componentes = await prisma.componenteExterno.findMany({ where: { propietarioId: id } });
+// // DELETE (si lo mantenés comentado, usá comentario normal /* ... */ para evitar confusiones)
+/*
+export async function eliminarPropietario(req, res) {
+  // ...
+};
+*/
 
-    const ordenAbierta = await prisma.ordenTrabajo.findFirst({
+// ARCHIVAR PROPIETARIO (bloquea por OTs abiertas; archiva componentes en cascada)
+export async function archivarPropietario(req, res) {
+  const id = Number(req.params.id);
+  if (!Number.isFinite(id)) return res.status(400).json({ error: 'ID inválido' });
+
+  try {
+    const propietario = await prisma.propietario.findUnique({
+      where: { id },
+      select: { id: true, archivado: true },
+    });
+    if (!propietario) return res.status(404).json({ error: 'Propietario no encontrado' });
+    if (propietario.archivado) return res.status(409).json({ error: 'El propietario ya está archivado.' });
+
+    // 1) BLOQUEO por OT ABIERTA
+    const otAbierta = await prisma.ordenTrabajo.findFirst({
       where: {
         estadoOrden: 'ABIERTA',
         OR: [
-          { avionId: { in: aviones.map(a => a.id) } },
-          { componenteId: { in: componentes.map(c => c.id) } }
-        ]
-      }
-    });
-
-    if (ordenAbierta) {
-      return res.status(400).json({
-        error: `No se puede eliminar el propietario. Tiene recursos en uso en la orden de trabajo ID ${ordenAbierta.id}.`
-      });
-    }
-
-    await prisma.propietario.update({
-      where: { id },
-      data: { archivado: true }
-    });
-
-    res.json({ mensaje: 'Propietario archivado correctamente.' });
-  } catch (error) {
-    console.error('Error al eliminar propietario:', error);
-    res.status(500).json({ error: 'Error al eliminar el propietario' });
-  }
-};
-*/}
-
-
-// ARCHIVAR PROPIETARIO con bloqueos por OTs abiertas y aviones vinculados
-exports.archivarPropietario = async (req, res) => {
-  const id = parseInt(req.params.id);
-
-  try {
-    const propietario = await prisma.propietario.findUnique({ where: { id } });
-    if (!propietario) {
-      return res.status(404).json({ error: 'Propietario no encontrado' });
-    }
-    if (propietario.archivado) {
-      return res.status(400).json({ error: 'El propietario ya está archivado.' });
-    }
-
-    // 1) Bloquear si hay OTs ABIERTAS que referencien aviones o componentes de este propietario
-    const otAbierta = await prisma.ordenTrabajo.findFirst({
-      where: {
-        estadoOrden: 'ABIERTA', // ⚠️ cambia a tu campo real si usás 'estado'
-        OR: [
-          // Orden sobre AVIÓN cuyo set de propietarios incluya a este id
-          {
-            avion: {
-              propietarios: {
-                some: { propietarioId: id } // usa { some: { id } } si tu relación es implícita
-              }
-            }
-          },
-          // Orden sobre COMPONENTE EXTERNO del propietario
-          {
-            componente: {
-              propietarioId: id
-            }
-          }
-        ]
+          { avion: { propietarios: { some: { propietarioId: id } } } },
+          { componente: { propietarioId: id } },
+        ],
       },
-      select: { id: true }
+      select: { id: true },
     });
-
     if (otAbierta) {
-      return res.status(400).json({
-        error: `No se puede archivar: existe una OT ABIERTA que involucra a este propietario (OT ID ${otAbierta.id}).`
+      return res.status(409).json({
+        error: `No se puede archivar: existe una OT ABIERTA que involucra a este propietario (OT ID ${otAbierta.id}).`,
       });
     }
 
-    // 2) Bloquear si aún tiene AVIONES vinculados (no archivados). Debe desvincularse primero.
+    // 2) BLOQUEO por aviones vinculados (no archivados)
     const avionesVinc = await prisma.avionPropietario.findMany({
-      where: {
-        propietarioId: id,
-        avion: { archivado: false },
-      },
-      select: { avion: { select: { id: true, matricula: true } } }
+      where: { propietarioId: id, avion: { archivado: false } },
+      select: { avion: { select: { id: true, matricula: true } } },
     });
-
     if (avionesVinc.length > 0) {
       const listado = avionesVinc
         .map(v => `#${v.avion.id}${v.avion.matricula ? ` (${v.avion.matricula})` : ''}`)
         .join(', ');
-      return res.status(400).json({
-        error: `No se puede archivar: primero desvinculá estos aviones del propietario: ${listado}.`
+      return res.status(409).json({
+        error: `No se puede archivar: primero desvinculá estos aviones del propietario: ${listado}.`,
       });
     }
 
-    // 3) Archivar EN CASCADA componentes externos del propietario + propietario (transacción)
+    // 3) TRANSACCIÓN: archiva componentes externos + archiva propietario
     const [compResult] = await prisma.$transaction([
       prisma.componenteExterno.updateMany({
         where: { propietarioId: id, archivado: false },
-        data: { archivado: true }
+        data: { archivado: true },
       }),
       prisma.propietario.update({
         where: { id },
-        data: { archivado: true }
-      })
+        data: { archivado: true },
+      }),
     ]);
 
     return res.json({
       mensaje: 'Propietario archivado correctamente.',
-      componentesArchivados: compResult.count
+      componentesArchivados: compResult.count,
     });
-
   } catch (error) {
-    console.error('Error al archivar propietario:', error);
+    console.error('Error al archivar propietario:', {
+      message: error?.message, code: error?.code, stack: error?.stack,
+    });
     return res.status(500).json({ error: 'Error al archivar el propietario' });
   }
 };

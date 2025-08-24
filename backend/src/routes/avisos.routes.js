@@ -1,10 +1,14 @@
-// routes/avisos.route.js
-const express = require('express');
-const router = express.Router();
-const avisoController = require('../controllers/avisos.controller');
+import { Router } from 'express';
+import {
+  listarAvisos,
+  marcarComoLeido,
+  eliminarAviso,
+} from '../controllers/avisos.controller.js';
 
-router.get('/', avisoController.listarAvisos);
-router.put('/:id/leido', avisoController.marcarComoLeido);
-router.delete('/:id', avisoController.eliminarAviso);
+const router = Router();
 
-module.exports = router;
+router.get('/', listarAvisos);
+router.put('/:id/leido', marcarComoLeido);
+router.delete('/:id', eliminarAviso);
+
+export default router;

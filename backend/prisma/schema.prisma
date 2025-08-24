@@ -7,6 +7,293 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model Avion {
+  id                     Int                @id @default(autoincrement())
+  marca                  String
+  modelo                 String
+  numeroSerie            String?
+  matricula              String             @unique
+  TSN                    Float?
+  vencimientoMatricula   DateTime?
+  vencimientoSeguro      DateTime?
+  
+  certificadoMatriculaId Int?
+  certificadoMatricula   Archivo?           @relation("AvionCertificadoMatricula", fields: [certificadoMatriculaId], references: [id])
+
+  archivado              Boolean            @default(false)
+  propietarios           AvionPropietario[]
+  avisos                 Aviso[]            @relation("AvisosDelAvion")
+  ComponenteAvion        ComponenteAvion[]
+  ordenesTrabajo         OrdenTrabajo[]
+}
+
+model ComponenteAvion {
+  id          Int       @id @default(autoincrement())
+  tipo        String
+  marca       String?
+  modelo      String?
+  numeroSerie String?
+  estado      Estado    @default(ACTIVO)
+  TSN         Float?
+  /// pasa automaticamenr=te a TSN cuando se edita ////
+  TSO         Float?
+  TBOFecha    DateTime?
+  TBOHoras    Int?
+  avionId     Int
+  avion       Avion     @relation(fields: [avionId], references: [id])
+}
+
+model ComponenteExterno {
+  id             Int            @id @default(autoincrement())
+  tipo           String?
+  marca          String
+  modelo         String
+  numeroSerie    String
+  numeroParte    String?
+  TSN            Float?
+  TSO            Float?
+  TBOFecha       DateTime?
+  TBOHoras       Int?
+  archivo8130Id  Int?
+  propietarioId  Int
+  archivado      Boolean        @default(false)
+  archivo8130    Archivo?       @relation("ComponenteArchivo8130", fields: [archivo8130Id], references: [id])
+  propietario    Propietario    @relation(fields: [propietarioId], references: [id])
+  ordenesTrabajo OrdenTrabajo[]
+}
+
+model Propietario {
+  id              Int                 @id @default(autoincrement())
+  tipoPropietario TipoPropietario     @default(PERSONA)
+  nombre          String?
+  apellido        String?
+  nombreEmpresa   String?
+  rut             String?
+  email           String?
+  telefono        String?
+  direccion       String?
+  archivado       Boolean             @default(false)
+  aviones         AvionPropietario[]
+  componentes     ComponenteExterno[]
+}
+
+model AvionPropietario {
+  id            Int         @id @default(autoincrement())
+  avionId       Int
+  propietarioId Int
+  avion         Avion       @relation(fields: [avionId], references: [id])
+  propietario   Propietario @relation(fields: [propietarioId], references: [id])
+}
+
+model Empleado {
+  id                  Int                 @id @default(autoincrement())
+  nombre              String
+  apellido            String
+  email               String?
+  telefono            String
+  esCertificador      Boolean             @default(false)
+  esTecnico           Boolean             @default(false)
+  direccion           String?
+  tipoLicencia        TipoLicencia[]
+  numeroLicencia      String?
+  vencimientoLicencia DateTime?
+  fechaAlta           DateTime?
+  carneSaludId        Int?
+  horasTrabajadas     Float               @default(0)
+  archivado           Boolean             @default(false)
+  carneSalud          Archivo?            @relation("EmpleadoCarneSalud", fields: [carneSaludId], references: [id])
+  ordenesAsignadas    EmpleadoAsignado[]
+  registrosTrabajo    RegistroDeTrabajo[]
+  Usuario             Usuario?
+}
+
+model Herramienta {
+  id                       Int                @id @default(autoincrement())
+  nombre                   String
+  tipo                     String?
+  marca                    String?
+  modelo                   String?
+  numeroSerie              String?
+  fechaIngreso             DateTime?
+  /// //////DESPLEGAR ALERTA DOS MESES ANTES Y NO ELEGIBLE EN ot PASADA LA FECHA////////
+  fechaVencimiento         DateTime?
+  certificadoCalibracionId Int?
+  archivado                Boolean            @default(false)
+  avisos                   Aviso[]            @relation("HerramientaAvisos")
+  certificadoCalibracion   Archivo?           @relation("HerramientaCertCalibracion", fields: [certificadoCalibracionId], references: [id])
+  ordenesAsignadas         OrdenHerramienta[]
+}
+
+model Stock {
+  id               Int            @id @default(autoincrement())
+  nombre           String
+  tipoProducto     String?
+  codigoBarras     String?
+  notasInternas    String?
+  marca            String?
+  modelo           String?
+  numeroSerie      String?
+  puedeSerVendido  Boolean        @default(false)
+  puedeSerComprado Boolean        @default(false)
+  precioVenta      Float          @default(0)
+  coste            Float          @default(0)
+  unidadMedida     String?
+  cantidad         Int
+  stockMinimo      Int
+  fechaIngreso     DateTime       @default(now())
+  imagenId         Int?
+  archivoId        Int?
+  archivado        Boolean        @default(false)
+  avisos           Aviso[]        @relation("StockAvisos")
+  facturas         FacturaStock[] @relation("StockFacturas")
+  ordenesUsadas    OrdenStock[]
+  archivo          Archivo?       @relation("StockArchivo", fields: [archivoId], references: [id])
+  imagen           Archivo?       @relation("StockImagen", fields: [imagenId], references: [id])
+}
+
+model FacturaStock {
+  id         Int       @id @default(autoincrement())
+  stockId    Int
+  numero     String?   @db.VarChar(64)
+  proveedor  String?   @db.VarChar(128)
+  fecha      DateTime?
+  monto      Decimal?  @db.Decimal(12, 2)
+  moneda     String?   @db.VarChar(8)
+  archivo    String?
+  archivoId  Int?      @unique
+  creadoEn   DateTime  @default(now())
+  archivoRef Archivo?  @relation("FacturaStockArchivo", fields: [archivoId], references: [id])
+  stock      Stock     @relation("StockFacturas", fields: [stockId], references: [id], onDelete: Cascade)
+}
+
+model OrdenTrabajo {
+  id                       Int                 @id @default(autoincrement())
+  fechaApertura            DateTime            @default(now())
+  fechaCierre              DateTime?
+  fechaCancelacion         DateTime?
+  estadoOrden              EstadoOrden         @default(ABIERTA)
+  archivada                Boolean             @default(false)
+  avionId                  Int?
+  componenteId             Int?
+  solicitud                String?
+  OTsolicitud              String?
+  solicitadoPor            String?
+  solicitudFirmaId         Int?
+  inspeccionRecibida       Boolean?
+  danosPrevios             String?
+  accionTomada             String?
+  observaciones            String?
+  numeroFactura            String?             @unique
+  estadoFactura            EstadoFactura       @default(NO_ENVIADA)
+  archivoFacturaId         Int?
+  datosAvionSnapshot       Json?
+  datosComponenteSnapshot  Json?
+  datosPropietarioSnapshot Json?
+  empleadosAsignados       EmpleadoAsignado[]
+  herramientas             OrdenHerramienta[]
+  stockAsignado            OrdenStock[]
+  archivoFactura           Archivo?            @relation("OTArchivoFactura", fields: [archivoFacturaId], references: [id])
+  avion                    Avion?              @relation(fields: [avionId], references: [id])
+  componente               ComponenteExterno?  @relation(fields: [componenteId], references: [id])
+  solicitudFirma           Archivo?            @relation("OTSolicitudFirma", fields: [solicitudFirmaId], references: [id])
+  registrosTrabajo         RegistroDeTrabajo[]
+}
+
+model EmpleadoAsignado {
+  id         Int                  @id @default(autoincrement())
+  ordenId    Int
+  empleadoId Int
+  rol        RolEmpleadoAsignado?
+  empleado   Empleado             @relation(fields: [empleadoId], references: [id])
+  orden      OrdenTrabajo         @relation(fields: [ordenId], references: [id])
+
+  @@unique([ordenId, empleadoId, rol])
+}
+
+model OrdenStock {
+  id                Int          @id @default(autoincrement())
+  ordenId           Int
+  stockId           Int
+  cantidadUtilizada Int
+  orden             OrdenTrabajo @relation(fields: [ordenId], references: [id])
+  stock             Stock        @relation(fields: [stockId], references: [id])
+}
+
+model OrdenHerramienta {
+  id            Int          @id @default(autoincrement())
+  ordenId       Int
+  herramientaId Int
+  herramienta   Herramienta  @relation(fields: [herramientaId], references: [id])
+  orden         OrdenTrabajo @relation(fields: [ordenId], references: [id])
+}
+
+model RegistroDeTrabajo {
+  id               Int          @id @default(autoincrement())
+  ordenId          Int
+  empleadoId       Int
+  fecha            DateTime
+  horas            Float
+  trabajoRealizado String?
+  rol              RolEmpleado  @default(TECNICO)
+  empleado         Empleado     @relation(fields: [empleadoId], references: [id])
+  orden            OrdenTrabajo @relation(fields: [ordenId], references: [id], onDelete: Cascade)
+
+  @@index([ordenId, fecha])
+  @@index([empleadoId, fecha])
+}
+
+model Aviso {
+  id            Int          @id @default(autoincrement())
+  mensaje       String
+  tipo          String
+  leido         Boolean      @default(false)
+  creadoEn      DateTime     @default(now())
+  herramientaId Int?
+  stockId       Int?
+  avionId       Int?
+  avion         Avion?       @relation("AvisosDelAvion", fields: [avionId], references: [id])
+  herramienta   Herramienta? @relation("HerramientaAvisos", fields: [herramientaId], references: [id])
+  stock         Stock?       @relation("StockAvisos", fields: [stockId], references: [id])
+
+  @@unique([tipo, avionId], name: "tipo_avionId")
+}
+
+model Usuario {
+  id            Int       @id @default(autoincrement())
+  keycloakSub   String    @unique
+  email         String    @unique
+  nombre        String?
+  activo        Boolean   @default(true)
+  empleadoId    Int?      @unique
+  creadoEn      DateTime  @default(now())
+  actualizadoEn DateTime  @updatedAt
+  empleado      Empleado? @relation(fields: [empleadoId], references: [id])
+}
+
+model Archivo {
+  id                  Int                 @id @default(autoincrement())
+  originalName        String
+  mime                String
+  sizeOriginal        Int
+  sizeAlmacen         Int
+  ancho               Int?
+  alto                Int?
+  hashSha256          String
+  storageKey          String
+  urlPublica          String?
+  createdAt           DateTime            @default(now())
+  ordenId             Int?
+  avionCertificados   Avion[]             @relation("AvionCertificadoMatricula")
+  componentes8130     ComponenteExterno[] @relation("ComponenteArchivo8130")
+  empleadosCarneSalud Empleado[]          @relation("EmpleadoCarneSalud")
+  facturasStock       FacturaStock?       @relation("FacturaStockArchivo")
+  herramientasCert    Herramienta[]       @relation("HerramientaCertCalibracion")
+  otsFacturas         OrdenTrabajo[]      @relation("OTArchivoFactura")
+  otsSolicitud        OrdenTrabajo[]      @relation("OTSolicitudFirma")
+  stockArchivos       Stock[]             @relation("StockArchivo")
+  stockImagenes       Stock[]             @relation("StockImagen")
+}
+
 enum EstadoFactura {
   NO_ENVIADA
   ENVIADA
@@ -27,7 +314,7 @@ enum TipoPropietario {
 enum TipoLicencia {
   AERONAVE
   MOTOR
-  AVIÓNICA
+  AVIONICA
 }
 
 enum EstadoOrden {
@@ -46,317 +333,8 @@ enum RolEmpleadoAsignado {
   CERTIFICADOR
 }
 
-enum Rol {
-  ADMIN
-  TECNICO
-  CERTIFICADOR
-  LECTOR
-}
-
 enum EstadoUsuario {
   INVITADO
   ACTIVO
   BLOQUEADO
-}
-
-model Avion {
-  id                   Int                @id @default(autoincrement())
-  marca                String
-  modelo               String
-  numeroSerie          String?
-  matricula            String             @unique
-  TSN                  Float?
-  vencimientoMatricula DateTime?
-  vencimientoSeguro    DateTime?
-  certificadoMatricula String? ///. ARCHIVOOO.  ///
-  propietarios         AvionPropietario[]
-  ordenesTrabajo       OrdenTrabajo[]
-  ComponenteAvion      ComponenteAvion[]
-  avisos               Aviso[]            @relation("AvisosDelAvion")
-  archivado            Boolean            @default(false)
-}
-
-model ComponenteAvion {
-  id          Int       @id @default(autoincrement())
-  tipo        String
-  marca       String?
-  modelo      String?
-  numeroSerie String?
-  estado      Estado    @default(ACTIVO)
-  TSN         Float?
-  TSO         Float? /// pasa automaticamenr=te a TSN cuando se edita ////
-  TBOFecha    DateTime?
-  TBOHoras    Int?
-  avion       Avion     @relation(fields: [avionId], references: [id])
-  avionId     Int
-}
-
-model ComponenteExterno {
-  id             Int            @id @default(autoincrement())
-  tipo           String?
-  marca          String
-  modelo         String
-  numeroSerie    String
-  numeroParte    String?
-  TSN            Float?
-  TSO            Float?
-  TBOFecha       DateTime?
-  TBOHoras       Int?
-  archivo8130    String? ///  ARCHIVO. ///
-  propietario    Propietario    @relation(fields: [propietarioId], references: [id])
-  propietarioId  Int
-  ordenesTrabajo OrdenTrabajo[]
-  archivado      Boolean        @default(false)
-}
-
-model Propietario {
-  id              Int                 @id @default(autoincrement())
-  tipoPropietario TipoPropietario     @default(PERSONA)
-  nombre          String?
-  apellido        String?
-  nombreEmpresa   String?
-  rut             String?
-  email           String?
-  telefono        String?
-  direccion       String?
-  aviones         AvionPropietario[]
-  componentes     ComponenteExterno[]
-  archivado       Boolean             @default(false)
-}
-
-model AvionPropietario {
-  id            Int         @id @default(autoincrement())
-  avion         Avion       @relation(fields: [avionId], references: [id])
-  avionId       Int
-  propietario   Propietario @relation(fields: [propietarioId], references: [id])
-  propietarioId Int
-}
-
-model Empleado {
-  id                  Int                 @id @default(autoincrement())
-  nombre              String
-  apellido            String
-  email               String?
-  telefono            String
-  esCertificador      Boolean             @default(false)
-  esTecnico           Boolean             @default(false)
-  direccion           String?
-  tipoLicencia        TipoLicencia[]
-  numeroLicencia      String?
-  vencimientoLicencia DateTime?
-  fechaAlta           DateTime?
-  carneSalud          String? ///  ARCHIVO.  ///
-  horasTrabajadas     Float               @default(0)
-  registrosTrabajo    RegistroDeTrabajo[]
-  ordenesAsignadas    EmpleadoAsignado[]
-  archivado           Boolean             @default(false)
-  Usuario             Usuario[]
-}
-
-model Herramienta {
-  id                     Int                @id @default(autoincrement())
-  nombre                 String
-  tipo                   String?
-  marca                  String?
-  modelo                 String?
-  numeroSerie            String?
-  fechaIngreso           DateTime?
-  fechaVencimiento       DateTime? /////////DESPLEGAR ALERTA DOS MESES ANTES Y NO ELEGIBLE EN ot PASADA LA FECHA////////
-  certificadoCalibracion String? //// ARCHIVO ///
-  ordenesAsignadas       OrdenHerramienta[]
-  avisos                 Aviso[]            @relation("HerramientaAvisos")
-  archivado              Boolean            @default(false)
-}
-
-model Stock {
-  id               Int          @id @default(autoincrement())
-  nombre           String
-  tipoProducto     String?
-  codigoBarras     String?
-  notasInternas    String?
-  marca            String?
-  modelo           String?
-  numeroSerie      String? // opcional: usar solo si aplica
-  puedeSerVendido  Boolean      @default(false)
-  puedeSerComprado Boolean      @default(false)
-  precioVenta      Float        @default(0)
-  coste            Float        @default(0)
-  unidadMedida     String?
-  cantidad         Int
-  stockMinimo      Int /////////// alerta cuanto cantidad igual o menor que stock minimo ////////
-  fechaIngreso     DateTime     @default(now())
-  ordenesUsadas    OrdenStock[]
-  imagen           String? ///// ARCHIVO.  ////         
-  archivo          String? ////// ARCHIVO.  ////
-  avisos           Aviso[]      @relation("StockAvisos")
-  archivado        Boolean      @default(false)
-
-  facturas         FacturaStock[] @relation("StockFacturas")
-}
-
-model FacturaStock {
-  id        Int      @id @default(autoincrement())
-  stockId   Int
-  stock     Stock    @relation("StockFacturas", fields: [stockId], references: [id], onDelete: Cascade)
-
-  numero    String?  @db.VarChar(64)
-  proveedor String?  @db.VarChar(128)
-  fecha     DateTime?
-  monto     Decimal? @db.Decimal(12, 2)
-  moneda    String?  @db.VarChar(8)
-
-  archivo   String   // ruta "uploads/..."
-  creadoEn  DateTime @default(now())
-}
-
-model OrdenTrabajo {
-  id               Int         @id @default(autoincrement())
-  fechaApertura    DateTime    @default(now())
-  fechaCierre      DateTime?
-  fechaCancelacion DateTime?
-  estadoOrden      EstadoOrden @default(ABIERTA)
-  archivada        Boolean     @default(false)
-
-  // Asociación con avión o componente externo (uno u otro)
-  avion        Avion?             @relation(fields: [avionId], references: [id])
-  avionId      Int?
-  componente   ComponenteExterno? @relation(fields: [componenteId], references: [id])
-  componenteId Int?
-
-  solicitud      String? // Descripción general del trabajo solicitado
-  OTsolicitud    String? // Número de OT previa si proviene de otro taller
-  solicitadoPor  String? // Persona o empresa que solicitó el trabajo
-  solicitudFirma String? // Archivo con firma escaneada u OT oficial (PDF)
-
-  inspeccionRecibida Boolean? // Indica si se realizó inspección al recibir aeronave o componente
-  danosPrevios       String? // Daños observados al recibir
-  accionTomada       String? // Acción correctiva o procedimiento realizado
-  observaciones      String? // Observaciones adicionales
-
-  numeroFactura  String?       @unique // Factura emitida (si aplica)
-  archivoFactura String? // Archivo adjunto de la factura (PDF, imagen)
-  estadoFactura  EstadoFactura @default(NO_ENVIADA) // Enum de estado de factura
-
-  datosAvionSnapshot       Json?
-  datosComponenteSnapshot  Json?
-  datosPropietarioSnapshot Json?
-
-  empleadosAsignados EmpleadoAsignado[] // Técnicos y certificadores asignados
-  registrosTrabajo   RegistroDeTrabajo[] // Registro de horas trabajadas por fecha
-  herramientas       OrdenHerramienta[] // Herramientas utilizadas
-  stockAsignado      OrdenStock[] // Insumos de stock con cantidad utilizada
-}
-
-model EmpleadoAsignado {
-  id         Int                  @id @default(autoincrement())
-  orden      OrdenTrabajo         @relation(fields: [ordenId], references: [id])
-  ordenId    Int
-  empleado   Empleado             @relation(fields: [empleadoId], references: [id])
-  empleadoId Int
-  rol        RolEmpleadoAsignado?
-
-  @@unique([ordenId, empleadoId, rol])
-}
-
-model OrdenStock {
-  id                Int          @id @default(autoincrement())
-  orden             OrdenTrabajo @relation(fields: [ordenId], references: [id])
-  ordenId           Int
-  stock             Stock        @relation(fields: [stockId], references: [id])
-  stockId           Int
-  cantidadUtilizada Int
-}
-
-model OrdenHerramienta {
-  id            Int          @id @default(autoincrement())
-  orden         OrdenTrabajo @relation(fields: [ordenId], references: [id])
-  ordenId       Int
-  herramienta   Herramienta  @relation(fields: [herramientaId], references: [id])
-  herramientaId Int
-}
-
-model RegistroDeTrabajo {
-  id               Int          @id @default(autoincrement())
-  ordenId          Int
-  empleadoId       Int
-  fecha            DateTime
-  horas            Float
-  trabajoRealizado String?      // opcional
-  rol              RolEmpleado  @default(TECNICO) // default para backfill automático
-
-  orden    OrdenTrabajo @relation(fields: [ordenId], references: [id], onDelete: Cascade)
-  empleado Empleado     @relation(fields: [empleadoId], references: [id])
-
-  @@index([ordenId, fecha])
-  @@index([empleadoId, fecha])
-}
-
-model Aviso {
-  id         Int      @id @default(autoincrement())
-  mensaje    String
-  tipo       String
-  leido      Boolean  @default(false)
-  creadoEn   DateTime @default(now())
-
-  herramientaId Int?
-  herramienta   Herramienta? @relation("HerramientaAvisos", fields: [herramientaId], references: [id])
-
-  stockId Int?
-  stock   Stock? @relation("StockAvisos", fields: [stockId], references: [id])
-
-  avion   Avion? @relation("AvisosDelAvion", fields: [avionId], references: [id])
-  avionId Int?
-
-  // Evita duplicados del mismo “tipo” por avión
-  @@unique([tipo, avionId], name: "tipo_avionId")
-
-  // (Opcional) si querés evitar duplicados también por herramienta/stock:
-  // @@unique([tipo, herramientaId], name: "tipo_herramientaId")
-  // @@unique([tipo, stockId], name: "tipo_stockId")
-}
-
-
-model Usuario {
-  id            Int           @id @default(autoincrement())
-  email         String        @unique
-  nombre        String?
-  activo        Boolean       @default(true)
-  estado        EstadoUsuario @default(INVITADO)
-  hash          String?
-  rol           Rol
-  empleadoId    Int?
-  creadoEn      DateTime      @default(now())
-  actualizadoEn DateTime      @updatedAt
-  refreshJti    String?
-
-  empleado       Empleado?       @relation(fields: [empleadoId], references: [id])
-  LoginAudit     LoginAudit[]
-  passwordResets PasswordReset[] @relation("UsuarioPasswordResets")
-}
-
-model LoginAudit {
-  id        Int      @id @default(autoincrement())
-  usuarioId Int?
-  email     String
-  ip        String?
-  userAgent String?
-  exito     Boolean
-  creadoEn  DateTime @default(now())
-
-  usuario Usuario? @relation(fields: [usuarioId], references: [id])
-}
-
-model PasswordReset {
-  id        String    @id @default(cuid()) // selector
-  userId    Int
-  user      Usuario   @relation("UsuarioPasswordResets", fields: [userId], references: [id], onDelete: Cascade)
-  tokenHash String // hash del secreto
-  expiresAt DateTime
-  usedAt    DateTime?
-  ip        String?
-  userAgent String?
-  createdAt DateTime  @default(now())
-
-  @@index([userId])
-  @@index([expiresAt])
 }

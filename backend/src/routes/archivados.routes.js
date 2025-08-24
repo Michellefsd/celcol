@@ -1,7 +1,9 @@
-const express = require('express');
-const router = express.Router();
-const { listarArchivados } = require('../controllers/archivados.controller');
+// src/routes/archivados.routes.js
+import { Router } from 'express';
+import { listarArchivados } from '../controllers/archivados.controller.js';
+
+const router = Router();
 
 router.get('/', listarArchivados);
 
-module.exports = router;
+export default router;

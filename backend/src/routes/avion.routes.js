@@ -1,33 +1,41 @@
-const express = require('express');
-const router = express.Router();
-const avionController = require('../controllers/avion.controller');
-const { uploadAvion } = require('../../middleware/upload.middleware');
-const { revisarAvionesSinPropietario } = require('../utils/avisos');
+// ESM route — backend/src/routes/avion.route.js
+import { Router } from 'express';
+import {
+  crearAvion,
+  actualizarAvion,
+  listarAviones,
+  obtenerAvion,
+  archivarAvion,
+  asignarPropietarios,
+  subirCertificadoMatricula,
+} from '../controllers/avion.controller.js';
+import { uploadAvion } from '../../middleware/upload.middleware.js';
+import { revisarAvionesSinPropietario } from '../utils/avisos.js';
 
+const router = Router();
 
 // Crear avión
-router.post('/', uploadAvion, avionController.crearAvion);
+router.post('/', uploadAvion, crearAvion);
 
 // Actualizar avión
-router.put('/:id', uploadAvion, avionController.actualizarAvion);
+router.put('/:id', uploadAvion, actualizarAvion);
 
 // Listar todos
-router.get('/', avionController.listarAviones);
+router.get('/', listarAviones);
 
 // Obtener por ID
-router.get('/:id', avionController.obtenerAvion);
+router.get('/:id', obtenerAvion);
 
-// Archivar avión 
-router.patch('/archivar/:id', avionController.archivarAvion);
+// Archivar avión
+router.patch('/archivar/:id', archivarAvion);
 
 // Asignar propietarios
-router.post('/:id/asignar-propietarios', avionController.asignarPropietarios);
+router.post('/:id/asignar-propietarios', asignarPropietarios);
 
 // Subir certificado
-router.post('/:id/certificadoMatricula', uploadAvion, avionController.subirCertificadoMatricula);
+router.post('/:id/certificadoMatricula', uploadAvion, subirCertificadoMatricula);
 
-// Eliminar avión
-//router.delete('/:id', avionController.eliminarAvion); 
+// Eliminar avión (desactivado)
+// router.delete('/:id', eliminarAvion);
 
-module.exports = router;
-
+export default router;

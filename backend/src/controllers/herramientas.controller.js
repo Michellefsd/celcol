@@ -1,12 +1,12 @@
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
-const fs = require('fs');
-const path = require('path');
-const { subirArchivoGenerico } = require('../utils/archivoupload');
+import { PrismaClient } from '@prisma/client';
+import fs from 'fs';
+import { subirArchivoGenerico } from '../utils/archivoupload.js';
+import { herramientaEnOtAbierta } from '../services/archiveGuards.js';
 
+const prisma = new PrismaClient();
 
 // LISTAR TODAS
-exports.listarHerramientas = async (req, res) => {
+export const listarHerramientas = async (req, res) => {
   try {
     const herramientas = await prisma.herramienta.findMany({
       where: { archivado: false },
@@ -27,31 +27,44 @@ exports.listarHerramientas = async (req, res) => {
   }
 };
 
-// OBTENER POR ID
-exports.obtenerHerramienta = async (req, res) => {
-  const id = parseInt(req.params.id);
+// OBTENER POR ID — admite ?includeArchived=1 y normaliza URL de certificado
+export const obtenerHerramienta = async (req, res) => {
   try {
-    const herramienta = await prisma.herramienta.findUnique({ where: { id } });
+    const id = Number(req.params.id);
+    if (Number.isNaN(id)) {
+      return res.status(400).json({ error: 'ID inválido' });
+    }
+
+    const includeArchived =
+      req.query.includeArchived === '1' || req.query.includeArchived === 'true';
+
+    const where = includeArchived ? { id } : { id, archivado: false };
+    const herramienta = await prisma.herramienta.findFirst({ where });
 
     if (!herramienta) {
       return res.status(404).json({ error: 'Herramienta no encontrada' });
     }
 
-    const baseUrl = `${req.protocol}://${req.get('host')}`;
-    const certificadoCalibracion = herramienta.certificadoCalibracion
-      ? `${baseUrl}/${herramienta.certificadoCalibracion.replace(/\\/g, '/')}`
-      : null;
+    const toAbs = (p) => {
+      if (!p || typeof p !== 'string') return p;
+      if (/^https?:\/\//i.test(p)) return p;
+      const baseUrl = `${req.protocol}://${req.get('host')}`;
+      const normalized = p.replace(/\\/g, '/').replace(/^\/+/, '');
+      return `${baseUrl}/${normalized}`;
+    };
 
-    res.json({ ...herramienta, certificadoCalibracion });
+    res.json({
+      ...herramienta,
+      certificadoCalibracion: toAbs(herramienta.certificadoCalibracion),
+    });
   } catch (error) {
     console.error('Error al obtener herramienta:', error);
     res.status(500).json({ error: 'Error al obtener la herramienta' });
   }
 };
 
-
 // CREAR HERRAMIENTA
-exports.crearHerramienta = async (req, res) => {
+export const crearHerramienta = async (req, res) => {
   try {
     const {
       nombre,
@@ -90,7 +103,7 @@ exports.crearHerramienta = async (req, res) => {
 };
 
 // ACTUALIZAR HERRAMIENTA
-exports.actualizarHerramienta = async (req, res) => {
+export const actualizarHerramienta = async (req, res) => {
   const { id } = req.params;
 
   try {
@@ -113,7 +126,6 @@ exports.actualizarHerramienta = async (req, res) => {
     const herramientaActual = await prisma.herramienta.findUnique({
       where: { id: parseInt(id) }
     });
-
     if (!herramientaActual) {
       return res.status(404).json({ error: 'Herramienta no encontrada' });
     }
@@ -145,44 +157,36 @@ exports.actualizarHerramienta = async (req, res) => {
   }
 };
 
-// ELIMINAR (soft-delete → archivado)
-{/*exports.eliminarHerramienta = async (req, res) => {
-  const { id } = req.params;
+// ARCHIVAR HERRAMIENTA (bloquea si está en OT abierta)
+export const archivarHerramienta = async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isFinite(id)) return res.status(400).json({ error: 'ID inválido' });
+
   try {
-    await prisma.herramienta.update({
-      where: { id: parseInt(id) },
-      data: { archivado: true },
+    const existe = await prisma.herramienta.findUnique({ where: { id } });
+    if (!existe) return res.status(404).json({ error: 'Herramienta no encontrada' });
+    if (await herramientaEnOtAbierta(id)) {
+      return res.status(409).json({ error: 'No se puede archivar: la herramienta está usada en OT abiertas' });
+    }
+
+    const out = await prisma.herramienta.update({
+      where: { id },
+      data: { archivado: true, archivedAt: new Date(), archivedBy: req.user?.sub || null },
     });
-    res.json({ mensaje: 'Herramienta archivada correctamente' });
+    res.json(out);
   } catch (error) {
     console.error('Error al archivar herramienta:', error);
     res.status(500).json({ error: 'Error al archivar la herramienta' });
   }
 };
-*/}
-
-// ARCHIVAR HERRAMIENTA (sin validación, permitido aunque esté en uso)
-exports.archivarHerramienta = async (req, res) => {
-  const { id } = req.params;
-  try {
-    await prisma.herramienta.update({
-      where: { id: parseInt(id) },
-      data: { archivado: true },
-    });
-    res.json({ mensaje: 'Herramienta archivada correctamente' });
-  } catch (error) {
-    console.error('Error al archivar herramienta:', error);
-    res.status(500).json({ error: 'Error al archivar la herramienta' });
-  }
-};
-
 
 // SUBIR CERTIFICADO DE CALIBRACIÓN (endpoint separado usando lógica genérica)
-exports.subirCertificadoCalibracion = (req, res) =>
+export const subirCertificadoCalibracion = (req, res) =>
   subirArchivoGenerico({
     req,
     res,
     modeloPrisma: prisma.herramienta,
     campoArchivo: 'certificadoCalibracion',
     nombreRecurso: 'Herramienta',
+    campoParam: 'id',
   });

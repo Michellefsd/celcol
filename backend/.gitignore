@@ -3,3 +3,13 @@ node_modules
 .env
 
 /generated/prisma
+
+
+# Archivos del sistema (se generan en macOS automáticamente)
+.DS_Store
+
+# Archivos sensibles/no versionables
+cookies.txt
+
+# Subidas locales (NO versionar nunca)
+uploads/

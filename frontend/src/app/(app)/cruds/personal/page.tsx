@@ -57,7 +57,7 @@ export default function EmpleadosPage() {
             { name: 'direccion', label: 'Dirección', type: 'text' },
             { name: 'tipoLicencia', label: 'Tipo de Licencia', type: 'select', multiple: true, options: [
               { value: 'MOTOR', label: 'Motor' },
-              { value: 'AVIÓNICA', label: 'Aviónica' },
+              { value: 'AVIONICA', label: 'Aviónica' },
               { value: 'AERONAVE', label: 'Aeronave' },
             ], required: true },
             { name: 'numeroLicencia', label: 'Número de Licencia', type: 'text' },

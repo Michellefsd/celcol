@@ -31,3 +31,12 @@ Thumbs.db
 .idea/
 
 /generated/prisma
+
+
+# Archivos del sistema
+.DS_Store
+Thumbs.db
+
+# Artefactos varios
+estructura-limpia.txt
+

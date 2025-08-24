@@ -1,15 +1,15 @@
-const { subirArchivoGenerico } = require('../utils/archivoupload'); // al inicio del archivo
-const PDFDocument = require('pdfkit');
-const path = require('path');
-const fs = require('fs');
-const { PrismaClient } = require('@prisma/client');
+import { subirArchivoGenerico } from '../utils/archivoupload.js';
+import PDFDocument from 'pdfkit';
+import path from 'path';
+import fs from 'fs';
+import { PrismaClient } from '@prisma/client';
+
 const prisma = new PrismaClient();
 
-
 // CREATE
-const ALLOWED_LIC = ['MOTOR', 'AERONAVE', 'AVIÓNICA'];
+const ALLOWED_LIC = ['MOTOR', 'AERONAVE', 'AVIONICA'];
 
-exports.crearPersonal = async (req, res) => {
+export const crearPersonal = async (req, res) => {
   try {
     const {
       nombre,
@@ -19,7 +19,7 @@ exports.crearPersonal = async (req, res) => {
       esCertificador,
       esTecnico,
       direccion,
-      tipoLicencia,               // puede venir "MOTOR" o ["MOTOR", "AERONAVE"]
+      tipoLicencia,               // "MOTOR" o ["MOTOR", "AERONAVE"]
       numeroLicencia,
       vencimientoLicencia,
       fechaAlta,
@@ -28,18 +28,17 @@ exports.crearPersonal = async (req, res) => {
 
     const archivos = req.files || {};
 
-    // normalizar y validar tipoLicencia -> array de enums válidos en mayúsculas
+    // normalizar y validar tipoLicencia -> array de enums válidos
     let lic = tipoLicencia;
     if (typeof lic === 'string') lic = [lic];
     if (!Array.isArray(lic)) lic = [];
-
     lic = lic
       .map(v => String(v).trim().toUpperCase())
       .filter(v => ALLOWED_LIC.includes(v));
 
     if (lic.length === 0) {
       return res.status(400).json({
-        error: 'tipoLicencia inválido. Valores permitidos: MOTOR, AERONAVE, AVIÓNICA'
+        error: 'tipoLicencia inválido. Valores permitidos: MOTOR, AERONAVE, AVIONICA'
       });
     }
 
@@ -52,7 +51,7 @@ exports.crearPersonal = async (req, res) => {
         esCertificador: Boolean(esCertificador),
         esTecnico: Boolean(esTecnico),
         direccion,
-        tipoLicencia: { set: lic }, 
+        tipoLicencia: { set: lic },
         numeroLicencia,
         vencimientoLicencia: vencimientoLicencia ? new Date(vencimientoLicencia) : null,
         fechaAlta: fechaAlta ? new Date(fechaAlta) : null,
@@ -69,7 +68,7 @@ exports.crearPersonal = async (req, res) => {
 };
 
 // READ ALL
-exports.listarPersonal = async (req, res) => {
+export const listarPersonal = async (_req, res) => {
   try {
     const personal = await prisma.empleado.findMany({
       where: { archivado: false }
@@ -81,18 +80,31 @@ exports.listarPersonal = async (req, res) => {
   }
 };
 
-// READ ONE
-// GET BY ID con URL completa de carneSalud
-exports.obtenerPersonal= async (req, res) => {
-  const id = parseInt(req.params.id);
+// READ ONE — includeArchived + URL absoluta de carneSalud
+export const obtenerPersonal = async (req, res) => {
   try {
-    const empleado = await prisma.empleado.findUnique({ where: { id } });
-    if (!empleado) return res.status(404).json({ error: 'Empleado no encontrado' });
+    const id = Number(req.params.id);
+    if (Number.isNaN(id)) {
+      return res.status(400).json({ error: 'ID inválido' });
+    }
 
-    // Construir URL absoluta del carneSalud
-    if (empleado.carneSalud) {
-      const baseUrl = `${req.protocol}://${req.get('host')}`;
-      empleado.carneSalud = `${baseUrl}/${empleado.carneSalud.replace(/\\/g, '/')}`;
+    const includeArchived =
+      req.query.includeArchived === '1' || req.query.includeArchived === 'true';
+
+    const where = includeArchived ? { id } : { id, archivado: false };
+    const empleado = await prisma.empleado.findFirst({ where });
+
+    if (!empleado) {
+      return res.status(404).json({ error: 'Empleado no encontrado' });
+    }
+
+    if (empleado.carneSalud && typeof empleado.carneSalud === 'string') {
+      const isAbsolute = /^https?:\/\//i.test(empleado.carneSalud);
+      if (!isAbsolute) {
+        const baseUrl = `${req.protocol}://${req.get('host')}`;
+        const normalized = empleado.carneSalud.replace(/\\/g, '/').replace(/^\/+/, '');
+        empleado.carneSalud = `${baseUrl}/${normalized}`;
+      }
     }
 
     res.json(empleado);
@@ -103,8 +115,8 @@ exports.obtenerPersonal= async (req, res) => {
 };
 
 // UPDATE
-exports.actualizarPersonal = async (req, res) => {
-  const id = parseInt(req.params.id);
+export const actualizarPersonal = async (req, res) => {
+  const id = parseInt(req.params.id, 10);
   const archivos = req.files || {};
 
   const actual = await prisma.empleado.findUnique({ where: { id } });
@@ -119,13 +131,12 @@ exports.actualizarPersonal = async (req, res) => {
       fs.unlinkSync(actual.carneSalud);
     }
 
-    // Extraemos los campos que vamos a normalizar y dejamos el resto tal cual
     const {
-      tipoLicencia,             // puede venir string | array | undefined
+      tipoLicencia,             // string | array | undefined
       vencimientoLicencia,
       fechaAlta,
       horasTrabajadas,
-      ...resto                  // el resto de los campos quedan como venían
+      ...resto
     } = req.body;
 
     const data = {
@@ -137,28 +148,17 @@ exports.actualizarPersonal = async (req, res) => {
 
     if (carneNuevo) data.carneSalud = carneNuevo;
 
-    // --- Normalización de tipoLicencia (enum list) ---
-    // Solo si el cliente lo envía, lo actualizamos; si no, lo dejamos como está.
+    // Normalización de tipoLicencia (enum list) si viene en la request
     if (typeof tipoLicencia !== 'undefined') {
-      const ALLOWED = ['MOTOR', 'AERONAVE', 'AVIÓNICA'];
-
       let lic = tipoLicencia;
       if (typeof lic === 'string') lic = [lic];
       if (!Array.isArray(lic)) lic = [];
-
       lic = lic
         .map(v => String(v).trim().toUpperCase())
-        .filter(v => ALLOWED.includes(v));
+        .filter(v => ALLOWED_LIC.includes(v));
 
-      // Si querés impedir que quede vacío al actualizar, descomentá:
-      // if (lic.length === 0) {
-      //   return res.status(400).json({ error: 'tipoLicencia inválido. Use MOTOR, AERONAVE o ELECTRONICA' });
-      // }
-
-      // Asignamos el set (permite también vaciar enviando [])
       data.tipoLicencia = { set: lic };
     }
-    // --- fin tipoLicencia ---
 
     const actualizado = await prisma.empleado.update({ where: { id }, data });
     res.json(actualizado);
@@ -168,55 +168,72 @@ exports.actualizarPersonal = async (req, res) => {
   }
 };
 
-
-
-// DELETE
-{/*exports.eliminarPersonal = async (req, res) => {
-  const id = parseInt(req.params.id);
+// ARCHIVAR PERSONAL (estricto: no archiva si está en OT abiertas)
+export const archivarPersonal = async (req, res) => {
   try {
-    await prisma.empleado.update({
-      where: { id },
-      data: { archivado: true },
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) {
+      return res.status(400).json({ error: 'ID inválido' });
+    }
+
+    // estados considerados "abiertos" (ajustá a tus valores reales)
+    const OPEN_STATES = ['abierta', 'fase1', 'fase2', 'fase3', 'fase4'];
+
+    const force = ['1', 'true', 'yes'].includes(
+      String(req.query.force || '').toLowerCase()
+    );
+
+    // 🔧 micro-fix: usar registroDeTrabajo (consistente con el resto del código)
+    const enOtAbierta = await prisma.registroDeTrabajo.findFirst({
+      where: {
+        empleadoId: id,
+        orden: {
+          archivada: false,
+          // si tu campo real es estadoOrden, ajustá aquí:
+          estado: { in: OPEN_STATES },
+        },
+      },
+      select: { id: true },
     });
 
-    res.json({ mensaje: 'Empleado archivado correctamente' });
-  } catch (error) {
-    console.error('Error al archivar personal:', error);
-    res.status(500).json({ error: 'Error al archivar el personal' });
-  }
-};
-*/}
+    if (enOtAbierta && !force) {
+      return res
+        .status(409)
+        .json({ error: 'No se puede archivar: el empleado participa en OT abiertas' });
+    }
 
-// ARCHIVAR PERSONAL (sin validación)
-exports.archivarPersonal = async (req, res) => {
-  const id = parseInt(req.params.id);
-  try {
     await prisma.empleado.update({
       where: { id },
-      data: { archivado: true },
+      data: {
+        archivado: true,
+        // archivedAt: new Date(),
+        // archivedBy: req.user?.sub || null,
+      },
     });
 
-    res.json({ mensaje: 'Empleado archivado correctamente' });
+    return res.json({
+      mensaje: 'Empleado archivado correctamente',
+      ...(enOtAbierta && force ? { warning: 'Se forzó el archivado con OT abierta' } : {}),
+    });
   } catch (error) {
     console.error('Error al archivar personal:', error);
-    res.status(500).json({ error: 'Error al archivar el personal' });
+    return res.status(500).json({ error: 'Error al archivar el personal' });
   }
 };
 
-
-exports.subirCarneSalud = (req, res) =>
+export const subirCarneSalud = (req, res) =>
   subirArchivoGenerico({
     req,
     res,
     modeloPrisma: prisma.empleado,
     campoArchivo: 'carneSalud',
     nombreRecurso: 'Personal',
+    campoParam: 'id',
   });
 
-
-  // GET /personal/:id/registros-trabajo?desde=YYYY-MM-DD&hasta=YYYY-MM-DD
-exports.descargarHorasEmpleado = async (req, res) => {
-  const id = parseInt(req.params.id);
+// GET /personal/:id/registros-trabajo?desde=YYYY-MM-DD&hasta=YYYY-MM-DD
+export const descargarHorasEmpleado = async (req, res) => {
+  const id = parseInt(req.params.id, 10);
   const { desde, hasta } = req.query;
 
   try {
@@ -252,7 +269,7 @@ exports.descargarHorasEmpleado = async (req, res) => {
         fecha: true,
         horas: true,
         rol: true,
-        trabajoRealizado: true, // 👈 ahora lo incluimos
+        trabajoRealizado: true,
         ordenId: true,
       },
     });
@@ -342,9 +359,8 @@ exports.descargarHorasEmpleado = async (req, res) => {
   }
 };
 
-
-exports.obtenerRegistrosDeTrabajo = async (req, res) => {
-  const id = parseInt(req.params.id);
+export const obtenerRegistrosDeTrabajo = async (req, res) => {
+  const id = parseInt(req.params.id, 10);
   const { desde, hasta } = req.query;
 
   try {
@@ -374,9 +390,9 @@ exports.obtenerRegistrosDeTrabajo = async (req, res) => {
         fecha: true,
         horas: true,
         rol: true,
-        trabajoRealizado: true,        // 👈 IMPORTANTE
+        trabajoRealizado: true,
         ordenId: true,
-        orden: { select: { solicitud: true } }, // 👈 para tu columna “Solicitud”
+        orden: { select: { solicitud: true } }, // para columna “Solicitud”
       },
     });
 
@@ -396,8 +412,3 @@ exports.obtenerRegistrosDeTrabajo = async (req, res) => {
     res.status(500).json({ error: 'Error al obtener los registros de trabajo' });
   }
 };
-
-
-
-// ✅ Exportar correctamente
-module.exports = exports;

@@ -7,7 +7,7 @@ function isAbsoluteUrl(path: string) {
   return /^https?:\/\//i.test(path);
 }
 
-// Devuelve URL absoluta al backend */
+// Devuelve URL absoluta al backend
 export function api(path: string) {
   if (isAbsoluteUrl(path)) return path;
   const base = API_URL.replace(/\/+$/, '');
@@ -15,25 +15,31 @@ export function api(path: string) {
   return `${base}${rel}`;
 }
 
-// Construye hrefs absolutos (archivos subidos, descargas, etc.) */
 export function apiUrl(path: string) {
   return api(path);
 }
 
-// Intenta refrescar sesión usando cookies HTTP-only */
+// ---- REFRESH TOLERANTE AL PATH ----
+const REFRESH_PATHS = [
+  '/auth/refresh',
+  '/api/auth/refresh',
+  process.env.NEXT_PUBLIC_AUTH_REFRESH_PATH || '', // opcional por env
+].filter(Boolean);
+
 async function refreshAuth(): Promise<boolean> {
   try {
-    const res = await fetch(api('/api/auth/refresh'), {
-      method: 'POST',
-      credentials: 'include',
-    });
-    return res.ok;
-  } catch {
-    return false;
-  }
+    for (const p of REFRESH_PATHS) {
+      const res = await fetch(api(p), {
+        method: 'POST',
+        credentials: 'include',
+      });
+      if (res.ok) return true;
+    }
+  } catch {}
+  return false;
 }
 
-// Hace fetch con cookies + refresh automático + parseo de respuesta */
+// ---- FETCH PRINCIPAL: con cookies + auto-refresh + MENSAJE REAL ----
 export async function apiFetch<T = unknown>(
   path: string,
   init: RequestInit = {}
@@ -66,7 +72,9 @@ export async function apiFetch<T = unknown>(
 
   const shouldTryRefresh = (s: number) => s === 401 || s === 403 || s === 419;
   const isRefreshCall =
-    path.includes('/auth/refresh') || path.includes('/api/auth/refresh');
+    REFRESH_PATHS.some((p) => path.includes(p)) ||
+    path.includes('/auth/refresh') ||
+    path.includes('/api/auth/refresh');
 
   if (!isRefreshCall && shouldTryRefresh(res.status)) {
     const ok = await refreshAuth();
@@ -83,7 +91,13 @@ export async function apiFetch<T = unknown>(
   }
 
   if (!res.ok) {
-    const err: any = new Error(`HTTP ${res.status}`);
+    // 👇 Preferimos mensaje del servidor si existe
+    const serverMsg =
+      (body && (body.error || body.message)) ||
+      (typeof body === 'string' && body) ||
+      null;
+
+    const err: any = new Error(serverMsg ? String(serverMsg) : `HTTP ${res.status}`);
     err.status = res.status;
     err.body = body;
     throw err;
@@ -92,7 +106,7 @@ export async function apiFetch<T = unknown>(
   return body as T;
 }
 
-// Alias semántico cuando esperás JSON */
+// Alias semántico cuando esperás JSON
 export async function fetchJson<T = unknown>(
   path: string,
   init: RequestInit = {}
@@ -100,7 +114,7 @@ export async function fetchJson<T = unknown>(
   return apiFetch<T>(path, init);
 }
 
-/** Útil para descargas de texto/CSV/etc */
+// Útil para descargas de texto/CSV/etc
 export async function fetchText(
   path: string,
   init: RequestInit = {}
@@ -115,18 +129,7 @@ export async function fetchText(
   return typeof text === 'string' ? text : String(text ?? '');
 }
 
-/** Ejemplo de helper: obtener avión por matrícula */
+// Ejemplo de helper: obtener avión por matrícula
 export async function getAvionPorMatricula(matricula: string) {
-  return fetchJson(`/avion/${encodeURIComponent(matricula)}`);
+  return fetchJson(`/aviones/por-matricula/${encodeURIComponent(matricula)}`); // o el que uses
 }
-
-
-
-
-
-
-
-
-
-
-

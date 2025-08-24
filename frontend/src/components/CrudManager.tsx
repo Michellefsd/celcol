@@ -111,9 +111,10 @@ const fetchData = async () => {
         : (body && Array.isArray((body as any).items) ? (body as any).items : []);
       setData(list as T[]);
     } catch (err) {
-      console.error('❌ CRUD load error:', err);
-      setData([]);
-    }
+  console.warn('⚠️ CRUD load warning:', err);
+  setData([]);
+}
+
   };
 
   useEffect(() => {
@@ -180,10 +181,10 @@ const fetchData = async () => {
       setEditing(null);
       setShowModal(false);
       fetchData();
-    } catch (e) {
-      console.error('❌ handleSubmit error:', e);
-      alert('Error al conectar con el servidor');
-    }
+    } catch (e: any) {
+  console.warn('⚠️ handleSubmit warning:', e);
+  alert(e?.message ?? 'Error al procesar la solicitud');
+}
   };
 
 
@@ -193,12 +194,13 @@ const fetchData = async () => {
 try {
       await fetchJson(`${endpoint}/archivar/${id}`, { method: 'PATCH' });
       fetchData();
-    } catch (error) {
-      alert('Error al conectar con el servidor');
-      console.error('❌ Error en handleDelete:', error);
-    }
+} catch (error: any) {
+  console.warn('⚠️ handleDelete warning:', error);
+  alert(error?.message ?? 'Error');
+}
   };
 
+  
 
 
   const openModal = (item?: T) => {

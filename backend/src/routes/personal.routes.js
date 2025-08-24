@@ -1,32 +1,45 @@
-const express = require('express');
-const router = express.Router();
-const controller = require('../controllers/personal.controller');
-const { uploadPersonal } = require('../../middleware/upload.middleware');
+// src/routes/personal.route.js
+import { Router } from 'express';
+import {
+  crearPersonal,
+  actualizarPersonal,
+  listarPersonal,
+  obtenerPersonal,
+  obtenerRegistrosDeTrabajo,
+  archivarPersonal,
+  subirCarneSalud,
+  descargarHorasEmpleado,
+  // eliminarPersonal // (sigue deshabilitado)
+} from '../controllers/personal.controller.js';
+import { uploadPersonal } from '../../middleware/upload.middleware.js';
+
+const router = Router();
 
 // Crear personal (con carne de salud)
-router.post('/', uploadPersonal, controller.crearPersonal);
+router.post('/', uploadPersonal, crearPersonal);
 
 // Actualizar personal (con posible nuevo carne de salud)
-router.put('/:id', uploadPersonal, controller.actualizarPersonal);
+router.put('/:id', uploadPersonal, actualizarPersonal);
 
 // Listar todo el personal
-router.get('/', controller.listarPersonal);
+router.get('/', listarPersonal);
 
 // Obtener un personal por ID
-router.get('/:id', controller.obtenerPersonal);
+router.get('/:id', obtenerPersonal);
 
-// Obtener todos los registros de trabajo (fecha, horas, OT, solicitud, rol) de un empleado específico
-router.get('/:id/registros-trabajo', controller.obtenerRegistrosDeTrabajo);
-
-// Eliminar personal
-//router.delete('/:id', controller.eliminarPersonal);
+// Registros de trabajo de un empleado
+router.get('/:id/registros-trabajo', obtenerRegistrosDeTrabajo);
 
 // Archivar personal (soft-delete)
-router.patch('/archivar/:id', controller.archivarPersonal);
+router.patch('/archivar/:id', archivarPersonal);
 
-router.post('/:id/carneSalud', uploadPersonal, controller.subirCarneSalud);
+// Subir carne de salud
+router.post('/:id/carneSalud', uploadPersonal, subirCarneSalud);
 
-// Descargar horas trabajadas de un empleado en PDF
-router.get('/:id/registros-trabajo/pdf', controller.descargarHorasEmpleado);
+// Descargar horas trabajadas en PDF
+router.get('/:id/registros-trabajo/pdf', descargarHorasEmpleado);
 
-module.exports = router;
+// // Eliminar personal (deshabilitado)
+// // router.delete('/:id', eliminarPersonal);
+
+export default router;

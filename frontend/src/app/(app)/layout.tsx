@@ -1,9 +1,9 @@
+// frontend/src/app/(app)/layout.tsx
 'use client';
-// NO importes './globals.css' aquí
 
 import type { ReactNode } from 'react';
-import { AuthProvider } from '@/context/AuthContext';
 import AppFrame from '@/components/AppFrame';
+import { AuthProvider } from '@/context/AuthContext'; // ← ajustá si tu export es default
 
 export default function AppLayout({ children }: { children: ReactNode }) {
   return (

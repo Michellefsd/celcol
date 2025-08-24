@@ -12,16 +12,16 @@ find . -type f \
 
 
 
+
+
 celcol-logo.jpeg
 .DS_Store
 frontend/middleware.ts
-frontend/.DS_Store
 frontend/.env.local
 frontend/postcss.config.mjs
 frontend/next-env.d.ts
 frontend/README.md
 frontend/tailwind.config.ts
-frontend/public/.DS_Store
 frontend/public/file.svg
 frontend/public/vercel.svg
 frontend/public/celcol-logo.webp
@@ -32,7 +32,6 @@ frontend/tsconfig.json
 frontend/eslint.config.mjs
 frontend/next.config.ts
 frontend/src/types/index.ts
-frontend/src/.DS_Store
 frontend/src/context/AuthContext.tsx
 frontend/src/app/favicon.ico
 frontend/src/app/(app)/avisos/page.tsx
@@ -52,6 +51,7 @@ frontend/src/app/(app)/cruds/stock/[id]/page.tsx
 frontend/src/app/(app)/cruds/stock/page.tsx
 frontend/src/app/(app)/cruds/propietarios/[id]/page.tsx
 frontend/src/app/(app)/cruds/propietarios/page.tsx
+frontend/src/app/(app)/archivadas/[tipo]/[id]/page.tsx
 frontend/src/app/(app)/archivadas/page.tsx
 frontend/src/app/(app)/layout.tsx
 frontend/src/app/(app)/privado/page.tsx
@@ -91,7 +91,6 @@ frontend/src/services/api.ts
 estructura-limpia.txt
 backend/middleware/upload.middleware.js
 backend/middleware/authz.js
-backend/.DS_Store
 backend/prisma/migrations/20250812231216_add_aviso_unique_avion/migration.sql
 backend/prisma/migrations/migration_lock.toml
 backend/prisma/migrations/20250803173706_agregando_filtros_de_eliminacion/migration.sql
@@ -101,6 +100,7 @@ backend/prisma/migrations/20250803175755_agregando_filtros_de_eliminacion/migrat
 backend/prisma/migrations/20250813030245_add_rol_opcional_y_trabajo_realizado/migration.sql
 backend/prisma/migrations/20250803180208_agregando_filtros_de_eliminacion/migration.sql
 backend/prisma/migrations/20250810121342_creando_users/migration.sql
+backend/prisma/migrations/20250824004007_usuario_keycloak_sub_required/migration.sql
 backend/prisma/migrations/20250810173748_add_fecha_cancelacion/migration.sql
 backend/prisma/migrations/20250810191741_add_password_reset/migration.sql
 backend/prisma/migrations/20250805141244_add_snapshot_fields/migration.sql
@@ -108,10 +108,8 @@ backend/prisma/migrations/20250812235337_stock_facturas/migration.sql
 backend/prisma/migrations/20250805215014_fecha_cierre/migration.sql
 backend/prisma/migrations/20250803000356_archive_ot/migration.sql
 backend/prisma/migrations/20250802213736_add_aviso/migration.sql
-backend/prisma/.DS_Store
 backend/prisma/schema.prisma
 backend/index.js
-backend/backend@1.0.0
 backend/uploads/1753534964897-139897725.pdf
 backend/uploads/1755049665515-496968331.pdf
 backend/uploads/1752348301708-642447113.pdf
@@ -152,7 +150,9 @@ backend/uploads/1753832264219-539356160.pdf
 backend/uploads/1752448931087-850695371.png
 backend/uploads/1755456065681-418757876.pdf
 backend/uploads/1754434313167-514200611.pdf
+backend/uploads/1755798226408-643671150.pdf
 backend/uploads/img-1752457594188.webp
+backend/uploads/img-1755798731451.webp
 backend/uploads/1754419473425-999079295.pdf
 backend/uploads/1753880811393-457663369.pdf
 backend/uploads/1751899660736-741922976.pdf
@@ -161,9 +161,12 @@ backend/uploads/img-1754405613158.webp
 backend/uploads/1753562590637-206615640.pdf
 backend/uploads/img-1753880786771.webp
 backend/uploads/1753534959353-139738789.pdf
+backend/uploads/1755892919980-293512815.pdf
+backend/uploads/1755799146448-356003253.png
 backend/uploads/1753569795347-535985079.pdf
 backend/uploads/1753191201643-385039125.pdf
 backend/uploads/1755013915211-261933087.pdf
+backend/uploads/1755798762547-644957921.pdf
 backend/uploads/1753561178296-953608152.pdf
 backend/uploads/1755040688166-213746540.pdf
 backend/uploads/1754405107442-599598481.pdf
@@ -179,6 +182,7 @@ backend/uploads/1752468476359-754473124.pdf
 backend/uploads/1753191138198-418388741.pdf
 backend/uploads/1752467072906-349439084.docx
 backend/uploads/1754225792760-47143611.pdf
+backend/uploads/1755883748879-590254499.png
 backend/uploads/1754502579386-877821587.pdf
 backend/uploads/1751899944108-211816104.pdf
 backend/uploads/1753569141306-8444058.pdf
@@ -186,6 +190,7 @@ backend/uploads/1751910615672-437620364.pdf
 backend/uploads/1752461550446-738332053.pdf
 backend/uploads/1753893469439-586417985.pdf
 backend/uploads/1752352755006-282507727.pdf
+backend/uploads/1755799182537-486985756.pdf
 backend/uploads/img-1752467054842.webp
 backend/uploads/1755041107699-422458612.pdf
 backend/uploads/1753815273700-874750971.pdf
@@ -196,6 +201,7 @@ backend/uploads/1755465535991-711248789.pdf
 backend/uploads/1754404875181-12715532.pdf
 backend/uploads/1754433935603-535362909.pdf
 backend/uploads/1753820930387-489303584.pdf
+backend/uploads/1755798858495-366559724.pdf
 backend/uploads/1755455747771-358224131.pdf
 backend/uploads/1754405568446-398939641.pdf
 backend/uploads/1752468315245-813394521.pdf
@@ -205,13 +211,12 @@ backend/uploads/1751938994483-776333700.pdf
 backend/uploads/1754408424374-423726361.pdf
 backend/uploads/1753564179573-496005348.pdf
 backend/uploads/1754017040413-701783521.png
-backend/cookies.txt
 backend/public/celcol-logo.jpeg
-backend/public/.DS_Store
 backend/.gitignore
 backend/package-lock.json
 backend/package.json
 backend/.env
+backend/services/archivo.service.js
 backend/src/.DS_Store
 backend/src/auth/oidc.js
 backend/src/utils/avisos.js
@@ -239,8 +244,8 @@ backend/src/routes/avisos.routes.js
 backend/src/routes/archivados.routes.js
 backend/src/routes/avion.routes.js
 backend/src/routes/propietario.routes.js
+backend/src/services/archiveGuards.js
 README.md
 .gitignore
 package-lock.json
 package.json
-....

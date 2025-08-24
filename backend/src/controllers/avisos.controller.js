@@ -1,9 +1,9 @@
-// controllers/avisos.controller.js
-const { PrismaClient } = require('@prisma/client');
+import { PrismaClient } from '@prisma/client';
+
 const prisma = new PrismaClient();
 
 // GET /avisos – Listar todos los avisos
-exports.listarAvisos = async (req, res) => {
+export const listarAvisos = async (_req, res) => {
   try {
     console.log('🔍 Listando avisos...');
     const avisos = await prisma.aviso.findMany({
@@ -17,7 +17,7 @@ exports.listarAvisos = async (req, res) => {
 };
 
 // PUT /avisos/:id/leido – Marcar como leído
-exports.marcarComoLeido = async (req, res) => {
+export const marcarComoLeido = async (req, res) => {
   const id = parseInt(req.params.id);
   try {
     const aviso = await prisma.aviso.update({
@@ -32,7 +32,7 @@ exports.marcarComoLeido = async (req, res) => {
 };
 
 // DELETE /avisos/:id – Eliminar aviso
-exports.eliminarAviso = async (req, res) => {
+export const eliminarAviso = async (req, res) => {
   const id = parseInt(req.params.id);
   try {
     await prisma.aviso.delete({ where: { id } });

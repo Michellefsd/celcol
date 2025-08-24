@@ -1,27 +1,35 @@
-const express = require('express');
-const router = express.Router();
-const controlador = require('../controllers/componenteExterno.controller');
-const { uploadComponenteExterno } = require('../../middleware/upload.middleware');
+import { Router } from 'express';
+import {
+  listarComponentesExternos,
+  obtenerComponenteExterno,
+  crearComponenteExterno,
+  actualizarComponenteExterno,
+  archivarComponenteExterno,
+  subirArchivo8130,
+} from '../controllers/componenteExterno.controller.js';
+import { uploadComponenteExterno } from '../../middleware/upload.middleware.js';
+
+const router = Router();
 
 // Listar todos los componentes externos
-router.get('/', controlador.listarComponentesExternos);
+router.get('/', listarComponentesExternos);
 
 // Obtener un componente externo por ID
-router.get('/:id', controlador.obtenerComponenteExterno);
+router.get('/:id', obtenerComponenteExterno);
 
-// Crear componente externo con archivo opcional (manualPdf)
-router.post('/', uploadComponenteExterno, controlador.crearComponenteExterno);
+// Crear componente externo con archivo opcional (8130)
+router.post('/', uploadComponenteExterno, crearComponenteExterno);
 
-// Actualizar componente externo (con posibilidad de nuevo manualPdf)
-router.put('/:id', uploadComponenteExterno, controlador.actualizarComponenteExterno);
-
-// Eliminar componente externo
-//router.delete('/:id', controlador.eliminarComponenteExterno);
+// Actualizar componente externo (con posibilidad de nuevo 8130)
+router.put('/:id', uploadComponenteExterno, actualizarComponenteExterno);
 
 // Archivar componente externo (soft-delete)
-router.patch('/archivar/:id', controlador.archivarComponenteExterno);
+router.patch('/archivar/:id', archivarComponenteExterno);
 
 // Subir archivo 8130 por separado
-router.post('/:componenteId/archivo8130', uploadComponenteExterno, controlador.subirArchivo8130);
+router.post('/:componenteId/archivo8130', uploadComponenteExterno, subirArchivo8130);
 
-module.exports = router;
+// // Eliminar (deshabilitado)
+// // router.delete('/:id', eliminarComponenteExterno);
+
+export default router;

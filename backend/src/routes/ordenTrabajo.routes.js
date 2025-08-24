@@ -1,51 +1,67 @@
-const express = require('express');
-const router = express.Router();
-const ordenTrabajoController = require('../controllers/ordenTrabajo.controller');
-const { uploadOrdenTrabajo } = require('../../middleware/upload.middleware');
+// src/routes/ordenTrabajo.route.js (ESM)
+import { Router } from 'express';
+import {
+  getAllOrdenes,
+  getOrdenById,
+  createOrden,
+  updateFase2,
+  subirArchivoOrden,
+  updateFase3,
+  subirArchivoFactura,
+  guardarDatosFactura,
+  crearRegistroTrabajo,
+  editarRegistroTrabajo,
+  eliminarRegistroTrabajo,
+  cerrarOrden,
+  cancelarOrden,
+  archivarOrden,
+} from '../controllers/ordenTrabajo.controller.js';
+import { descargarOrdenPDF } from '../controllers/ordenTrabajo.descarga.controller.js';
+import { uploadOrdenTrabajo } from '../../middleware/upload.middleware.js';
+
+const router = Router();
 
 // 1. Obtener todas las órdenes
-router.get('/', ordenTrabajoController.getAllOrdenes);
+router.get('/', getAllOrdenes);
 
 // 2. Obtener una orden por ID
-router.get('/:id', ordenTrabajoController.getOrdenById);
+router.get('/:id', getOrdenById);
 
 // 3. Crear una nueva orden
-router.post('/', ordenTrabajoController.createOrden);
+router.post('/', createOrden);
 
 // 4. Subir archivo solicitudFirma (fase 2)
-router.put('/:id/fase2', uploadOrdenTrabajo, ordenTrabajoController.updateFase2);
+router.put('/:id/fase2', uploadOrdenTrabajo, updateFase2);
 
 // Ruta específica para subir solo el archivo solicitudFirma
-router.post('/:id/solicitudFirma', uploadOrdenTrabajo, ordenTrabajoController.subirArchivoOrden);
+router.post('/:id/solicitudFirma', uploadOrdenTrabajo, subirArchivoOrden);
 
 // 5. Actualizar fase 3
-router.put('/:id/fase3', ordenTrabajoController.updateFase3);
+router.put('/:id/fase3', updateFase3);
 
 // 6. Subir archivo y datos de factura (fase 4)
-router.post('/:id/factura', uploadOrdenTrabajo, ordenTrabajoController.subirArchivoFactura);
-
-router.put('/:id/factura', ordenTrabajoController.guardarDatosFactura);
+router.post('/:id/factura', uploadOrdenTrabajo, subirArchivoFactura);
+router.put('/:id/factura', guardarDatosFactura);
 
 // 7. Agregar registros de trabajo (fase 4)
-router.post('/:id/registro-trabajo', ordenTrabajoController.crearRegistroTrabajo);
+router.post('/:id/registro-trabajo', crearRegistroTrabajo);
 
-// 7,5 Editar registro de trabajo
-router.put('/:id/registro-trabajo/:registroId', ordenTrabajoController.editarRegistroTrabajo);
+// 7.5 Editar registro de trabajo
+router.put('/:id/registro-trabajo/:registroId', editarRegistroTrabajo);
 
 // 8. Eliminar registro de trabajo
-router.delete('/:id/registro-trabajo/:registroId', ordenTrabajoController.eliminarRegistroTrabajo);
+router.delete('/:id/registro-trabajo/:registroId', eliminarRegistroTrabajo);
 
 // 9. Cerrar orden
-router.put('/:id/cerrar', ordenTrabajoController.cerrarOrden);
+router.put('/:id/cerrar', cerrarOrden);
 
 // 10. Cancelar orden
-router.put('/:id/cancelar', ordenTrabajoController.cancelarOrden);
+router.put('/:id/cancelar', cancelarOrden);
 
 // 11. Archivar orden
-router.put('/:id/archivar', ordenTrabajoController.archivarOrden);
-
+router.put('/:id/archivar', archivarOrden);
 
 // 12. Descargar PDF de la orden
-router.get('/:id/pdf', ordenTrabajoController.descargarOrdenPDF);
+router.get('/:id/pdf', descargarOrdenPDF);
 
-module.exports = router;
+export default router;

@@ -1,17 +1,19 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { api, fetchJson } from '@/services/api';
+import { fetchJson } from '@/services/api';
 import BaseCard from '@/components/BaseCard';
 import BaseHeading from '@/components/BaseHeading';
 import TrabajoCard from '@/components/Home/TrabajoCard';
+import Link from 'next/link';
+
 
 export default function ArchivadosPage() {
   const [data, setData] = useState<any>(null);
   const [tipo, setTipo] = useState<string>('ordenes');
 
   useEffect(() => {
-    fetchJson<any>('/archivados')
+    fetchJson<any>('/archivadas')
       .then(setData)
       .catch((err) => console.error('Error al cargar archivados:', err));
   }, []);
@@ -20,64 +22,137 @@ export default function ArchivadosPage() {
     setTipo(e.target.value);
   };
 
-  const renderContenido = () => {
-    if (!data) return <p>Cargando...</p>;
+const renderContenido = () => {
+  if (!data) return <p>Cargando...</p>;
 
-    switch (tipo) {
-      case 'ordenes':
-        return <TrabajoCard soloArchivadas />;
-      case 'empleados':
-        return (
-          <ul className="mt-4 text-sm">
-            {data.empleados.map((e: any) => (
-              <li key={e.id}>{e.nombre} {e.apellido}</li>
-            ))}
-          </ul>
-        );
-      case 'herramientas':
-        return (
-          <ul className="mt-4 text-sm">
-            {data.herramientas.map((h: any) => (
-              <li key={h.id}>{h.nombre} – {h.marca} {h.modelo}</li>
-            ))}
-          </ul>
-        );
-      case 'stock':
-        return (
-          <ul className="mt-4 text-sm">
-            {data.stock.map((s: any) => (
-              <li key={s.id}>{s.nombre} ({s.tipoProducto})</li>
-            ))}
-          </ul>
-        );
-      case 'propietarios':
-        return (
-          <ul className="mt-4 text-sm">
-            {data.propietarios.map((p: any) => (
-              <li key={p.id}>{p.nombre}</li>
-            ))}
-          </ul>
-        );
-      case 'componentes':
-        return (
-          <ul className="mt-4 text-sm">
-            {data.componentes.map((c: any) => (
-              <li key={c.id}>{c.tipo} – {c.marca} {c.modelo}</li>
-            ))}
-          </ul>
-        );
-      case 'aviones':
-        return (
-          <ul className="mt-4 text-sm">
-            {data.aviones.map((a: any) => (
-              <li key={a.id}>{a.matricula} – {a.marca} {a.modelo}</li>
-            ))}
-          </ul>
-        );
-      default:
-        return null;
-    }
-  };
+  switch (tipo) {
+    case 'ordenes':
+      return <TrabajoCard soloArchivadas />;
+
+    case 'empleados':
+      return (
+        <ul className="mt-4 text-sm">
+          {data.empleados?.length ? (
+            data.empleados.map((e: any) => (
+              <li key={e.id}>
+                <Link
+                  href={`/archivadas/empleados/${e.id}`}
+                  className="underline hover:no-underline"
+                >
+                  {e.nombre} {e.apellido}
+                </Link>
+              </li>
+            ))
+          ) : (
+            <li className="text-slate-500">No hay empleados archivados.</li>
+          )}
+        </ul>
+      );
+
+    case 'herramientas':
+      return (
+        <ul className="mt-4 text-sm">
+          {data.herramientas?.length ? (
+            data.herramientas.map((h: any) => (
+              <li key={h.id}>
+                <Link
+                  href={`/archivadas/herramientas/${h.id}`}
+                  className="underline hover:no-underline"
+                >
+                  {h.nombre} – {h.marca} {h.modelo}
+                </Link>
+              </li>
+            ))
+          ) : (
+            <li className="text-slate-500">No hay herramientas archivadas.</li>
+          )}
+        </ul>
+      );
+
+    case 'stock':
+      return (
+        <ul className="mt-4 text-sm">
+          {data.stock?.length ? (
+            data.stock.map((s: any) => (
+              <li key={s.id}>
+                <Link
+                  href={`/archivadas/stock/${s.id}`}
+                  className="underline hover:no-underline"
+                >
+                  {s.nombre} ({s.tipoProducto})
+                </Link>
+              </li>
+            ))
+          ) : (
+            <li className="text-slate-500">No hay productos de stock archivados.</li>
+          )}
+        </ul>
+      );
+
+    case 'propietarios':
+      return (
+        <ul className="mt-4 text-sm">
+          {data.propietarios?.length ? (
+            data.propietarios.map((p: any) => (
+              <li key={p.id}>
+                <Link
+                  href={`/archivadas/propietarios/${p.id}`}
+                  className="underline hover:no-underline"
+                >
+                  {p.nombre}
+                </Link>
+              </li>
+            ))
+          ) : (
+            <li className="text-slate-500">No hay propietarios archivados.</li>
+          )}
+        </ul>
+      );
+
+    case 'componentes':
+      return (
+        <ul className="mt-4 text-sm">
+          {data.componentes?.length ? (
+            data.componentes.map((c: any) => (
+              <li key={c.id}>
+                <Link
+                  href={`/archivadas/componentes/${c.id}`}
+                  className="underline hover:no-underline"
+                >
+                  {c.tipo} – {c.marca} {c.modelo}
+                </Link>
+              </li>
+            ))
+          ) : (
+            <li className="text-slate-500">No hay componentes externos archivados.</li>
+          )}
+        </ul>
+      );
+
+    case 'aviones':
+      return (
+        <ul className="mt-4 text-sm">
+          {data.aviones?.length ? (
+            data.aviones.map((a: any) => (
+              <li key={a.id}>
+                <Link
+                  href={`/archivadas/aviones/${a.id}`}
+                  className="underline hover:no-underline"
+                >
+                  {a.matricula} – {a.marca} {a.modelo}
+                </Link>
+              </li>
+            ))
+          ) : (
+            <li className="text-slate-500">No hay aviones archivados.</li>
+          )}
+        </ul>
+      );
+
+    default:
+      return null;
+  }
+};
 
 return (
   <BaseCard>

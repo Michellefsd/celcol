@@ -1,6 +1,6 @@
-const express = require('express');
+import express from 'express';
 const router = express.Router();
-const controlador = require('../controllers/avionComponente.controller');
+import * as controlador from '../controllers/avionComponente.controller.js';
 
 // Listar todos los componentes
 router.get('/', controlador.listarComponentes);
@@ -17,4 +17,4 @@ router.put('/:id', controlador.actualizarComponente);
 // Eliminar un componente
 router.delete('/:id', controlador.eliminarComponente);
 
-module.exports = router;
+export default router;

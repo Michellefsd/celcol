@@ -1,24 +1,55 @@
-// backend/index.js
-require('dotenv').config();
+// backend/index.js (ESM)
+import 'dotenv/config';
 
-const express = require('express');
-const cors = require('cors');
-const path = require('path');
-const cookieParser = require('cookie-parser');
-const cron = require('node-cron');
-const { PrismaClient } = require('@prisma/client');
+import express from 'express';
+import cors from 'cors';
+import path from 'path';
+import fs from 'fs';
+import cookieParser from 'cookie-parser';
+import cron from 'node-cron';
+import { PrismaClient } from '@prisma/client';
+import { fileURLToPath } from 'url';
 
-const authRoutes = require('./src/routes/auth.routes');
-const { requireAuth } = require('./middleware/authz');
+
+// Rutas y middlewares (ESM)
+import authRoutes from './src/routes/auth.routes.js';
+import { requireAuth } from './middleware/authz.js';
+
+// Utils (ESM)
+import {
+  revisarTodasLasHerramientas,
+  revisarAvionesSinPropietario,
+} from './src/utils/avisos.js';
+
+// Rutas protegidas (ESM)
+import propietariosRoutes from './src/routes/propietario.routes.js';
+import avionRoutes from './src/routes/avion.routes.js';
+import avionComponentesRoutes from './src/routes/avionComponentes.routes.js';
+import stockRoutes from './src/routes/stock.routes.js';
+import herramientasRoutes from './src/routes/herramientas.routes.js';
+import personalRoutes from './src/routes/personal.routes.js';
+import componentesExtRoutes from './src/routes/componenteExterno.routes.js';
+import ordenTrabajoRoutes from './src/routes/ordenTrabajo.routes.js';
+import avisosRoutes from './src/routes/avisos.routes.js';
+import archivadosRoutes from './src/routes/archivados.routes.js';
+
 
 const prisma = new PrismaClient({ log: ['query', 'info', 'warn', 'error'] });
 
-const {
-  revisarTodasLasHerramientas,
-  revisarAvionesSinPropietario,
-} = require('./src/utils/avisos');
+// __dirname en ESM
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
+
+// === CONFIG ARCHIVOS / URLS PÚBLICAS ===
+// PUBLIC_BASE se usa para construir Archivo.urlPublica (p. ej. http://localhost:3001 o https://api.tu-dominio.com)
+const PUBLIC_BASE = process.env.API_PUBLIC_URL || process.env.PUBLIC_BASE || '';
+
+const UPLOADS_DIR = path.join(__dirname, 'uploads');
+
+// Asegura que /uploads exista
+try { fs.mkdirSync(UPLOADS_DIR, { recursive: true }); } catch {}
 
 // === PARSERS ===
 app.use(express.json());
@@ -27,7 +58,6 @@ app.use(cookieParser());
 // === CORS (una sola vez) ===
 const FRONT_ORIGIN = process.env.APP_URL || 'http://localhost:3000';
 const ALLOWED_ORIGINS = [FRONT_ORIGIN];
-
 
 const corsOptions = {
   origin(origin, cb) {
@@ -48,9 +78,22 @@ app.set('trust proxy', 1);
 // === HEALTH ===
 app.get('/health', (_req, res) => res.send('ok'));
 
+// Salud de storage local (por ahora en disco). Útil antes de migrar a bucket.
+app.get('/health/storage', (_req, res) => {
+  try {
+    fs.accessSync(UPLOADS_DIR, fs.constants.W_OK);
+    res.json({ ok: true, uploadsDir: '/uploads', publicBase: PUBLIC_BASE || null });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: 'uploads no escribible' });
+  }
+});
+
 // === ESTÁTICOS ===
 app.use(express.static(path.join(__dirname, 'public')));
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use('/uploads', express.static(UPLOADS_DIR, {
+  fallthrough: false,
+  setHeaders: (res) => { res.setHeader('Cache-Control', 'public, max-age=31536000'); }
+}));
 
 // === AUTH ===
 app.use('/api/auth', authRoutes);
@@ -78,19 +121,20 @@ app.get('/me', requireAuth, (req, res) => {
 });
 
 // === RUTAS PROTEGIDAS ===
-app.use('/propietarios',      requireAuth, require('./src/routes/propietario.routes'));
-app.use('/aviones',           requireAuth, require('./src/routes/avion.routes'));
-app.use('/componentes-avion', requireAuth, require('./src/routes/avionComponente.routes'));
-app.use('/stock',             requireAuth, require('./src/routes/stock.routes'));
-app.use('/herramientas',      requireAuth, require('./src/routes/herramientas.routes'));
-app.use('/personal',          requireAuth, require('./src/routes/personal.routes'));
-app.use('/componentes',       requireAuth, require('./src/routes/componenteExterno.routes'));
-app.use('/ordenes-trabajo',   requireAuth, require('./src/routes/ordenTrabajo.routes'));
-app.use('/avisos',            requireAuth, require('./src/routes/avisos.routes'));
-app.use('/archivados',        requireAuth, require('./src/routes/archivados.routes'));
+app.use('/propietarios',      requireAuth, propietariosRoutes);
+app.use('/aviones',           requireAuth, avionRoutes);
+app.use('/componentes-avion', requireAuth, avionComponentesRoutes);
+app.use('/stock',             requireAuth, stockRoutes);
+app.use('/herramientas',      requireAuth, herramientasRoutes);
+app.use('/personal',          requireAuth, personalRoutes);
+app.use('/componentes',       requireAuth, componentesExtRoutes);
+app.use('/ordenes-trabajo',   requireAuth, ordenTrabajoRoutes);
+app.use('/avisos',            requireAuth, avisosRoutes);
+app.use('/archivados',        requireAuth, archivadosRoutes);
+app.use('/archivadas',        requireAuth, archivadosRoutes);
 
 // === REVISIÓN INICIAL DIFERIDA ===
-;(async () => {
+(async () => {
   console.log('⏳ Esperando 60 segundos para ejecutar revisión inicial...');
   setTimeout(async () => {
     console.log('🚨 Ejecutando revisión inicial ahora...');
@@ -116,7 +160,16 @@ cron.schedule('0 8 * * *', async () => {
   }
 });
 
-// === HANDLER ERRORES ===
+// === HANDLERS DE ERRORES ===
+// Multer / payload muy grande → 413
+app.use((err, _req, res, next) => {
+  if (err && (err.code === 'LIMIT_FILE_SIZE' || err.message?.includes('File too large'))) {
+    return res.status(413).json({ error: 'El archivo excede el tamaño máximo permitido' });
+  }
+  return next(err);
+});
+
+// Cualquier otro
 app.use((err, _req, res, _next) => {
   console.error('❌ Unhandled error:', err?.message || err);
   res.status(500).json({ error: 'Internal server error' });
@@ -127,3 +180,5 @@ const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
   console.log(`✅ Backend escuchando en puerto ${PORT}`);
 });
+
+

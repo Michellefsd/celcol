@@ -1,27 +1,23 @@
-const express = require('express');
-const router = express.Router();
-const controlador = require('../controllers/herramientas.controller');
-const { uploadHerramientas } = require('../../middleware/upload.middleware');
+import { Router } from 'express';
+import {
+  listarHerramientas,
+  obtenerHerramienta,
+  crearHerramienta,
+  actualizarHerramienta,
+  subirCertificadoCalibracion,
+  archivarHerramienta,
+} from '../controllers/herramientas.controller.js';
+import { uploadHerramientas } from '../../middleware/upload.middleware.js';
 
-// Obtener todas las herramientas
-router.get('/', controlador.listarHerramientas);
+const router = Router();
 
-// Obtener una herramienta por ID
-router.get('/:id', controlador.obtenerHerramienta);
+router.get('/', listarHerramientas);
+router.get('/:id', obtenerHerramienta);
+router.post('/', uploadHerramientas, crearHerramienta);
+router.put('/:id', uploadHerramientas, actualizarHerramienta);
+router.post('/:id/certificadoCalibracion', uploadHerramientas, subirCertificadoCalibracion);
+router.patch('/archivar/:id', archivarHerramienta);
 
-// Crear herramienta (puede incluir certificadoCalibracion)
-router.post('/', uploadHerramientas, controlador.crearHerramienta);
+// // router.delete('/:id', eliminarHerramienta); // deshabilitado
 
-// Actualizar herramienta (puede reemplazar certificadoCalibracion)
-router.put('/:id', uploadHerramientas, controlador.actualizarHerramienta);
-
-// Subir certificado de calibración (ruta dedicada)
-router.post('/:id/certificadoCalibracion', uploadHerramientas, controlador.subirCertificadoCalibracion);
-
-// Eliminar herramienta
-//router.delete('/:id', controlador.eliminarHerramienta);
-
-// Archivar herramienta (soft-delete)
-router.patch('/archivar/:id', controlador.archivarHerramienta);
-
-module.exports = router;
+export default router;

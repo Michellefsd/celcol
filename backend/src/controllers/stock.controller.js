@@ -1,18 +1,17 @@
-const fs = require('fs');
-const { PrismaClient } = require('@prisma/client');
-const sharp = require('sharp');
-const { subirArchivoGenerico } = require('../utils/archivoupload'); 
-const path = require('path');
+// src/controllers/stock.controller.js (ESM)
+import fs from 'fs';
+import path from 'path';
+import sharp from 'sharp';
+import { PrismaClient } from '@prisma/client';
+import { subirArchivoGenerico } from '../utils/archivoupload.js';
+import { stockEnOtAbierta } from '../services/archiveGuards.js';
 
-
-
-
-// Prisma con logs detallados
 const prisma = new PrismaClient({
   log: ['query', 'info', 'warn', 'error'],
 });
 
-exports.subirArchivoStock = (req, res) =>
+// ========== Subida genérica de archivo ==========
+export const subirArchivoStock = (req, res) =>
   subirArchivoGenerico({
     req,
     res,
@@ -21,8 +20,8 @@ exports.subirArchivoStock = (req, res) =>
     nombreRecurso: 'Stock',
   });
 
-// CREATE
-exports.crearStock = async (req, res) => {
+// ========== CREATE ==========
+export const crearStock = async (req, res) => {
   try {
     console.log('🔵 Crear producto de stock – Datos recibidos:', req.body);
     const {
@@ -64,13 +63,10 @@ exports.crearStock = async (req, res) => {
 
     console.log('✅ Producto creado:', producto);
 
-    // 🚨 Crear aviso si el stock ya está bajo al crearse
+    // Aviso si stock bajo al crear
     if (producto.cantidad <= producto.stockMinimo) {
       const existeAviso = await prisma.aviso.findFirst({
-        where: {
-          stockId: producto.id,
-          tipo: 'stock',
-        },
+        where: { stockId: producto.id, tipo: 'stock' },
       });
 
       if (!existeAviso) {
@@ -95,13 +91,11 @@ exports.crearStock = async (req, res) => {
   }
 };
 
-// READ ALL
-exports.listarStock = async (req, res) => {
+// ========== READ ALL ==========
+export const listarStock = async (_req, res) => {
   try {
     console.log('🔍 Listando todos los productos de stock...');
-    const items = await prisma.stock.findMany({
-      where: { archivado: false }
-    });
+    const items = await prisma.stock.findMany({ where: { archivado: false } });
     console.log(`✅ Se encontraron ${items.length} productos.`);
     res.json(items);
   } catch (error) {
@@ -110,37 +104,56 @@ exports.listarStock = async (req, res) => {
   }
 };
 
-// READ ONE
-exports.obtenerStock = async (req, res) => {
-  const id = parseInt(req.params.id);
+// ========== READ ONE (includeArchived + normalizar URLs) ==========
+export const obtenerStock = async (req, res) => {
   try {
-    console.log(`🔍 Buscando producto con ID: ${id}`);
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) {
+      return res.status(400).json({ error: 'ID inválido' });
+    }
 
-    // Solo traer productos NO archivados
-    const item = await prisma.stock.findFirst({
-      where: { id, archivado: false }
-    });
+    const includeArchived = ['1', 'true', 'yes'].includes(
+      String(req.query.includeArchived || '').toLowerCase()
+    );
 
+    console.log(`🔍 Buscando producto con ID: ${id} (includeArchived=${includeArchived})`);
+
+    const item = await prisma.stock.findUnique({ where: { id } });
     if (!item) {
-      console.warn('⚠️ Producto no encontrado o fue archivado');
+      console.warn('⚠️ Producto no encontrado');
       return res.status(404).json({ error: 'Producto no encontrado' });
     }
 
-    // Construir URLs absolutas
-    const baseUrl = `${req.protocol}://${req.get('host')}`;
-    const imagen = item.imagen ? `${baseUrl}/${item.imagen}` : null;
-    const archivo = item.archivo ? `${baseUrl}/${item.archivo}` : null;
+    if (!includeArchived && item.archivado) {
+      console.warn('⚠️ Producto archivado (no se muestra sin includeArchived)');
+      return res.status(404).json({ error: 'Producto no encontrado' });
+    }
 
-    console.log('✅ Producto encontrado:', item);
-    res.json({ ...item, imagen, archivo });
+    const toAbs = (p) => {
+      if (!p || typeof p !== 'string') return p;
+      if (/^https?:\/\//i.test(p)) return p;
+      const baseUrl = `${req.protocol}://${req.get('host')}`;
+      const normalized = p.replace(/\\/g, '/').replace(/^\/+/, '');
+      return `${baseUrl}/${normalized}`;
+    };
+
+    const out = {
+      ...item,
+      imagen: toAbs(item.imagen),
+      archivo: toAbs(item.archivo),
+    };
+
+    console.log('✅ Producto encontrado:', { id: item.id, archivado: item.archivado });
+    return res.json(out);
   } catch (error) {
     console.error('❌ Error al obtener producto de stock:', error);
-    res.status(500).json({ error: 'Error al obtener el producto' });
+    return res.status(500).json({ error: 'Error al obtener el producto' });
   }
 };
 
-exports.actualizarStock = async (req, res) => {
-  const id = parseInt(req.params.id);
+// ========== UPDATE ==========
+export const actualizarStock = async (req, res) => {
+  const id = parseInt(req.params.id, 10);
   try {
     console.log(`🔄 Actualizando producto con ID: ${id}`);
     const {
@@ -158,54 +171,43 @@ exports.actualizarStock = async (req, res) => {
       console.warn('⚠️ Producto no encontrado para actualizar');
       return res.status(404).json({ error: 'Producto no encontrado' });
     }
-// ✅ Solo dejar esta validación con productoActual
-if (productoActual.archivado) {
-  return res.status(400).json({ error: 'No se puede modificar un producto archivado' });
-}
+    if (productoActual.archivado) {
+      return res.status(400).json({ error: 'No se puede modificar un producto archivado' });
+    }
 
     const nuevaImagen = archivos.imagen?.[0]?.path;
     const nuevoArchivo = archivos.archivo?.[0]?.path;
 
-    // Borrar imagen anterior si se subió una nueva
     if (nuevaImagen && productoActual.imagen && fs.existsSync(productoActual.imagen)) {
       fs.unlinkSync(productoActual.imagen);
     }
-
-    // Borrar archivo anterior si se subió uno nuevo
     if (nuevoArchivo && productoActual.archivo && fs.existsSync(productoActual.archivo)) {
       fs.unlinkSync(productoActual.archivo);
     }
 
-    // ✅ Conversión segura de valores
     const cantidadNum = parseInt(cantidad);
     const stockMinimoNum = parseInt(stockMinimo);
 
-    // ⚠️ Crear aviso si stock bajo
-if (cantidadNum <= (stockMinimoNum || 0)) {
-  const existeAviso = await prisma.aviso.findFirst({
-    where: {
-      stockId: id,
-      tipo: 'stock',
-    },
-  });
+    // Aviso stock bajo
+    if (cantidadNum <= (stockMinimoNum || 0)) {
+      const existeAviso = await prisma.aviso.findFirst({
+        where: { stockId: id, tipo: 'stock' },
+      });
+      if (!existeAviso) {
+        await prisma.aviso.create({
+          data: {
+            mensaje: `El producto "${nombre}" alcanzó el stock mínimo (${cantidadNum} unidades)`,
+            leido: false,
+            tipo: 'stock',
+            stockId: id,
+          },
+        });
+        console.log('📣 Aviso creado por stock bajo');
+      } else {
+        console.log('ℹ️ Aviso ya existente por stock bajo');
+      }
+    }
 
-  if (!existeAviso) {
-    await prisma.aviso.create({
-      data: {
-        mensaje: `El producto "${nombre}" alcanzó el stock mínimo (${cantidadNum} unidades)`,
-        leido: false,
-        tipo: 'stock',
-        stockId: id,
-      },
-    });
-    console.log('📣 Aviso creado por stock bajo');
-  } else {
-    console.log('ℹ️ Aviso ya existente por stock bajo');
-  }
-}
-
-
-    // 🔄 Actualizar producto
     const producto = await prisma.stock.update({
       where: { id },
       data: {
@@ -237,45 +239,33 @@ if (cantidadNum <= (stockMinimoNum || 0)) {
   }
 };
 
-// DELETE
-{/*exports.eliminarStock = async (req, res) => {
-  const id = parseInt(req.params.id);
-  try {
+// ========== ARCHIVAR (bloquea si está en OT abierta) ==========
+export const archivarStock = async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isFinite(id)) return res.status(400).json({ error: 'ID inválido' });
 
-    console.log(`🗑️ Marcando producto como archivado (soft-delete) con ID: ${id}`);
-    await prisma.stock.update({
-      where: { id },
-      data: { archivado: true }
-    });
-    console.log('✅ Producto marcado como archivado');
-    res.json({ mensaje: 'Producto archivado del stock (soft-delete)' });
-  } catch (error) {
-    console.error('❌ Error al eliminar producto:', error);
-    res.status(500).json({ error: 'Error al eliminar el producto del stock' });
-  }
-};
-*/}
-
-// ARCHIVAR PRODUCTO DE STOCK (sin validación de uso en OT)
-exports.archivarStock = async (req, res) => {
-  const id = parseInt(req.params.id);
   try {
-    console.log(`🗂️ Archivando producto de stock con ID: ${id}`);
-    await prisma.stock.update({
+    const existe = await prisma.stock.findUnique({ where: { id } });
+    if (!existe) return res.status(404).json({ error: 'Producto no encontrado' });
+
+    if (await stockEnOtAbierta(id)) {
+      return res.status(409).json({ error: 'No se puede archivar: este stock está consumido en OT abiertas' });
+    }
+
+    const out = await prisma.stock.update({
       where: { id },
-      data: { archivado: true }
+      data: { archivado: true, archivedAt: new Date(), archivedBy: req.user?.sub || null },
     });
-    console.log('✅ Producto archivado correctamente');
-    res.json({ mensaje: 'Producto de stock archivado correctamente.' });
+    res.json(out);
   } catch (error) {
-    console.error('❌ Error al archivar producto de stock:', error);
-    res.status(500).json({ error: 'Error al archivar el producto de stock' });
+    console.error('❌ Error al archivar stock:', error);
+    res.status(500).json({ error: 'Error al archivar el producto' });
   }
 };
 
-
-exports.subirImagenStock = async (req, res) => {
-  const id = parseInt(req.params.id);
+// ========== Subir/optimizar IMAGEN ==========
+export const subirImagenStock = async (req, res) => {
+  const id = parseInt(req.params.id, 10);
   const archivoOriginal = req.files?.imagen?.[0];
 
   if (!archivoOriginal) {
@@ -288,23 +278,19 @@ exports.subirImagenStock = async (req, res) => {
       return res.status(404).json({ error: 'Producto no encontrado' });
     }
 
-    // Borrar imagen anterior si existe
     if (producto.imagen && fs.existsSync(producto.imagen)) {
       fs.unlinkSync(producto.imagen);
     }
 
-    // Generar nuevo nombre y ruta optimizada
     const nombreFinal = `uploads/img-${Date.now()}.webp`;
 
     await sharp(archivoOriginal.path)
-      .resize({ width: 420 }) // Máx. 420px de ancho
-      .webp({ quality: 40 })  // Comprimir a 40% calidad
+      .resize({ width: 420 })
+      .webp({ quality: 40 })
       .toFile(nombreFinal);
 
-    // Borrar la imagen original
     fs.unlinkSync(archivoOriginal.path);
 
-    // Guardar ruta nueva en DB
     const actualizado = await prisma.stock.update({
       where: { id },
       data: { imagen: nombreFinal },
@@ -317,18 +303,11 @@ exports.subirImagenStock = async (req, res) => {
   }
 };
 
+// ========== FACTURAS de STOCK ==========
 
-
-
-
-
-// Listado de facturas vinculadas a un item de stock
-// (para mostrar en detalle del producto)
-
-
-// LISTAR
-exports.listarPorStock = async (req, res) => {
-  const stockId = parseInt(req.params.id);
+// Listar facturas por item de stock (compat “legacy”)
+export const listarPorStock = async (req, res) => {
+  const stockId = parseInt(req.params.id, 10);
   try {
     const [stock, facturas] = await Promise.all([
       prisma.stock.findUnique({ where: { id: stockId } }),
@@ -338,7 +317,6 @@ exports.listarPorStock = async (req, res) => {
       }),
     ]);
 
-    // Compatibilidad temporal: si sigue existiendo Stock.archivo, lo expongo como "legacy"
     if (stock?.archivo) {
       facturas.unshift({
         id: `legacy-${stockId}`,
@@ -361,10 +339,10 @@ exports.listarPorStock = async (req, res) => {
   }
 };
 
-// CREAR
-exports.crear = async (req, res) => {
-  const stockId = parseInt(req.params.id);
-  const file = req.file; // uploadUnico.single('archivo')
+// Crear factura (uploadUnico.single('archivo'))
+export const crear = async (req, res) => {
+  const stockId = parseInt(req.params.id, 10);
+  const file = req.file;
   const { numero, proveedor, fecha, monto, moneda } = req.body;
 
   if (!file) return res.status(400).json({ error: 'Debe adjuntar un archivo' });
@@ -392,17 +370,18 @@ exports.crear = async (req, res) => {
   }
 };
 
-// ELIMINAR
-exports.eliminar = async (req, res) => {
+// Eliminar factura (soporta legacy)
+export const eliminar = async (req, res) => {
   const facturaId = req.params.facturaId;
+
   try {
-    // Soporte "legacy"
+    // Legacy
     if (String(facturaId).startsWith('legacy-')) {
-      const stockId = parseInt(String(facturaId).split('legacy-')[1]);
+      const stockId = parseInt(String(facturaId).split('legacy-')[1], 10);
       const stock = await prisma.stock.findUnique({ where: { id: stockId } });
       if (!stock || !stock.archivo) return res.status(404).json({ error: 'Factura legacy no encontrada' });
 
-      const absPath = path.join(__dirname, '..', '..', stock.archivo);
+      const absPath = path.join(process.cwd(), stock.archivo);
       if (fs.existsSync(absPath)) fs.unlinkSync(absPath);
 
       await prisma.stock.update({ where: { id: stockId }, data: { archivo: null } });
@@ -410,11 +389,13 @@ exports.eliminar = async (req, res) => {
     }
 
     // Normal
-    const id = parseInt(facturaId);
+    const id = parseInt(facturaId, 10);
+    if (!Number.isFinite(id)) return res.status(400).json({ error: 'ID de factura inválido' });
+
     const factura = await prisma.facturaStock.findUnique({ where: { id } });
     if (!factura) return res.status(404).json({ error: 'Factura no encontrada' });
 
-    const absPath = path.join(__dirname, '..', '..', factura.archivo);
+    const absPath = path.join(process.cwd(), factura.archivo);
     if (fs.existsSync(absPath)) fs.unlinkSync(absPath);
 
     await prisma.facturaStock.delete({ where: { id } });
@@ -425,11 +406,11 @@ exports.eliminar = async (req, res) => {
   }
 };
 
-exports.actualizar = async (req, res) => {
-  const id = parseInt(req.params.facturaId);
+// Actualizar factura
+export const actualizar = async (req, res) => {
+  const id = parseInt(req.params.facturaId, 10);
   const { numero, proveedor, fecha, monto, moneda } = req.body;
 
-  // No permitir actualizar “legacy”
   if (Number.isNaN(id)) {
     return res.status(400).json({ error: 'ID de factura inválido' });
   }

@@ -1,6 +1,6 @@
-const express = require('express');
+import express from 'express';
 const router = express.Router();
-const controlador = require('../controllers/propietario.controller');
+import * as controlador from '../controllers/propietario.controller.js';
 
 // Crear propietario
 router.post('/', controlador.crearPropietario);
@@ -20,4 +20,4 @@ router.put('/:id', controlador.actualizarPropietario);
 // Archivar propietario
 router.patch('/archivar/:id', controlador.archivarPropietario);
 
-module.exports = router;
+export default router;

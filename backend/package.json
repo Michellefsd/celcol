@@ -1,15 +1,14 @@
 {
   "name": "backend",
   "version": "1.0.0",
+  "type": "module",
+  "engines": { "node": ">=20.11.0" },
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node index.js"
+    "dev": "node index.js",
+    "start": "node index.js",
+    "build": "prisma generate"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "description": "",
   "dependencies": {
     "@prisma/client": "^6.8.2",
     "argon2": "^0.43.1",

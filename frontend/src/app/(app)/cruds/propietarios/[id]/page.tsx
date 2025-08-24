@@ -14,6 +14,7 @@ interface Avion {
   marca: string;
   modelo: string;
   matricula: string;
+  archivado?: boolean;
 }
 
 interface ComponenteExterno {
@@ -53,19 +54,20 @@ export default function PropietarioDetallePage() {
   const [componenteSeleccionado, setComponenteSeleccionado] = useState<ComponenteExterno | null>(null);
   const [mostrarEditarComponente, setMostrarEditarComponente] = useState(false);
 
-  const cargarPropietario = async () => {
-    try {
-      // ⬇️ usa fetchJson para enviar cookies y evitar 401
-      const data = await fetchJson<any>(`/propietarios/${id}`);
-      setPropietario(data);
-      setAviones(data.aviones || []);
-      setComponentes(data.componentesExternos || []);
-    } catch (e) {
-      console.error('❌ Error al cargar propietario:', e);
-    } finally {
-      setLoading(false);
-    }
-  };
+const cargarPropietario = async () => {
+  try {
+    const data = await fetchJson<any>(`/propietarios/${id}`);
+    setPropietario(data);
+    setAviones(Array.isArray(data.aviones) ? data.aviones : []);
+    setComponentes(data.componentesExternos || data.componentes || []);
+  } catch (e) {
+  console.warn('⚠️ Error al cargar propietario:', e);
+} finally {
+  setLoading(false);
+}
+};
+
+
 
   useEffect(() => {
     if (id) cargarPropietario();
@@ -115,6 +117,42 @@ export default function PropietarioDetallePage() {
               )}
             </div>
           </section>
+
+
+{/* AVIONES DEL PROPIETARIO */}
+<section className="rounded-2xl border border-slate-200 bg-white shadow-sm p-4 md:p-6">
+  <div className="flex items-center justify-between mb-3">
+    <h2 className="text-lg font-semibold text-slate-900">Aviones</h2>
+  </div>
+
+  {aviones.filter(a => !a.archivado).length > 0 ? (
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+    {aviones.filter(a => !a.archivado).map(a => (
+        <div key={a.id} className="rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3">
+          <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm text-slate-800">
+            <p><span className="text-slate-500">Marca:</span> {a.marca}</p>
+            <p><span className="text-slate-500">Modelo:</span> {a.modelo}</p>
+            <p><span className="text-slate-500">Matrícula:</span> {a.matricula}</p>
+          </div>
+          <div className="mt-3">
+            <Link
+              href={`/cruds/aviones/${a.id}`}
+              className="inline-flex items-center gap-2 text-cyan-600 hover:text-cyan-800 underline underline-offset-2"
+            >
+              ✈️ Ver avión
+            </Link>
+          </div>
+        </div>
+      ))}
+    </div>
+  ) : (
+    <p className="text-slate-600 text-sm mt-2">
+      Este propietario no tiene aviones vinculados.
+    </p>
+  )}
+</section>
+
+
 
           {/* COMPONENTES EXTERNOS */}
           <section className="rounded-2xl border border-slate-200 bg-white shadow-sm p-4 md:p-6">
@@ -174,20 +212,22 @@ export default function PropietarioDetallePage() {
                             setMostrarEditarComponente(true);
                           }}
                         />
-                        <AccionBoton
-                          label="Eliminar"
-                          color="red"
-                          onClick={async () => {
-                            const confirmar = confirm(`¿Estás seguro de que querés eliminar el componente "${c.marca} ${c.modelo}"?`);
-                            if (!confirmar) return;
-                            // ⬇️ incluir cookies para evitar 401 en acciones
-                            await fetch(api(`/componentes/${c.id}`), {
-                              method: 'DELETE',
-                              credentials: 'include',
-                            });
-                            cargarPropietario();
-                          }}
-                        />
+<AccionBoton
+  label="Archivar"
+  color="red"
+  onClick={async () => {
+    const ok = confirm(`¿Archivar el componente "${c.marca} ${c.modelo}"?`);
+    if (!ok) return;
+
+    try {
+      await fetchJson(`/componentes/archivar/${c.id}`, { method: 'PATCH' });
+      await cargarPropietario(); // refresca la vista
+    } catch (e: any) {
+      alert(e?.message ?? 'Error'); // muestra el mensaje del backend (OT abierta, etc.)
+    }
+  }}
+/>
+
                       </div>
                     </div>
                   );

@@ -1,8 +1,8 @@
-const { PrismaClient } = require('@prisma/client');
+import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 // LISTAR
-exports.listarComponentes = async (req, res) => {
+export async function listarComponentes(req, res) {
   try {
     const componentes = await prisma.componenteAvion.findMany({
       include: { avion: true }
@@ -15,7 +15,7 @@ exports.listarComponentes = async (req, res) => {
 };
 
 // CREAR
-exports.crearComponente = async (req, res) => {
+export async function crearComponente(req, res) {
   try {
     const {
       tipo,
@@ -58,7 +58,7 @@ exports.crearComponente = async (req, res) => {
 };
 
 // OBTENER
-exports.obtenerComponente = async (req, res) => {
+export async function obtenerComponente(req, res) {
   const id = parseInt(req.params.id);
   try {
     const componente = await prisma.componenteAvion.findUnique({
@@ -74,7 +74,7 @@ exports.obtenerComponente = async (req, res) => {
 };
 
 // ACTUALIZAR
-exports.actualizarComponente = async (req, res) => {
+export async function actualizarComponente(req, res) {
   const id = parseInt(req.params.id);
   const { TSO } = req.body;
 
@@ -99,7 +99,7 @@ exports.actualizarComponente = async (req, res) => {
 };
 
 // ELIMINAR
-exports.eliminarComponente = async (req, res) => {
+export async function eliminarComponente(req, res) {
   const id = parseInt(req.params.id);
   try {
     await prisma.componenteAvion.delete({ where: { id } });
