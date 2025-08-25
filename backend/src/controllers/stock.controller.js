@@ -10,6 +10,21 @@ const prisma = new PrismaClient({
   log: ['query', 'info', 'warn', 'error'],
 });
 
+
+
+// Helper para crear/actualizar aviso de stock bajo (upsert)
+async function upsertAvisoStockBajo(prisma, stockId, nombre, cantidad) {
+  const mensaje = `El producto "${nombre}" alcanzó el stock mínimo (${cantidad} unidades)`;
+  // Requiere @@unique([tipo, stockId], name: "tipo_stockId") en el modelo Aviso
+  await prisma.aviso.upsert({
+    where: { tipo_stockId: { tipo: 'stock', stockId } },
+    create: { tipo: 'stock', stockId, mensaje, leido: false },
+    update: { mensaje, creadoEn: new Date(), leido: false },
+  });
+}
+
+
+
 // ========== Subida genérica de archivo ==========
 export const subirArchivoStock = (req, res) =>
   subirArchivoGenerico({
@@ -32,56 +47,46 @@ export const crearStock = async (req, res) => {
       unidadMedida, cantidad, stockMinimo, fechaIngreso
     } = req.body;
 
-    const archivos = req.files;
-
     if (!nombre || !cantidad || !stockMinimo) {
       console.warn('⚠️ Faltan campos obligatorios');
       return res.status(400).json({ error: 'Faltan campos obligatorios: nombre, cantidad o stockMinimo' });
     }
 
-    const producto = await prisma.stock.create({
-      data: {
-        nombre,
-        tipoProducto: tipoProducto || null,
-        codigoBarras: codigoBarras || null,
-        notasInternas: notasInternas || null,
-        marca: marca || null,
-        modelo: modelo || null,
-        numeroSerie: numeroSerie || null,
-        puedeSerVendido: puedeSerVendido === 'true',
-        puedeSerComprado: puedeSerComprado === 'true',
-        precioVenta: parseFloat(precioVenta) || 0,
-        coste: parseFloat(coste) || 0,
-        unidadMedida: unidadMedida || null,
-        cantidad: parseInt(cantidad),
-        stockMinimo: parseInt(stockMinimo),
-        fechaIngreso: fechaIngreso ? new Date(fechaIngreso) : undefined,
-        imagen: archivos?.imagen?.[0]?.path ?? null,
-        archivo: archivos?.archivo?.[0]?.path ?? null,
-      },
-    });
+    // Construimos SOLO con campos válidos del modelo Stock
+    const data = {
+      nombre,
+      tipoProducto: tipoProducto || null,
+      codigoBarras: codigoBarras || null,
+      notasInternas: notasInternas || null,
+      marca: marca || null,
+      modelo: modelo || null,
+      numeroSerie: numeroSerie || null,
+      puedeSerVendido: puedeSerVendido === 'true' || puedeSerVendido === true,
+      puedeSerComprado: puedeSerComprado === 'true' || puedeSerComprado === true,
+      precioVenta: parseFloat(precioVenta) || 0,
+      coste: parseFloat(coste) || 0,
+      unidadMedida: unidadMedida || null,
+      cantidad: parseInt(cantidad, 10),
+      stockMinimo: parseInt(stockMinimo, 10),
+      // archivado: false, // opcional, ya tenés default(false) si lo pusiste en el schema
+      // imagenId y archivoId NO se setean acá (no subimos archivos en create)
+    };
 
+    // Solo incluir fechaIngreso si viene definida (Prisma tiene @default(now()))
+    if (fechaIngreso) {
+      const f = new Date(fechaIngreso);
+      if (!isNaN(f)) data.fechaIngreso = f;
+    }
+
+    const producto = await prisma.stock.create({ data });
     console.log('✅ Producto creado:', producto);
 
-    // Aviso si stock bajo al crear
+    // Aviso si stock bajo al crear (upsert) o limpiar si no aplica
     if (producto.cantidad <= producto.stockMinimo) {
-      const existeAviso = await prisma.aviso.findFirst({
-        where: { stockId: producto.id, tipo: 'stock' },
-      });
-
-      if (!existeAviso) {
-        await prisma.aviso.create({
-          data: {
-            mensaje: `El producto "${producto.nombre}" fue creado con stock mínimo (${producto.cantidad} unidades)`,
-            leido: false,
-            tipo: 'stock',
-            stockId: producto.id,
-          },
-        });
-        console.log('📣 Aviso creado por stock bajo al crear');
-      } else {
-        console.log('ℹ️ Aviso ya existente por stock bajo');
-      }
+      await upsertAvisoStockBajo(prisma, producto.id, producto.nombre, producto.cantidad);
+      console.log('📣 Aviso de stock bajo (creación)');
+    } else {
+      await prisma.aviso.deleteMany({ where: { tipo: 'stock', stockId: producto.id } });
     }
 
     res.status(201).json(producto);
@@ -90,6 +95,9 @@ export const crearStock = async (req, res) => {
     res.status(500).json({ error: 'Error al crear producto de stock' });
   }
 };
+
+
+
 
 // ========== READ ALL ==========
 export const listarStock = async (_req, res) => {
@@ -188,25 +196,14 @@ export const actualizarStock = async (req, res) => {
     const cantidadNum = parseInt(cantidad);
     const stockMinimoNum = parseInt(stockMinimo);
 
-    // Aviso stock bajo
-    if (cantidadNum <= (stockMinimoNum || 0)) {
-      const existeAviso = await prisma.aviso.findFirst({
-        where: { stockId: id, tipo: 'stock' },
-      });
-      if (!existeAviso) {
-        await prisma.aviso.create({
-          data: {
-            mensaje: `El producto "${nombre}" alcanzó el stock mínimo (${cantidadNum} unidades)`,
-            leido: false,
-            tipo: 'stock',
-            stockId: id,
-          },
-        });
-        console.log('📣 Aviso creado por stock bajo');
-      } else {
-        console.log('ℹ️ Aviso ya existente por stock bajo');
-      }
-    }
+   // Aviso si quedó en mínimo o por debajo; limpiar si ya superó el mínimo
+if (cantidadNum <= (stockMinimoNum || 0)) {
+  await upsertAvisoStockBajo(prisma, id, nombre, cantidadNum);
+  console.log('📣 Aviso de stock bajo (actualización)');
+} else {
+  await prisma.aviso.deleteMany({ where: { tipo: 'stock', stockId: id } });
+}
+
 
     const producto = await prisma.stock.update({
       where: { id },
@@ -263,59 +260,107 @@ export const archivarStock = async (req, res) => {
   }
 };
 
-// ========== Subir/optimizar IMAGEN ==========
 export const subirImagenStock = async (req, res) => {
-  const id = parseInt(req.params.id, 10);
-  const archivoOriginal = req.files?.imagen?.[0];
-
-  if (!archivoOriginal) {
-    return res.status(400).json({ error: 'No se proporcionó ninguna imagen' });
-  }
-
   try {
-    const producto = await prisma.stock.findUnique({ where: { id } });
-    if (!producto) {
-      return res.status(404).json({ error: 'Producto no encontrado' });
-    }
+    const id = Number(req.params.id);
+    const file = req?.files?.imagen?.[0] ?? req?.file; // soporta fields o single
+    if (!id || !file) return res.status(400).json({ error: 'Falta imagen o ID' });
 
-    if (producto.imagen && fs.existsSync(producto.imagen)) {
-      fs.unlinkSync(producto.imagen);
-    }
+    const stock = await prisma.stock.findUnique({
+      where: { id },
+      select: { imagenId: true, imagen: { select: { id: true, key: true } } },
+    });
+    if (!stock) return res.status(404).json({ error: 'Producto no encontrado' });
 
-    const nombreFinal = `uploads/img-${Date.now()}.webp`;
+    // Obtener buffer (memoryStorage o diskStorage)
+    const inputBuffer = file.buffer || await fs.readFile(file.path);
 
-    await sharp(archivoOriginal.path)
+    // Optimizar a webp 420px
+    const optimized = await sharp(inputBuffer)
       .resize({ width: 420 })
       .webp({ quality: 40 })
-      .toFile(nombreFinal);
+      .toBuffer();
 
-    fs.unlinkSync(archivoOriginal.path);
-
-    const actualizado = await prisma.stock.update({
-      where: { id },
-      data: { imagen: nombreFinal },
+    // Subir al storage (local/S3/R2 según archivoStorage)
+    const safeName = (file.originalname || 'imagen.webp').replace(/\s+/g, '-').replace(/\.[^.]+$/, '') + '.webp';
+    const put = await archivoStorage.put({
+      buffer: optimized,
+      contentType: 'image/webp',
+      originalName: safeName,
+      keyHint: `stock/imagen/${Date.now()}-${safeName}`,
     });
 
-    res.json({ mensaje: 'Imagen subida y optimizada correctamente', producto: actualizado });
+    // Crear registro Archivo
+    const nuevo = await prisma.archivo.create({
+      data: { key: put.key, url: put.url, mimeType: 'image/webp', size: optimized.length },
+      select: { id: true },
+    });
+
+    // Limpiar anterior (si existía)
+    if (stock.imagen) {
+      try {
+        if (stock.imagen.key) await archivoStorage.remove(stock.imagen.key).catch(() => {});
+        await prisma.archivo.delete({ where: { id: stock.imagenId } }).catch(() => {});
+      } catch {}
+    }
+
+    // Setear FK
+    const actualizado = await prisma.stock.update({
+      where: { id },
+      data: { imagenId: nuevo.id },
+      include: { imagen: true },
+    });
+
+    return res.json({ mensaje: 'Imagen subida y optimizada correctamente', producto: actualizado });
   } catch (error) {
     console.error('Error al subir imagen de stock:', error);
-    res.status(500).json({ error: 'Error al subir la imagen de stock' });
+    return res.status(500).json({ error: 'Error al subir la imagen de stock' });
   }
 };
 
 // ========== FACTURAS de STOCK ==========
 
-// Listar facturas por item de stock (compat “legacy”)
+// Listar factura stock
 export const listarPorStock = async (req, res) => {
-  const stockId = parseInt(req.params.id, 10);
   try {
-    const [stock, facturas] = await Promise.all([
-      prisma.stock.findUnique({ where: { id: stockId } }),
+    const stockId = Number(req.params.id);
+
+    // 1) Traigo facturas; si ya migraste a archivoId, incluyo relación
+    let facturas = await prisma.facturaStock.findMany({
+      where: { stockId },
+      orderBy: { creadoEn: 'desc' },
+      include: { archivo: true }, // si todavía no existe esta relación, cae al catch
+    }).catch(() =>
       prisma.facturaStock.findMany({
         where: { stockId },
         orderBy: { creadoEn: 'desc' },
-      }),
-    ]);
+      })
+    );
+
+    // 2) Normalizo para que SIEMPRE haya un campo 'archivo' STRING (URL o path legacy)
+    facturas = facturas.map(f => ({
+      id: f.id,
+      stockId: f.stockId,
+      numero: f.numero,
+      proveedor: f.proveedor,
+      fecha: f.fecha,
+      monto: f.monto,
+      moneda: f.moneda,
+      creadoEn: f.creadoEn,
+      archivo: f.archivo?.url ?? f.archivo ?? null, // ← URL si hay relación, sino string legacy
+    }));
+
+    // 3) Compat: si Stock tiene “factura” legacy, la pongo primera
+    const stock = await prisma.stock.findUnique({
+      where: { id: stockId },
+      select: {
+        fechaIngreso: true,
+        // nuevo
+        archivo: { select: { url: true } },
+        // MUY legacy (string en columna vieja) → descomentar si aún existe en tu schema:
+        // archivo: true,
+      },
+    });
 
     if (stock?.archivo) {
       facturas.unshift({
@@ -326,8 +371,8 @@ export const listarPorStock = async (req, res) => {
         fecha: stock.fechaIngreso ?? null,
         monto: null,
         moneda: null,
-        archivo: stock.archivo,
         creadoEn: stock.fechaIngreso ?? new Date(),
+        archivo: stock.archivo.url ?? stock.archivo ?? null,
         legacy: true,
       });
     }
@@ -339,17 +384,32 @@ export const listarPorStock = async (req, res) => {
   }
 };
 
-// Crear factura (uploadUnico.single('archivo'))
+
+// crear factura stock
 export const crear = async (req, res) => {
-  const stockId = parseInt(req.params.id, 10);
-  const file = req.file;
-  const { numero, proveedor, fecha, monto, moneda } = req.body;
-
-  if (!file) return res.status(400).json({ error: 'Debe adjuntar un archivo' });
-
   try {
+    const stockId = Number(req.params.id);
+    const file = req.file; // uploadUnico.single('archivo')
+    const { numero, proveedor, fecha, monto, moneda } = req.body;
+
+    if (!file) return res.status(400).json({ error: 'Debe adjuntar un archivo' });
+
     const existe = await prisma.stock.findUnique({ where: { id: stockId } });
     if (!existe) return res.status(404).json({ error: 'Stock no encontrado' });
+
+    const buffer = file.buffer || await fs.readFile(file.path);
+
+    const put = await archivoStorage.put({
+      buffer,
+      contentType: file.mimetype,
+      originalName: file.originalname,
+      keyHint: `stock/factura/${Date.now()}-${file.originalname.replace(/\s+/g, '-')}`,
+    });
+
+    const arch = await prisma.archivo.create({
+      data: { key: put.key, url: put.url, mimeType: file.mimetype, size: buffer.length },
+      select: { id: true },
+    });
 
     const nuevo = await prisma.facturaStock.create({
       data: {
@@ -357,65 +417,95 @@ export const crear = async (req, res) => {
         numero: numero || null,
         proveedor: proveedor || null,
         fecha: fecha ? new Date(fecha) : null,
-        monto: monto ? Number(monto) : null,
+        monto: (monto !== undefined && monto !== '' && monto !== null) ? String(monto) : null, // si es Decimal
         moneda: moneda || null,
-        archivo: `uploads/${file.filename}`,
+        archivoId: arch.id, // ⬅️ FK al Archivo (nuevo esquema)
       },
+      include: { archivo: true },
     });
 
-    res.status(201).json(nuevo);
+    return res.status(201).json(nuevo);
   } catch (e) {
     console.error('Error creando factura de stock:', e);
-    res.status(500).json({ error: 'No se pudo crear la factura' });
+    return res.status(500).json({ error: 'No se pudo crear la factura' });
   }
 };
 
-// Eliminar factura (soporta legacy)
+// eliminar factura stock
 export const eliminar = async (req, res) => {
-  const facturaId = req.params.facturaId;
-
   try {
-    // Legacy
-    if (String(facturaId).startsWith('legacy-')) {
-      const stockId = parseInt(String(facturaId).split('legacy-')[1], 10);
-      const stock = await prisma.stock.findUnique({ where: { id: stockId } });
-      if (!stock || !stock.archivo) return res.status(404).json({ error: 'Factura legacy no encontrada' });
+    const facturaId = String(req.params.facturaId);
 
-      const absPath = path.join(process.cwd(), stock.archivo);
-      if (fs.existsSync(absPath)) fs.unlinkSync(absPath);
+    // Legacy directo desde Stock (si agregaste esa fila "legacy" al listar)
+    if (facturaId.startsWith('legacy-')) {
+      const stockId = Number(facturaId.slice('legacy-'.length));
+      const stock = await prisma.stock.findUnique({
+        where: { id: stockId },
+        select: {
+          // nuevo:
+          archivoId: true,
+          archivo: { select: { id: true, key: true } },
+          // muy legacy string:
+          // archivo: true,
+        },
+      });
+      if (!stock) return res.status(404).json({ error: 'Factura legacy no encontrada' });
 
-      await prisma.stock.update({ where: { id: stockId }, data: { archivo: null } });
-      return res.json({ mensaje: 'Factura legacy eliminada' });
+      // Nuevo (Archivo relacionado)
+      if (stock.archivo) {
+        try {
+          if (stock.archivo.key) await archivoStorage.remove(stock.archivo.key).catch(() => {});
+          await prisma.archivo.delete({ where: { id: stock.archivoId } }).catch(() => {});
+        } catch {}
+        await prisma.stock.update({ where: { id: stockId }, data: { archivoId: null } });
+        return res.json({ mensaje: 'Factura legacy eliminada (Archivo FK)' });
+      }
+
+      // Muy legacy (string en columna vieja)
+      // if (stock.archivo) {
+      //   const absPath = path.join(process.cwd(), stock.archivo);
+      //   if (fs.existsSync(absPath)) fs.unlinkSync(absPath);
+      //   await prisma.stock.update({ where: { id: stockId }, data: { archivo: null } });
+      //   return res.json({ mensaje: 'Factura legacy eliminada (path string)' });
+      // }
+
+      return res.status(404).json({ error: 'Factura legacy no encontrada' });
     }
 
     // Normal
-    const id = parseInt(facturaId, 10);
+    const id = Number(facturaId);
     if (!Number.isFinite(id)) return res.status(400).json({ error: 'ID de factura inválido' });
 
-    const factura = await prisma.facturaStock.findUnique({ where: { id } });
+    const factura = await prisma.facturaStock.findUnique({
+      where: { id },
+      include: { archivo: true }, // si ya migraste a archivoId
+    });
+
     if (!factura) return res.status(404).json({ error: 'Factura no encontrada' });
 
-    const absPath = path.join(process.cwd(), factura.archivo);
-    if (fs.existsSync(absPath)) fs.unlinkSync(absPath);
+    // Borrar archivo de storage + fila Archivo (si aplica)
+    if (factura.archivo) {
+      try {
+        if (factura.archivo.key) await archivoStorage.remove(factura.archivo.key).catch(() => {});
+        await prisma.archivo.delete({ where: { id: factura.archivoId } }).catch(() => {});
+      } catch {}
+    }
 
     await prisma.facturaStock.delete({ where: { id } });
-    res.json({ mensaje: 'Factura eliminada' });
+    return res.json({ mensaje: 'Factura eliminada' });
   } catch (e) {
     console.error('Error eliminando factura de stock:', e);
-    res.status(500).json({ error: 'No se pudo eliminar la factura' });
+    return res.status(500).json({ error: 'No se pudo eliminar la factura' });
   }
 };
 
-// Actualizar factura
+// actualizar factura stock
 export const actualizar = async (req, res) => {
-  const id = parseInt(req.params.facturaId, 10);
-  const { numero, proveedor, fecha, monto, moneda } = req.body;
-
-  if (Number.isNaN(id)) {
-    return res.status(400).json({ error: 'ID de factura inválido' });
-  }
-
   try {
+    const id = Number(req.params.facturaId);
+    const { numero, proveedor, fecha, monto, moneda } = req.body;
+    if (!Number.isFinite(id)) return res.status(400).json({ error: 'ID de factura inválido' });
+
     const existe = await prisma.facturaStock.findUnique({ where: { id } });
     if (!existe) return res.status(404).json({ error: 'Factura no encontrada' });
 
@@ -425,15 +515,14 @@ export const actualizar = async (req, res) => {
         numero: numero ?? null,
         proveedor: proveedor ?? null,
         fecha: fecha ? new Date(fecha) : null,
-        // Para Decimal en Prisma, usar string o null es lo más seguro
         monto: (monto !== undefined && monto !== '' && monto !== null) ? String(monto) : null,
         moneda: moneda ?? null,
       },
     });
 
-    res.json(actualizado);
+    return res.json(actualizado);
   } catch (e) {
     console.error('Error actualizando factura de stock:', e);
-    res.status(500).json({ error: 'No se pudo actualizar la factura' });
+    return res.status(500).json({ error: 'No se pudo actualizar la factura' });
   }
 };

@@ -1,4 +1,8 @@
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+// prisma.js (ESM)
+import { PrismaClient } from '@prisma/client';
 
-module.exports = prisma;
+const prisma = globalThis.prisma ?? new PrismaClient();
+if (process.env.NODE_ENV !== 'production') globalThis.prisma = prisma;
+
+export default prisma;
+export { prisma };

@@ -1,7 +1,12 @@
-const path = require('path');
+// src/utils/pdf/agregarHeaderCelcol.js  (ejemplo de ruta)
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-function agregarHeaderCelcol(doc) {
-  const logoPath = path.join(__dirname, '..', '..', 'public', 'celcol-logo.webp');
+const __filename = fileURLToPath(import.meta.url);
+const __dirname  = path.dirname(__filename);
+
+export function agregarHeaderCelcol(doc) {
+  const logoPath = path.resolve(__dirname, '../../public/celcol-logo.webp');
 
   try {
     doc.image(logoPath, 50, 30, { width: 80 });
@@ -24,11 +29,10 @@ function agregarHeaderCelcol(doc) {
 
   // Depuración
   console.log(`🧪 Insertando fecha "${fechaTexto}" en x=${x}, y=${y}`);
-  doc.rect(x - 2, y - 2, textWidth + 4, 14).stroke(); // borde visible para ver si aparece
+  doc.rect(x - 2, y - 2, textWidth + 4, 14).stroke(); // borde visible
   doc.text(fechaTexto, x, y);
 
   doc.fillColor('black'); // volver a color normal
   doc.moveDown(3);
 }
 
-module.exports = { agregarHeaderCelcol };

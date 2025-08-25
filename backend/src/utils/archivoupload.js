@@ -1,66 +1,95 @@
 // src/utils/archivoupload.js (ESM)
-import { PrismaClient } from '@prisma/client';
+import fs from 'node:fs/promises';
+import prisma from '../prisma.js';
 import { archivoStorage } from '../services/archivo.service.js';
+import { createHash } from 'node:crypto';
 
-const prisma = new PrismaClient();
-
-/**
- * Sube un archivo y lo asocia como FK <campoArchivo>Id al registro indicado.
- * Requiere multer.memoryStorage() y que el campo del form se llame como `campoArchivo`.
- *
- * Ej: subirArchivoGenerico({ modeloPrisma: prisma.avion, campoArchivo: 'certificadoMatricula', campoParam: 'id' })
- */
 export async function subirArchivoGenerico({
   req,
   res,
   modeloPrisma,
-  campoArchivo,            // p.ej. 'certificadoMatricula' (la RELACIÓN en Prisma)
-  campoParam = 'id',       // p.ej. ':id' en la ruta
+  campoArchivo,
+  campoForm,
+  campoParam = 'id',
   nombreRecurso = 'Recurso',
-  borrarAnterior = false,  // si true, remueve archivo/row anterior
+  borrarAnterior = false,
+  prefix = '',
 }) {
   try {
     const id = Number(req.params?.[campoParam]);
     if (!id) return res.status(400).json({ error: 'ID inválido' });
 
-    const file = req.files?.[campoArchivo]?.[0];
-    if (!file) {
-      return res.status(400).json({ error: `Falta el archivo "${campoArchivo}"` });
-    }
+    const formField = campoForm || campoArchivo;
+    const file = req.files?.[formField]?.[0] ?? req.file;
+    if (!file) return res.status(400).json({ error: `Falta el archivo "${formField}"` });
 
-    // Inferimos nombres: relacion = campoArchivo, fk = <campoArchivo>Id
-    const relacion = campoArchivo;
-    const fk = `${campoArchivo}Id`;
+    // === leer buffer según storage ===
+    let buffer;
+    if (file.buffer) buffer = file.buffer;               // memoryStorage
+    else if (file.path) buffer = await fs.readFile(file.path); // diskStorage
+    else return res.status(400).json({ error: 'No se pudo acceder al contenido del archivo' });
 
-    // Traigo el recurso con la relación para saber si hay anterior
+    // === calcular hash requerido por Prisma ===
+    const hashSha256 = createHash('sha256').update(buffer).digest('hex');
+
+    const contentType = file.mimetype;
+    const originalName = file.originalname || `${campoArchivo}.bin`;
+    const safeName = originalName.replace(/\s+/g, '-');
+
+    const relacion = campoArchivo;           // ej: 'certificadoCalibracion'
+    const fk = `${campoArchivo}Id`;          // ej: 'certificadoCalibracionId'
+
     const actual = await modeloPrisma.findUnique({
       where: { id },
-      include: { [relacion]: true },
+      select: {
+        [fk]: true,
+        [relacion]: {
+          select: { id: true, storageKey: true, urlPublica: true },
+        },
+      },
     });
     if (!actual) return res.status(404).json({ error: `${nombreRecurso} no encontrado` });
 
-    // Subir al storage activo (local/S3/R2)
+    // === subir a storage (S3/local/R2) ===
+    const keyPrefix = (prefix || nombreRecurso.toLowerCase()).replace(/\s+/g, '-');
     const put = await archivoStorage.put({
-      buffer: file.buffer,
-      contentType: file.mimetype,
-      originalName: file.originalname,
-      keyHint: `${modeloPrisma._model}/${campoArchivo}/${Date.now()}-${file.originalname.replace(/\s+/g, '-')}`,
+      buffer,
+      contentType,
+      originalName,
+      keyHint: `${keyPrefix}/${campoArchivo}/${Date.now()}-${safeName}`,
     });
+    // put => { key, url?, size? }
 
-    // Crear fila en Archivo
+    // Si tu esquema hace urlPublica requerida, asegurate de tener una URL
+    const urlPublica = put?.url ?? null;
+
+    // === crear fila Archivo (¡ahora con hashSha256!) ===
     const nuevo = await prisma.archivo.create({
-      data: { key: put.key, url: put.url, mimeType: file.mimetype, size: file.size },
+      data: {
+        storageKey: put.key,
+        urlPublica,                            // null si es opcional en Prisma
+        originalName,
+        mime: contentType ?? null,
+        sizeOriginal: buffer.length ?? null,
+        sizeAlmacen: put?.size ?? buffer.length,
+        hashSha256,                            // <-- clave del error
+      },
+      select: { id: true },
     });
 
-    // Borrar anterior si corresponde
+    // === borrar anterior si corresponde ===
     if (borrarAnterior && actual[relacion]) {
       try {
-        if (actual[relacion].key) await archivoStorage.remove(actual[relacion].key);
-        await prisma.archivo.delete({ where: { id: actual[fk] } }).catch(() => {});
-      } catch (_) { /* no romper por limpieza */ }
+        if (actual[relacion].storageKey) {
+          await archivoStorage.remove(actual[relacion].storageKey).catch(() => {});
+        }
+        if (actual[fk]) {
+          await prisma.archivo.delete({ where: { id: actual[fk] } }).catch(() => {});
+        }
+      } catch {}
     }
 
-    // Setear FK
+    // === setear FK en el recurso ===
     const actualizado = await modeloPrisma.update({
       where: { id },
       data: { [fk]: nuevo.id },

@@ -2,6 +2,8 @@ import { PrismaClient } from '@prisma/client';
 import fs from 'fs';
 import { subirArchivoGenerico } from '../utils/archivoupload.js';
 import { herramientaEnOtAbierta } from '../services/archiveGuards.js';
+import { crearAvisoPorVencimientoHerramienta } from '../utils/avisos.js';
+
 
 const prisma = new PrismaClient();
 
@@ -80,32 +82,36 @@ export const crearHerramienta = async (req, res) => {
       return res.status(400).json({ error: 'El campo "nombre" es obligatorio' });
     }
 
-    const archivos = req.files || {};
+    const data = {
+      nombre,
+      tipo: tipo || null,
+      marca: marca || null,
+      modelo: modelo || null,
+      numeroSerie: numeroSerie || null,
+      // NO enviar certificadoCalibracion ni certificadoCalibracionId aquí
+    };
 
-    const nuevaHerramienta = await prisma.herramienta.create({
-      data: {
-        nombre,
-        tipo: tipo || null,
-        marca: marca || null,
-        modelo: modelo || null,
-        numeroSerie: numeroSerie || null,
-        fechaIngreso: fechaIngreso ? new Date(fechaIngreso) : null,
-        fechaVencimiento: fechaVencimiento ? new Date(fechaVencimiento) : null,
-        certificadoCalibracion: archivos.certificadoCalibracion?.[0]?.path || null,
-      },
-    });
+    if (fechaIngreso) {
+      const fi = new Date(fechaIngreso);
+      if (!isNaN(fi)) data.fechaIngreso = fi;
+    }
+    if (fechaVencimiento) {
+      const fv = new Date(fechaVencimiento);
+      if (!isNaN(fv)) data.fechaVencimiento = fv;
+    }
 
-    res.status(201).json(nuevaHerramienta);
+    const nuevaHerramienta = await prisma.herramienta.create({ data });
+    return res.status(201).json(nuevaHerramienta);
   } catch (error) {
     console.error('Error al crear herramienta:', error);
-    res.status(500).json({ error: 'Error al crear la herramienta' });
+    return res.status(500).json({ error: 'Error al crear la herramienta' });
   }
 };
 
-// ACTUALIZAR HERRAMIENTA
-export const actualizarHerramienta = async (req, res) => {
-  const { id } = req.params;
 
+// ACTUALIZAR HERRAMIENTA (sin manejo de archivos)
+export const actualizarHerramienta = async (req, res) => {
+  const id = Number(req.params.id);
   try {
     const {
       nombre,
@@ -121,33 +127,26 @@ export const actualizarHerramienta = async (req, res) => {
       return res.status(400).json({ error: 'El campo "nombre" es obligatorio' });
     }
 
-    const archivos = req.files || {};
+    // Solo campos válidos del modelo
+    const data = {
+      nombre,
+      tipo: tipo || null,
+      marca: marca || null,
+      modelo: modelo || null,
+      numeroSerie: numeroSerie || null,
+    };
 
-    const herramientaActual = await prisma.herramienta.findUnique({
-      where: { id: parseInt(id) }
-    });
-    if (!herramientaActual) {
-      return res.status(404).json({ error: 'Herramienta no encontrada' });
+    // Fechas: incluir solo si vienen (evita undefined)
+    if (fechaIngreso !== undefined) {
+      data.fechaIngreso = fechaIngreso ? new Date(fechaIngreso) : null;
     }
-
-    const nuevoCertificado = archivos.certificadoCalibracion?.[0]?.path;
-
-    if (nuevoCertificado && herramientaActual.certificadoCalibracion && fs.existsSync(herramientaActual.certificadoCalibracion)) {
-      fs.unlinkSync(herramientaActual.certificadoCalibracion);
+    if (fechaVencimiento !== undefined) {
+      data.fechaVencimiento = fechaVencimiento ? new Date(fechaVencimiento) : null;
     }
 
     const herramienta = await prisma.herramienta.update({
-      where: { id: parseInt(id) },
-      data: {
-        nombre,
-        tipo: tipo || null,
-        marca: marca || null,
-        modelo: modelo || null,
-        numeroSerie: numeroSerie || null,
-        fechaIngreso: fechaIngreso ? new Date(fechaIngreso) : null,
-        fechaVencimiento: fechaVencimiento ? new Date(fechaVencimiento) : null,
-        certificadoCalibracion: nuevoCertificado || herramientaActual.certificadoCalibracion,
-      },
+      where: { id },
+      data,
     });
 
     res.json(herramienta);
@@ -156,6 +155,7 @@ export const actualizarHerramienta = async (req, res) => {
     res.status(500).json({ error: 'Error al actualizar la herramienta' });
   }
 };
+
 
 // ARCHIVAR HERRAMIENTA (bloquea si está en OT abierta)
 export const archivarHerramienta = async (req, res) => {
@@ -180,13 +180,13 @@ export const archivarHerramienta = async (req, res) => {
   }
 };
 
-// SUBIR CERTIFICADO DE CALIBRACIÓN (endpoint separado usando lógica genérica)
 export const subirCertificadoCalibracion = (req, res) =>
   subirArchivoGenerico({
     req,
     res,
     modeloPrisma: prisma.herramienta,
-    campoArchivo: 'certificadoCalibracion',
+    campoArchivo: 'certificadoCalibracion', // relación y field de multer
     nombreRecurso: 'Herramienta',
-    campoParam: 'id',
+    borrarAnterior: true,
+    prefix: 'herramienta',
   });

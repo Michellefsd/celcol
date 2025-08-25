@@ -1,19 +1,19 @@
-// src/services/archiveGuards.js
-const { PrismaClient } = require('@prisma/client');
+// src/services/archiveGuards.js  (ESM)
+import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 // Ajustá a tus estados "abiertos"
-const OPEN_STATES = ['abierta', 'fase1', 'fase2', 'fase3', 'fase4'];
+export const OPEN_STATES = ['abierta', 'fase1', 'fase2', 'fase3', 'fase4'];
 
-async function empleadoEnOtAbierta(id) {
+export async function empleadoEnOtAbierta(id) {
   return !!(await prisma.registroTrabajo.findFirst({
     where: { empleadoId: id, orden: { estado: { in: OPEN_STATES } } },
     select: { id: true },
   }));
 }
 
-async function herramientaEnOtAbierta(id) {
-  // Ajustá el nombre de tu tabla de uso de herramientas en OT:
+export async function herramientaEnOtAbierta(id) {
+  // ⚠️ Ajustá el nombre de tu tabla/relación de uso de herramientas en OT si difiere
   // ej: ordenTrabajoHerramienta / otHerramienta / herramientaEnOT
   return !!(await prisma.ordenTrabajoHerramienta.findFirst({
     where: { herramientaId: id, orden: { estado: { in: OPEN_STATES } } },
@@ -21,22 +21,22 @@ async function herramientaEnOtAbierta(id) {
   }));
 }
 
-async function stockEnOtAbierta(id) {
-  // Ajustá: ordenTrabajoItem / otItem / consumoStock
+export async function stockEnOtAbierta(id) {
+  // ⚠️ Ajustá si tu tabla/relación difiere: ordenTrabajoItem / otItem / consumoStock
   return !!(await prisma.ordenTrabajoItem.findFirst({
     where: { stockId: id, orden: { estado: { in: OPEN_STATES } } },
     select: { id: true },
   }));
 }
 
-async function avionEnOtAbierta(id) {
+export async function avionEnOtAbierta(id) {
   return !!(await prisma.ordenTrabajo.findFirst({
     where: { avionId: id, estado: { in: OPEN_STATES } },
     select: { id: true },
   }));
 }
 
-async function propietarioEnOtAbierta(id) {
+export async function propietarioEnOtAbierta(id) {
   return !!(await prisma.ordenTrabajo.findFirst({
     where: {
       estado: { in: OPEN_STATES },
@@ -46,8 +46,8 @@ async function propietarioEnOtAbierta(id) {
   }));
 }
 
-async function componenteExternoEnOtAbierta(id) {
-  // Ajustá: nombre de la relación componentesExternos en OT
+export async function componenteExternoEnOtAbierta(id) {
+  // ⚠️ Ajustá el nombre de la relación componentesExternos en OT si difiere
   return !!(await prisma.ordenTrabajo.findFirst({
     where: {
       estado: { in: OPEN_STATES },
@@ -56,13 +56,3 @@ async function componenteExternoEnOtAbierta(id) {
     select: { id: true },
   }));
 }
-
-module.exports = {
-  OPEN_STATES,
-  empleadoEnOtAbierta,
-  herramientaEnOtAbierta,
-  stockEnOtAbierta,
-  avionEnOtAbierta,
-  propietarioEnOtAbierta,
-  componenteExternoEnOtAbierta,
-};

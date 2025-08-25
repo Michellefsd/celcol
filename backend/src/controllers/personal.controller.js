@@ -7,6 +7,7 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 // CREATE
+
 const ALLOWED_LIC = ['MOTOR', 'AERONAVE', 'AVIONICA'];
 
 export const crearPersonal = async (req, res) => {
@@ -19,16 +20,15 @@ export const crearPersonal = async (req, res) => {
       esCertificador,
       esTecnico,
       direccion,
-      tipoLicencia,               // "MOTOR" o ["MOTOR", "AERONAVE"]
+      tipoLicencia,               // "MOTOR" o ["MOTOR","AERONAVE"]
       numeroLicencia,
       vencimientoLicencia,
       fechaAlta,
       horasTrabajadas
+      // ⚠️ NO incluir carneSalud acá
     } = req.body;
 
-    const archivos = req.files || {};
-
-    // normalizar y validar tipoLicencia -> array de enums válidos
+    // normalizar tipoLicencia -> array de enums válidos
     let lic = tipoLicencia;
     if (typeof lic === 'string') lic = [lic];
     if (!Array.isArray(lic)) lic = [];
@@ -36,9 +36,12 @@ export const crearPersonal = async (req, res) => {
       .map(v => String(v).trim().toUpperCase())
       .filter(v => ALLOWED_LIC.includes(v));
 
+    if (!nombre || !apellido || !telefono) {
+      return res.status(400).json({ error: 'nombre, apellido y telefono son obligatorios' });
+    }
     if (lic.length === 0) {
       return res.status(400).json({
-        error: 'tipoLicencia inválido. Valores permitidos: MOTOR, AERONAVE, AVIONICA'
+        error: `tipoLicencia inválido. Permitidos: ${ALLOWED_LIC.join(', ')}`
       });
     }
 
@@ -46,17 +49,18 @@ export const crearPersonal = async (req, res) => {
       data: {
         nombre,
         apellido,
-        email,
+        email: email || null,
         telefono,
-        esCertificador: Boolean(esCertificador),
-        esTecnico: Boolean(esTecnico),
-        direccion,
+        esCertificador: esCertificador === true || esCertificador === 'true',
+        esTecnico: esTecnico === true || esTecnico === 'true',
+        direccion: direccion || null,
         tipoLicencia: { set: lic },
-        numeroLicencia,
+        numeroLicencia: numeroLicencia || null,
         vencimientoLicencia: vencimientoLicencia ? new Date(vencimientoLicencia) : null,
         fechaAlta: fechaAlta ? new Date(fechaAlta) : null,
-        carneSalud: archivos.carneSalud?.[0]?.path || null,
-        horasTrabajadas: horasTrabajadas ? parseFloat(horasTrabajadas) : 0
+        horasTrabajadas: horasTrabajadas ? Number(horasTrabajadas) : 0,
+        archivado: false,
+        // ⚠️ No poner carneSalud ni carneSaludId aquí
       }
     });
 
@@ -114,23 +118,17 @@ export const obtenerPersonal = async (req, res) => {
   }
 };
 
-// UPDATE
+// UPDATE (sin manejo de carné de salud)
 export const actualizarPersonal = async (req, res) => {
   const id = parseInt(req.params.id, 10);
-  const archivos = req.files || {};
 
+  // buscamos el registro y validamos que no esté archivado
   const actual = await prisma.empleado.findUnique({ where: { id } });
   if (!actual || actual.archivado) {
     return res.status(400).json({ error: 'No se puede modificar personal archivado o inexistente' });
   }
 
   try {
-    const carneNuevo = archivos.carneSalud?.[0]?.path;
-
-    if (carneNuevo && actual.carneSalud && fs.existsSync(actual.carneSalud)) {
-      fs.unlinkSync(actual.carneSalud);
-    }
-
     const {
       tipoLicencia,             // string | array | undefined
       vencimientoLicencia,
@@ -139,23 +137,23 @@ export const actualizarPersonal = async (req, res) => {
       ...resto
     } = req.body;
 
+    // armamos el objeto data como en tu versión original
     const data = {
       ...resto,
       vencimientoLicencia: vencimientoLicencia ? new Date(vencimientoLicencia) : null,
       fechaAlta: fechaAlta ? new Date(fechaAlta) : null,
       horasTrabajadas: horasTrabajadas ? parseFloat(horasTrabajadas) : 0,
+      // ⚠️ sin carneSalud aquí
     };
 
-    if (carneNuevo) data.carneSalud = carneNuevo;
-
-    // Normalización de tipoLicencia (enum list) si viene en la request
+    // Normalización de tipoLicencia si viene en la request
     if (typeof tipoLicencia !== 'undefined') {
       let lic = tipoLicencia;
       if (typeof lic === 'string') lic = [lic];
       if (!Array.isArray(lic)) lic = [];
       lic = lic
         .map(v => String(v).trim().toUpperCase())
-        .filter(v => ALLOWED_LIC.includes(v));
+        .filter(v => ALLOWED_LIC.includes(v)); // asumimos tu constante existente
 
       data.tipoLicencia = { set: lic };
     }
@@ -226,9 +224,11 @@ export const subirCarneSalud = (req, res) =>
     req,
     res,
     modeloPrisma: prisma.empleado,
-    campoArchivo: 'carneSalud',
-    nombreRecurso: 'Personal',
-    campoParam: 'id',
+    campoArchivo: 'carneSalud',   // nombre de la relación en Prisma y field de multer
+    nombreRecurso: 'Empleado',
+    borrarAnterior: true,         // reemplaza el anterior y limpia
+    prefix: 'empleado',           // para el nombre/ubicación del archivo
+    campoParam: 'id',             // toma req.params.id
   });
 
 // GET /personal/:id/registros-trabajo?desde=YYYY-MM-DD&hasta=YYYY-MM-DD

@@ -289,14 +289,14 @@ await crearAvisoPorAvionSinPropietario(avionConPropietarios, prisma);
   }
 };
 
-// SUBIR CERTIFICADO DE MATRÍCULA
-export const subirCertificadoMatricula = (req, res) => {
-  return subirArchivoGenerico({
+export const subirCertificadoMatricula = (req, res) =>
+  subirArchivoGenerico({
     req,
     res,
     modeloPrisma: prisma.avion,
-    campoArchivo: 'certificadoMatricula', // <-- DEBE matchear el name del multer
-    nombreRecurso: 'Avión',
-    campoParam: 'id', // <-- usa :id de la ruta /aviones/:id/certificadoMatricula
+    campoArchivo: 'certificadoMatricula', // nombre de la RELACIÓN y del field de multer
+    nombreRecurso: 'Avion',
+    campoParam: 'id',          // /aviones/:id/certificadoMatricula
+    borrarAnterior: true,      // reemplaza si ya había uno
+    prefix: 'avion',           // prefijo para la key en el storage
   });
-};

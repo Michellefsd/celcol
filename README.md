@@ -1,17 +1,21 @@
 # Celcol
 Celcol es un sistema integral de gestión para talleres mecánicos aeronáuticos.
 Permite controlar aviones, tareas, herramientas calibrables, stock, empleados y clientes desde una interfaz intuitiva y moderna desarrollada con Next.js, Tailwind CSS, Node.js, Express y PostgreSQL.
+
+
 # 📜 Licencia
 Este software es propiedad intelectual de Michelle Rodriguez.
 Todos los derechos reservados.
 No se autoriza la reproducción, redistribución ni modificación total o parcial sin consentimiento explícito.
+
+
 # 📋 Requisitos previos
 Node.js 22.x (recomendado instalar con nvm)
 PostgreSQL 17.5
 Git
 
 
-
+### mishisystemssolutions@gmail es el mail de donde salen los avisos cuenta conectada a keycloak y la cuenta de cloudflare
 
 # Celcol (monorepo)
 

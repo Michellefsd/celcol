@@ -1,4 +1,5 @@
 // backend/index.js (ESM)
+import multer from 'multer';
 import 'dotenv/config';
 
 import express from 'express';
@@ -24,7 +25,7 @@ import {
 // Rutas protegidas (ESM)
 import propietariosRoutes from './src/routes/propietario.routes.js';
 import avionRoutes from './src/routes/avion.routes.js';
-import avionComponentesRoutes from './src/routes/avionComponentes.routes.js';
+import avionComponentesRoutes from './src/routes/avionComponente.routes.js'
 import stockRoutes from './src/routes/stock.routes.js';
 import herramientasRoutes from './src/routes/herramientas.routes.js';
 import personalRoutes from './src/routes/personal.routes.js';
@@ -161,13 +162,44 @@ cron.schedule('0 8 * * *', async () => {
 });
 
 // === HANDLERS DE ERRORES ===
-// Multer / payload muy grande → 413
+const MAX_MB = Number(process.env.MAX_FILE_MB || 10);
+const ALLOWED = (process.env.ALLOWED_MIME || '')
+  .split(',')
+  .map(s => s.trim())
+  .filter(Boolean);
+
 app.use((err, _req, res, next) => {
-  if (err && (err.code === 'LIMIT_FILE_SIZE' || err.message?.includes('File too large'))) {
-    return res.status(413).json({ error: 'El archivo excede el tamaño máximo permitido' });
+  // 1) Archivo demasiado grande → 413
+  if (err instanceof multer.MulterError && err.code === 'LIMIT_FILE_SIZE') {
+    return res.status(413).json({
+      error: `El archivo supera el máximo permitido (${MAX_MB} MB).`,
+      sugerencia: 'Reducí la calidad o recortá la imagen antes de subirla.',
+      maxMB: MAX_MB,
+    });
   }
+  if (err?.code === 'LIMIT_FILE_SIZE' || /file too large/i.test(err?.message || '')) {
+    return res.status(413).json({
+      error: `El archivo supera el máximo permitido (${MAX_MB} MB).`,
+      sugerencia: 'Reducí la calidad o recortá la imagen antes de subirla.',
+      maxMB: MAX_MB,
+    });
+  }
+
+  // 2) Tipo de archivo no permitido → 415
+  const msg = String(err?.message || '');
+  if (/(tipo de archivo no permitido|solo se permiten|svg no permitido)/i.test(msg)) {
+    return res.status(415).json({
+      error: 'Tipo de archivo no permitido.',
+      permitidos: ALLOWED.length
+        ? ALLOWED
+        : ['image/jpeg','image/png','image/webp','image/heic','image/heif','application/pdf'],
+      sugerencia: 'Convertí la imagen a JPG/PNG/WEBP o subí un PDF.',
+    });
+  }
+
   return next(err);
 });
+
 
 // Cualquier otro
 app.use((err, _req, res, _next) => {

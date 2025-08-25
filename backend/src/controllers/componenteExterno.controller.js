@@ -1,8 +1,7 @@
-import { PrismaClient } from '@prisma/client';
-import fs from 'fs';
-import { subirArchivoGenerico } from '../utils/archivoupload.js';
-
-const prisma = new PrismaClient();
+// src/controllers/componenteExterno.controller.js
+import fs from 'node:fs/promises';
+import { prisma } from '../prisma.js';
+import { archivoStorage } from '../services/archivo.service.js'; // put({buffer, contentType, originalName, keyHint}), remove(key)
 
 // LISTAR
 export const listarComponentesExternos = async (_req, res) => {
@@ -18,28 +17,40 @@ export const listarComponentesExternos = async (_req, res) => {
   }
 };
 
-// CREAR
+// CREAR (sube 8130 directo si viene en el form)
 export const crearComponenteExterno = async (req, res) => {
   try {
     const {
-      tipo,
-      marca,
-      modelo,
-      numeroSerie,
-      numeroParte,
-      TSN,
-      TSO,
-      TBOFecha,
-      TBOHoras,
-      propietarioId,
+      tipo, marca, modelo, numeroSerie, numeroParte,
+      TSN, TSO, TBOFecha, TBOHoras, propietarioId,
     } = req.body;
-
-    const archivo = req.file;
 
     if (!marca || !modelo || !numeroSerie || !propietarioId) {
       return res.status(400).json({ error: 'Faltan campos obligatorios' });
     }
 
+    // 1) si viene archivo 8130 en el form, subimos y creamos Archivo
+    const file = req.file || req?.files?.archivo8130?.[0]; // soporta single/fields
+    let archivo8130Id = undefined;
+
+    if (file) {
+      const buffer = file.buffer || await fs.readFile(file.path);
+      const safeName = (file.originalname || '8130.pdf').replace(/\s+/g, '-');
+      const put = await archivoStorage.put({
+        buffer,
+        contentType: file.mimetype,
+        originalName: safeName,
+        keyHint: `componente-externo/8130/${Date.now()}-${safeName}`,
+      });
+
+      const creado = await prisma.archivo.create({
+        data: { key: put.key, url: put.url, mimeType: file.mimetype, size: buffer.length },
+        select: { id: true },
+      });
+      archivo8130Id = creado.id;
+    }
+
+    // 2) crear el componente con la FK si existe
     const componente = await prisma.componenteExterno.create({
       data: {
         tipo: tipo || null,
@@ -50,157 +61,154 @@ export const crearComponenteExterno = async (req, res) => {
         TSN: TSN ? parseFloat(TSN) : null,
         TSO: TSO ? parseFloat(TSO) : null,
         TBOFecha: TBOFecha ? new Date(TBOFecha) : null,
-        TBOHoras: TBOHoras ? parseInt(TBOHoras) : null,
-        archivo8130: archivo ? archivo.path : null,
-        propietarioId: parseInt(propietarioId),
+        TBOHoras: TBOHoras ? parseInt(TBOHoras, 10) : null,
+        propietarioId: parseInt(propietarioId, 10),
+        ...(archivo8130Id ? { archivo8130Id } : {}),
       },
+      include: { archivo8130: true, propietario: true },
     });
 
-    res.status(201).json(componente);
+    return res.status(201).json(componente);
   } catch (error) {
     console.error('Error al crear componente externo:', error);
-    res.status(500).json({ error: 'Error al crear el componente externo' });
+    return res.status(500).json({ error: 'Error al crear el componente externo' });
   }
 };
 
-// OBTENER POR ID — ?includeArchived=1 y URL absoluta 8130
+// OBTENER POR ID — devuelve URL desde la relación
 export const obtenerComponenteExterno = async (req, res) => {
   try {
-    const id = parseInt(req.params.id, 10);
-    if (!Number.isFinite(id)) {
-      return res.status(400).json({ error: 'ID inválido' });
-    }
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) return res.status(400).json({ error: 'ID inválido' });
 
-    const includeArchived =
-      req.query.includeArchived === '1' || req.query.includeArchived === 'true';
+    const includeArchived = req.query.includeArchived === '1' || req.query.includeArchived === 'true';
 
     const componente = await prisma.componenteExterno.findUnique({
       where: { id },
-      include: { propietario: true },
+      include: {
+        propietario: true,
+        archivo8130: true,       // para tomar .url
+        certificado8130: true,   // si tienes esta relación en el schema
+      },
     });
 
-    if (!componente) {
-      return res.status(404).json({ error: 'Componente externo no encontrado' });
-    }
-
+    if (!componente) return res.status(404).json({ error: 'Componente externo no encontrado' });
     if (!includeArchived && componente.archivado) {
       return res.status(404).json({ error: 'Componente externo no encontrado' });
     }
 
-    const toAbs = (p) => {
-      if (!p || typeof p !== 'string') return p;
-      if (/^https?:\/\//i.test(p)) return p;
-      const baseUrl = `${req.protocol}://${req.get('host')}`;
-      const normalized = p.replace(/\\/g, '/').replace(/^\/+/, '');
-      return `${baseUrl}/${normalized}`;
-    };
-
-    const componenteOut = {
+    // exponer como strings para no romper front
+    const out = {
       ...componente,
-      archivo8130: toAbs(componente.archivo8130),
-      certificado8130: toAbs(componente.certificado8130),
+      archivo8130: componente.archivo8130?.url ?? null,
+      certificado8130: componente.certificado8130?.url ?? null,
     };
 
-    return res.json(componenteOut);
+    return res.json(out);
   } catch (error) {
     console.error('Error al obtener componente externo:', error);
     return res.status(500).json({ error: 'Error al obtener el componente externo' });
   }
 };
 
-// ACTUALIZAR
+// ACTUALIZAR (sin tocar archivo salvo que quieras permitir reemplazo aquí también)
 export const actualizarComponenteExterno = async (req, res) => {
-  const id = parseInt(req.params.id);
+  const id = Number(req.params.id);
 
   try {
-    const componenteActual = await prisma.componenteExterno.findUnique({ where: { id } });
+    const componenteActual = await prisma.componenteExterno.findUnique({
+      where: { id },
+      include: { archivo8130: true },
+    });
 
-    // ✅ Primero existencia, luego estado
-    if (!componenteActual) {
-      return res.status(404).json({ error: 'Componente externo no encontrado' });
-    }
+    if (!componenteActual) return res.status(404).json({ error: 'Componente externo no encontrado' });
     if (componenteActual.archivado) {
       return res.status(400).json({ error: 'No se puede modificar un componente archivado' });
     }
 
     const {
-      tipo,
-      marca,
-      modelo,
-      numeroSerie,
-      numeroParte,
-      TSN,
-      TSO,
-      TBOFecha,
-      TBOHoras,
-      propietarioId,
+      tipo, marca, modelo, numeroSerie, numeroParte,
+      TSN, TSO, TBOFecha, TBOHoras, propietarioId,
     } = req.body;
 
-    const archivo = req.file;
-
     const data = {
-      tipo,
-      marca,
-      modelo,
-      numeroSerie,
-      numeroParte: numeroParte || null,
+      tipo: tipo ?? undefined,
+      marca: marca ?? undefined,
+      modelo: modelo ?? undefined,
+      numeroSerie: numeroSerie ?? undefined,
+      numeroParte: numeroParte ?? null,
       TSN: TSN ? parseFloat(TSN) : null,
       TSO: TSO ? parseFloat(TSO) : null,
       TBOFecha: TBOFecha ? new Date(TBOFecha) : null,
-      TBOHoras: TBOHoras ? parseInt(TBOHoras) : null,
-      propietarioId: propietarioId ? parseInt(propietarioId) : undefined,
+      TBOHoras: TBOHoras ? parseInt(TBOHoras, 10) : null,
+      propietarioId: propietarioId ? Number(propietarioId) : undefined,
     };
 
-    if (archivo) {
-      // usamos el que ya buscamos arriba
-      if (componenteActual.archivo8130 && fs.existsSync(componenteActual.archivo8130)) {
-        fs.unlinkSync(componenteActual.archivo8130);
+    // ¿permitimos reemplazar el 8130 en este endpoint?
+    const file = req.file || req?.files?.archivo8130?.[0];
+    if (file) {
+      const buffer = file.buffer || await fs.readFile(file.path);
+      const safeName = (file.originalname || '8130.pdf').replace(/\s+/g, '-');
+
+      const put = await archivoStorage.put({
+        buffer,
+        contentType: file.mimetype,
+        originalName: safeName,
+        keyHint: `componente-externo/8130/${Date.now()}-${safeName}`,
+      });
+
+      const nuevoArch = await prisma.archivo.create({
+        data: { key: put.key, url: put.url, mimeType: file.mimetype, size: buffer.length },
+        select: { id: true },
+      });
+
+      // limpiar anterior si existía
+      if (componenteActual.archivo8130?.key) {
+        await archivoStorage.remove(componenteActual.archivo8130.key).catch(() => {});
+        await prisma.archivo.delete({ where: { id: componenteActual.archivo8130Id } }).catch(() => {});
       }
-      data.archivo8130 = archivo.path;
+
+      data.archivo8130Id = nuevoArch.id;
     }
 
     const actualizado = await prisma.componenteExterno.update({
       where: { id },
       data,
+      include: { archivo8130: true },
     });
 
-    res.json(actualizado);
+    return res.json(actualizado);
   } catch (error) {
     console.error('Error al actualizar componente externo:', error);
-    res.status(500).json({ error: 'Error al actualizar el componente externo' });
+    return res.status(500).json({ error: 'Error al actualizar el componente externo' });
   }
 };
 
-// SUBIR ARCHIVO 8130 usando función genérica
+// SUBIR ARCHIVO 8130 (también disponible como endpoint dedicado)
 export const subirArchivo8130 = (req, res) =>
   subirArchivoGenerico({
     req,
     res,
     modeloPrisma: prisma.componenteExterno,
-    campoArchivo: 'archivo8130',
+    campoArchivo: 'archivo8130',    // relación y name de multer
     nombreRecurso: 'Componente externo',
-    // ⚠️ tu ruta usa :componenteId → indicamos el nombre del param
-    campoParam: 'componenteId',
+    campoParam: 'id',               // si tu ruta es /componentes-externos/:id/8130
+    borrarAnterior: true,
+    prefix: 'componente-externo',
   });
 
 // PATCH /componentes/archivar/:id
 export const archivarComponenteExterno = async (req, res) => {
   const id = Number(req.params.id);
-  if (!Number.isFinite(id)) {
-    return res.status(400).json({ error: 'ID inválido' });
-  }
+  if (!Number.isFinite(id)) return res.status(400).json({ error: 'ID inválido' });
 
   try {
     const componente = await prisma.componenteExterno.findUnique({
       where: { id },
       select: { id: true, archivado: true },
     });
-    if (!componente) {
-      return res.status(404).json({ error: 'Componente externo no encontrado' });
-    }
-    if (componente.archivado) {
-      return res.status(409).json({ error: 'El componente externo ya está archivado.' });
-    }
+    if (!componente) return res.status(404).json({ error: 'Componente externo no encontrado' });
+    if (componente.archivado) return res.status(409).json({ error: 'El componente externo ya está archivado.' });
 
     const otAbierta = await prisma.ordenTrabajo.findFirst({
       where: { componenteId: id, estadoOrden: 'ABIERTA' },
@@ -218,16 +226,9 @@ export const archivarComponenteExterno = async (req, res) => {
       select: { id: true },
     });
 
-    return res.json({
-      mensaje: 'Componente externo archivado correctamente.',
-      id: actualizado.id,
-    });
+    return res.json({ mensaje: 'Componente externo archivado correctamente.', id: actualizado.id });
   } catch (error) {
-    console.error('Error al archivar componente externo:', {
-      message: error?.message,
-      code: error?.code,
-      stack: error?.stack,
-    });
+    console.error('Error al archivar componente externo:', error);
     return res.status(500).json({ error: 'Error al archivar el componente externo' });
   }
 };

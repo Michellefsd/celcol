@@ -8,23 +8,23 @@ datasource db {
 }
 
 model Avion {
-  id                     Int                @id @default(autoincrement())
-  marca                  String
-  modelo                 String
-  numeroSerie            String?
-  matricula              String             @unique
-  TSN                    Float?
-  vencimientoMatricula   DateTime?
-  vencimientoSeguro      DateTime?
-  
-  certificadoMatriculaId Int?
-  certificadoMatricula   Archivo?           @relation("AvionCertificadoMatricula", fields: [certificadoMatriculaId], references: [id])
+  id                   Int       @id @default(autoincrement())
+  marca                String
+  modelo               String
+  numeroSerie          String?
+  matricula            String    @unique
+  TSN                  Float?
+  vencimientoMatricula DateTime?
+  vencimientoSeguro    DateTime?
 
-  archivado              Boolean            @default(false)
-  propietarios           AvionPropietario[]
-  avisos                 Aviso[]            @relation("AvisosDelAvion")
-  ComponenteAvion        ComponenteAvion[]
-  ordenesTrabajo         OrdenTrabajo[]
+  certificadoMatriculaId Int?
+  certificadoMatricula   Archivo? @relation("AvionCertificadoMatricula", fields: [certificadoMatriculaId], references: [id])
+
+  archivado       Boolean            @default(false)
+  propietarios    AvionPropietario[]
+  avisos          Aviso[]            @relation("AvisosDelAvion")
+  ComponenteAvion ComponenteAvion[]
+  ordenesTrabajo  OrdenTrabajo[]
 }
 
 model ComponenteAvion {
@@ -243,19 +243,23 @@ model RegistroDeTrabajo {
 }
 
 model Aviso {
-  id            Int          @id @default(autoincrement())
-  mensaje       String
-  tipo          String
-  leido         Boolean      @default(false)
-  creadoEn      DateTime     @default(now())
+  id       Int      @id @default(autoincrement())
+  mensaje  String
+  tipo     String
+  leido    Boolean  @default(false)
+  creadoEn DateTime @default(now())
+
   herramientaId Int?
   stockId       Int?
   avionId       Int?
-  avion         Avion?       @relation("AvisosDelAvion", fields: [avionId], references: [id])
-  herramienta   Herramienta? @relation("HerramientaAvisos", fields: [herramientaId], references: [id])
-  stock         Stock?       @relation("StockAvisos", fields: [stockId], references: [id])
 
-  @@unique([tipo, avionId], name: "tipo_avionId")
+  avion       Avion?       @relation("AvisosDelAvion", fields: [avionId], references: [id])
+  herramienta Herramienta? @relation("HerramientaAvisos", fields: [herramientaId], references: [id])
+  stock       Stock?       @relation("StockAvisos", fields: [stockId], references: [id])
+
+  @@unique([tipo, avionId], name: "tipo_avionId") // ya la tenías
+  @@unique([tipo, stockId], name: "tipo_stockId") // NUEVA
+  @@unique([tipo, herramientaId], name: "tipo_herrId") // NUEVA
 }
 
 model Usuario {

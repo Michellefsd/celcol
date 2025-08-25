@@ -1,20 +1,29 @@
+// src/routes/avionComponente.routes.js  (ejemplo ESM)
+
 import express from 'express';
+import {
+  listarComponentes,
+  obtenerComponente,
+  crearComponente,
+  actualizarComponente,
+  eliminarComponente,
+} from '../controllers/avionComponente.controller.js';
+
 const router = express.Router();
-import * as controlador from '../controllers/avionComponente.controller.js';
 
 // Listar todos los componentes
-router.get('/', controlador.listarComponentes);
+router.get('/', listarComponentes);
 
 // Obtener un componente por ID
-router.get('/:id', controlador.obtenerComponente);
+router.get('/:id', obtenerComponente);
 
 // Crear un nuevo componente
-router.post('/', controlador.crearComponente);
+router.post('/', crearComponente);
 
 // Actualizar un componente existente
-router.put('/:id', controlador.actualizarComponente);
+router.put('/:id', actualizarComponente);
 
 // Eliminar un componente
-router.delete('/:id', controlador.eliminarComponente);
+router.delete('/:id', eliminarComponente);
 
 export default router;
