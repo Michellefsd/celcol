@@ -64,7 +64,7 @@ const aviones = await prisma.avion.findMany({
   }
 };
 
-// READ ONE — GET BY ID con includeArchived y normalización de URLs de archivo
+// READ ONE — GET BY ID con includeArchived y relación Archivo
 export const obtenerAvion = async (req, res) => {
   try {
     const id = Number(req.params.id);
@@ -76,14 +76,23 @@ export const obtenerAvion = async (req, res) => {
     const includeArchived =
       req.query.includeArchived === '1' || req.query.includeArchived === 'true';
 
-    // si NO piden archivados, filtramos por archivado:false
     const where = includeArchived ? { id } : { id, archivado: false };
 
     const avion = await prisma.avion.findFirst({
       where,
       include: {
         propietarios: { include: { propietario: true } },
-        ComponenteAvion: true, // si en tu schema es 'componenteAvion', ajustá el nombre
+        ComponenteAvion: true,
+        // 👇 Trae la relación del archivo igual que en herramienta
+        certificadoMatricula: {
+          select: {
+            id: true,
+            storageKey: true,
+            mime: true,
+            originalName: true,
+            sizeAlmacen: true,
+          },
+        },
       },
     });
 
@@ -91,23 +100,10 @@ export const obtenerAvion = async (req, res) => {
       return res.status(404).json({ error: 'Avión no encontrado' });
     }
 
-    // Helper para URLs absolutas de archivos
-    const toAbs = (p) => {
-      if (!p || typeof p !== 'string') return p;
-      if (/^https?:\/\//i.test(p)) return p;
-      const baseUrl = `${req.protocol}://${req.get('host')}`;
-      const normalized = p.replace(/\\/g, '/').replace(/^\/+/, '');
-      return `${baseUrl}/${normalized}`;
-    };
-
-    // Normalizá acá los campos de archivo que uses en Avión
-    // (agregá/quitalos según tu schema real)
+    // Podés renombrar ComponenteAvion si querés exponerlo como "componentes"
     const avionTransformado = {
       ...avion,
       componentes: avion.ComponenteAvion,
-      // ejemplo de campos de archivo (ajustá a tus nombres reales):
-      certificadoMatricula: toAbs(avion.certificadoMatricula),
-      certificadoMatriculaArchivo: toAbs(avion.certificadoMatriculaArchivo),
     };
     delete avionTransformado.ComponenteAvion;
 
@@ -117,6 +113,7 @@ export const obtenerAvion = async (req, res) => {
     res.status(500).json({ error: 'Error al obtener el avión' });
   }
 };
+
 
 export const actualizarAvion = async (req, res) => {
   const id = parseInt(req.params.id);
@@ -294,9 +291,8 @@ export const subirCertificadoMatricula = (req, res) =>
     req,
     res,
     modeloPrisma: prisma.avion,
-    campoArchivo: 'certificadoMatricula', // nombre de la RELACIÓN y del field de multer
+    campoArchivo: 'certificadoMatricula', // relación y field de multer
     nombreRecurso: 'Avion',
-    campoParam: 'id',          // /aviones/:id/certificadoMatricula
-    borrarAnterior: true,      // reemplaza si ya había uno
-    prefix: 'avion',           // prefijo para la key en el storage
+    borrarAnterior: true,
+    prefix: 'avion',
   });

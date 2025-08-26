@@ -12,7 +12,8 @@
     "build": "prisma generate"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.873.0",
+    "@aws-sdk/client-s3": "3.873.0",
+    "@aws-sdk/s3-request-presigner": "3.873.0",
     "@prisma/client": "^6.8.2",
     "argon2": "^0.43.1",
     "bcrypt": "^6.0.0",

@@ -3,6 +3,10 @@
 export const API_URL =
   process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
+// ⬇️ NUEVO: base real de auth del backend
+export const AUTH_BASE =
+  process.env.NEXT_PUBLIC_AUTH_BASE || '/api/auth';
+
 function isAbsoluteUrl(path: string) {
   return /^https?:\/\//i.test(path);
 }
@@ -20,10 +24,11 @@ export function apiUrl(path: string) {
 }
 
 // ---- REFRESH TOLERANTE AL PATH ----
+// ⬇️ Preferimos `${AUTH_BASE}/refresh`; mantenemos otros por compat opcional
 const REFRESH_PATHS = [
-  '/auth/refresh',
-  '/api/auth/refresh',
-  process.env.NEXT_PUBLIC_AUTH_REFRESH_PATH || '', // opcional por env
+  `${AUTH_BASE}/refresh`,
+  process.env.NEXT_PUBLIC_AUTH_REFRESH_PATH || '',
+  '/auth/refresh', // (legacy) por si en algún lugar quedó viejo
 ].filter(Boolean);
 
 async function refreshAuth(): Promise<boolean> {
@@ -91,7 +96,6 @@ export async function apiFetch<T = unknown>(
   }
 
   if (!res.ok) {
-    // 👇 Preferimos mensaje del servidor si existe
     const serverMsg =
       (body && (body.error || body.message)) ||
       (typeof body === 'string' && body) ||
@@ -131,5 +135,5 @@ export async function fetchText(
 
 // Ejemplo de helper: obtener avión por matrícula
 export async function getAvionPorMatricula(matricula: string) {
-  return fetchJson(`/aviones/por-matricula/${encodeURIComponent(matricula)}`); // o el que uses
+  return fetchJson(`/aviones/por-matricula/${encodeURIComponent(matricula)}`);
 }

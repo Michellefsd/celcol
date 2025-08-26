@@ -22,6 +22,10 @@ import {
   revisarAvionesSinPropietario,
 } from './src/utils/avisos.js';
 
+
+// impoortar usl privada para archivos 
+import archivosRoutes from './src/routes/archivos.routes.js'
+
 // Rutas protegidas (ESM)
 import propietariosRoutes from './src/routes/propietario.routes.js';
 import avionRoutes from './src/routes/avion.routes.js';
@@ -133,6 +137,8 @@ app.use('/ordenes-trabajo',   requireAuth, ordenTrabajoRoutes);
 app.use('/avisos',            requireAuth, avisosRoutes);
 app.use('/archivados',        requireAuth, archivadosRoutes);
 app.use('/archivadas',        requireAuth, archivadosRoutes);
+
+app.use('/archivos', requireAuth, archivosRoutes);
 
 // === REVISIÓN INICIAL DIFERIDA ===
 (async () => {

@@ -29,7 +29,7 @@ export const listarHerramientas = async (req, res) => {
   }
 };
 
-// OBTENER POR ID — admite ?includeArchived=1 y normaliza URL de certificado
+// OBTENER POR ID — admite ?includeArchived=1 y devuelve relación Archivo (storageKey)
 export const obtenerHerramienta = async (req, res) => {
   try {
     const id = Number(req.params.id);
@@ -41,29 +41,35 @@ export const obtenerHerramienta = async (req, res) => {
       req.query.includeArchived === '1' || req.query.includeArchived === 'true';
 
     const where = includeArchived ? { id } : { id, archivado: false };
-    const herramienta = await prisma.herramienta.findFirst({ where });
+
+    // 👇 Trae la relación del archivo en vez de construir URLs
+    const herramienta = await prisma.herramienta.findFirst({
+      where,
+      include: {
+        certificadoCalibracion: {
+          select: {
+            id: true,
+            storageKey: true,
+            mime: true,
+            originalName: true,
+            sizeAlmacen: true,
+          },
+        },
+      },
+    });
 
     if (!herramienta) {
       return res.status(404).json({ error: 'Herramienta no encontrada' });
     }
 
-    const toAbs = (p) => {
-      if (!p || typeof p !== 'string') return p;
-      if (/^https?:\/\//i.test(p)) return p;
-      const baseUrl = `${req.protocol}://${req.get('host')}`;
-      const normalized = p.replace(/\\/g, '/').replace(/^\/+/, '');
-      return `${baseUrl}/${normalized}`;
-    };
-
-    res.json({
-      ...herramienta,
-      certificadoCalibracion: toAbs(herramienta.certificadoCalibracion),
-    });
+    // Nada de toAbs ni URL pública: el front pedirá /archivos/url-firmada?key=...
+    res.json(herramienta);
   } catch (error) {
     console.error('Error al obtener herramienta:', error);
     res.status(500).json({ error: 'Error al obtener la herramienta' });
   }
 };
+
 
 // CREAR HERRAMIENTA
 export const crearHerramienta = async (req, res) => {

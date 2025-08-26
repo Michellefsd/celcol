@@ -3,7 +3,7 @@
 
 import type { ReactNode } from 'react';
 import AppFrame from '@/components/AppFrame';
-import { AuthProvider } from '@/context/AuthContext'; // ← ajustá si tu export es default
+import { AuthProvider } from '@/context/AuthContext'; 
 
 export default function AppLayout({ children }: { children: ReactNode }) {
   return (

@@ -34,10 +34,13 @@ export async function subirArchivoGenerico({
 
     const contentType = file.mimetype;
     const originalName = file.originalname || `${campoArchivo}.bin`;
-    const safeName = originalName.replace(/\s+/g, '-');
+    let safeName = originalName.trim().replace(/\s+/g, '-');     
+    safeName = safeName.replace(/-+/g, '-');
+    safeName = safeName.replace(/[^a-zA-Z0-9.\-_]/g, '');
 
-    const relacion = campoArchivo;           // ej: 'certificadoCalibracion'
-    const fk = `${campoArchivo}Id`;          // ej: 'certificadoCalibracionId'
+
+    const relacion = campoArchivo; 
+    const fk = `${campoArchivo}Id`;   
 
     const actual = await modeloPrisma.findUnique({
       where: { id },
@@ -56,7 +59,7 @@ export async function subirArchivoGenerico({
       buffer,
       contentType,
       originalName,
-      keyHint: `${keyPrefix}/${campoArchivo}/${Date.now()}-${safeName}`,
+      keyHint: `${keyPrefix}/${id}/${campoArchivo}/${Date.now()}-${safeName}`,
     });
     // put => { key, url?, size? }
 
