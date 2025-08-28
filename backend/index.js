@@ -81,7 +81,9 @@ app.options(/.*/, cors(corsOptions)); // preflight
 app.set('trust proxy', 1);
 
 // === HEALTH ===
-app.get('/health', (_req, res) => res.send('ok'));
+app.get('/health', (req, res) => {
+  res.status(200).send('ok');
+});
 
 // Salud de storage local (por ahora en disco). Útil antes de migrar a bucket.
 app.get('/health/storage', (_req, res) => {
