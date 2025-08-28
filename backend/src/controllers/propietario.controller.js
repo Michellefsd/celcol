@@ -40,18 +40,38 @@ export async function obtenerPropietario(req, res) {
     const base = await prisma.propietario.findUnique({
       where: { id },
       include: {
+        // Relación AVIONES (vía tabla intermedia), aplanamos luego
         aviones: {
           ...(includeArchived ? {} : { where: { avion: { archivado: false } } }),
           include: {
             avion: {
               select: {
-                id: true, marca: true, modelo: true,
-                matricula: true, archivado: true,
+                id: true,
+                marca: true,
+                modelo: true,
+                matricula: true,
+                archivado: true,
               },
             },
           },
         },
-        componentes: { ...(includeArchived ? {} : { where: { archivado: false } }) },
+
+        // Relación COMPONENTES EXTERNOS (acá incluimos archivo8130)
+        componentes: {
+          ...(includeArchived ? {} : { where: { archivado: false } }),
+          orderBy: { id: 'desc' }, // opcional
+          include: {
+            archivo8130: {
+              select: {
+                id: true,
+                storageKey: true,
+                originalName: true,
+                mime: true,
+                sizeAlmacen: true,
+              },
+            },
+          },
+        },
       },
     });
 
@@ -72,14 +92,17 @@ export async function obtenerPropietario(req, res) {
       telefono: base.telefono,
       email: base.email,
       direccion: base.direccion,
+
+      // Lo que consume tu FE
       aviones,
-      componentesExternos: base.componentes,
+      componentesExternos: base.componentes, // ← ahora cada item trae archivo8130 { storageKey, ... }
     });
   } catch (error) {
     console.error('Error al obtener propietario:', error);
     return res.status(500).json({ error: 'Error al obtener el propietario' });
   }
-};
+}
+
 
 // UPDATE
 export async function actualizarPropietario(req, res) {

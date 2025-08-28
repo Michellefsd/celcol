@@ -8,14 +8,33 @@ import { api, fetchJson} from '@/services/api';
 import IconButton from '../IconButton';
 import { IconVer, IconArchivar, IconDescargar } from '../ui/Icons';
 
+type SnapshotAvion = {
+  matricula?: string | null;
+  marca?: string | null;
+  modelo?: string | null;
+};
+
+type SnapshotComponente = {
+  tipo?: string | null;
+  marca?: string | null;
+  modelo?: string | null;
+};
+
 type OrdenTrabajo = {
   id: number;
   fechaApertura: string | null;
   estadoOrden: 'ABIERTA' | 'CERRADA' | 'CANCELADA';
   archivada?: boolean;
-  avion?: { matricula: string };
-  componente?: { tipo: string; marca: string; modelo: string };
+
+  // datos “vivos”
+  avion?: { matricula: string } | null;
+  componente?: { tipo: string; marca: string; modelo: string } | null;
+
+  // snapshots “congelados” al cerrar/cancelar
+  datosAvionSnapshot?: SnapshotAvion | null;
+  datosComponenteSnapshot?: SnapshotComponente | null;
 };
+
 
 function badgeClasses(estado: OrdenTrabajo['estadoOrden']) {
   switch (estado) {
@@ -63,16 +82,55 @@ export default function TrabajoCard({ soloArchivadas = false }: { soloArchivadas
     return isNaN(date.getTime()) ? '—' : date.toLocaleDateString('es-UY');
   };
 
-  const ordenesFiltradas = ordenes
-    .filter((orden) => (soloArchivadas ? !!orden.archivada : !orden.archivada))
-    .filter((orden) => {
-      const texto = busqueda.trim().toLowerCase();
-      if (!texto) return true;
-      const avionTexto = (orden.avion?.matricula || '').toLowerCase();
-      const compTexto = [orden.componente?.tipo, orden.componente?.marca, orden.componente?.modelo]
-        .filter(Boolean).join(' ').toLowerCase();
-      return avionTexto.includes(texto) || compTexto.includes(texto) || (orden.id?.toString() || '').includes(texto);
-    });
+// FILTRO
+const ordenesFiltradas = ordenes
+  .filter((orden) => (soloArchivadas ? !!orden.archivada : !orden.archivada))
+  .filter((orden) => {
+    const texto = busqueda.trim().toLowerCase();
+    if (!texto) return true;
+
+    const avionTexto = getDisplayAvionMatricula(orden).toLowerCase();
+    const compTexto = getDisplayComponente(orden).toLowerCase();
+    const idTexto = (orden.id?.toString() || '').toLowerCase();
+
+    return avionTexto.includes(texto) || compTexto.includes(texto) || idTexto.includes(texto);
+  });
+
+    
+ // helpers de estado
+const isFinal = (estado: OrdenTrabajo['estadoOrden']) =>
+  estado === 'CERRADA' || estado === 'CANCELADA';
+
+// ¿De qué tipo es la OT? (usa snapshot en estados finales)
+const esDeComponente = (o: OrdenTrabajo) =>
+  isFinal(o.estadoOrden) ? !!o.datosComponenteSnapshot : !!o.componente;
+
+const esDeAvion = (o: OrdenTrabajo) =>
+  isFinal(o.estadoOrden) ? !!o.datosAvionSnapshot : !!o.avion;
+
+// ⚠️ No devolver '—' para control de flujo
+const getDisplayAvionMatricula = (o: OrdenTrabajo) => {
+  const mat = isFinal(o.estadoOrden)
+    ? (o.datosAvionSnapshot?.matricula ?? '')
+    : (o.avion?.matricula ?? '');
+  return (mat || '').trim();
+};
+
+// Si querés incluir número (serie/parte), extendé SnapshotComponente abajo
+const getDisplayComponente = (o: OrdenTrabajo) => {
+  const src = isFinal(o.estadoOrden) ? o.datosComponenteSnapshot : o.componente;
+  if (!src) return '';
+  const tipo = (src as any).tipo ?? '';
+  const marca = (src as any).marca ?? '';
+  const modelo = (src as any).modelo ?? '';
+  const numeroSerie = (src as any).numeroSerie ?? (src as any).numeroParte ?? '';
+
+  // Ejemplos resultantes: "Alternador (ACME X100) #12345" | "Alternador (ACME X100)"
+  const base = [tipo, (marca || modelo) ? `(${[marca, modelo].filter(Boolean).join(' ')})` : '']
+    .filter(Boolean)
+    .join(' ');
+  return [base, numeroSerie ? `#${numeroSerie}` : ''].filter(Boolean).join(' ').trim();
+};
 
   return (
     <BaseCard>
@@ -98,17 +156,25 @@ export default function TrabajoCard({ soloArchivadas = false }: { soloArchivadas
           {ordenesFiltradas.map((orden, idx) => (
             <li key={orden?.id ?? `orden-${idx}`} className="py-3 flex items-center justify-between hover:bg-slate-50 px-2 rounded-lg transition">
               <div className="min-w-0">
-                <p className="text-sm font-medium text-slate-800 truncate">
-                  <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs mr-2 ${badgeClasses(orden.estadoOrden)}`} title={orden.estadoOrden}>
-                    {orden.estadoOrden}
-                  </span>
-                  #{orden.id}{' '}
-                  {orden.avion
-                    ? `– Avión ${orden.avion.matricula}`
-                    : orden.componente
-                    ? `– ${orden.componente.tipo} (${orden.componente.marca} ${orden.componente.modelo})`
-                    : ''}
-                </p>
+<p className="text-sm font-medium text-slate-800 truncate">
+  <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs mr-2 ${badgeClasses(orden.estadoOrden)}`} title={orden.estadoOrden}>
+    {orden.estadoOrden}
+  </span>
+  #{orden.id}{' '}
+{(() => {
+  if (esDeAvion(orden)) {
+    const avionMat = getDisplayAvionMatricula(orden);
+    return avionMat ? `– Avión ${avionMat}` : '– Avión';
+  }
+  if (esDeComponente(orden)) {
+    const compTxt = getDisplayComponente(orden);
+    return compTxt ? `– Componente ${compTxt}` : '– Componente';
+  }
+  return '';
+})()}
+
+</p>
+
                 <p className="text-xs text-slate-500">{formatearFecha(orden.fechaApertura)}</p>
               </div>
 
@@ -151,12 +217,18 @@ export default function TrabajoCard({ soloArchivadas = false }: { soloArchivadas
   title="Ver orden"
   className="text-cyan-600 hover:text-cyan-800"
   onClick={() => {
-    const href =
+    const base =
       orden.estadoOrden === 'ABIERTA'
         ? `/ordenes-trabajo/${orden.id}/fase3`
         : orden.estadoOrden === 'CERRADA'
         ? `/ordenes-trabajo/${orden.id}/cerrada`
         : `/ordenes-trabajo/${orden.id}/cancelada`;
+
+    // 👇 si es archivada o estás en modo soloArchivadas, le agregás el query
+    const href = (soloArchivadas || orden.archivada)
+      ? `${base}?includeArchived=1`
+      : base;
+
     router.push(href);
   }}
 />

@@ -54,10 +54,12 @@ model ComponenteExterno {
   TSO            Float?
   TBOFecha       DateTime?
   TBOHoras       Int?
-  archivo8130Id  Int?
   propietarioId  Int
   archivado      Boolean        @default(false)
+
+  archivo8130Id  Int?
   archivo8130    Archivo?       @relation("ComponenteArchivo8130", fields: [archivo8130Id], references: [id])
+  
   propietario    Propietario    @relation(fields: [propietarioId], references: [id])
   ordenesTrabajo OrdenTrabajo[]
 }

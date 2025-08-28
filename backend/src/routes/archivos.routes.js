@@ -33,33 +33,43 @@ const s3 = new S3Client({
 });
 
 // GET /archivos/url-firmada?key=... [&disposition=inline|attachment] → { url }
-router.get('/url-firmada', async (req, res) => {
-  try {
-    let key = String(req.query.key || '').trim();
-    if (!key) return res.status(400).json({ error: 'Falta key' });
-    if (!S3_BUCKET) return res.status(500).json({ error: 'Falta S3_BUCKET' });
+// GET /archivos/url-firmada?key=... [&disposition=inline|attachment] → { url }
+router.get(
+  '/url-firmada',
+  (req, _res, next) => {
+    console.log('HIT /archivos/url-firmada →', req.method, req.query);
+    next();
+  },
+  async (req, res) => {
+    try {
+      let key = String(req.query.key || '').trim();
+      if (!key) return res.status(400).json({ error: 'Falta key' });
+      if (!S3_BUCKET) return res.status(500).json({ error: 'Falta S3_BUCKET' });
 
-    // Sanea la key (sin / inicial, sin backslashes)
-    key = key.replace(/\\/g, '/').replace(/^\/+/, '');
+      // Sanea la key
+      key = key.replace(/\\/g, '/').replace(/^\/+/, '');
 
-    // inline (ver en navegador) por defecto; podés pasar ?disposition=attachment para forzar descarga
-    const disposition = (String(req.query.disposition || 'inline').toLowerCase() === 'attachment')
-      ? 'attachment'
-      : 'inline';
+      // inline por defecto; attachment para forzar descarga
+      const disposition =
+        (String(req.query.disposition || 'inline').toLowerCase() === 'attachment')
+          ? 'attachment'
+          : 'inline';
 
-    const command = new GetObjectCommand({
-      Bucket: S3_BUCKET,
-      Key: key,
-      ResponseContentDisposition: disposition,
-    });
+      const command = new GetObjectCommand({
+        Bucket: S3_BUCKET,
+        Key: key,
+        ResponseContentDisposition: disposition,
+      });
 
-    const url = await getSignedUrl(s3, command, { expiresIn: 60 * 5 }); // 5 minutos
-    res.json({ url });
-  } catch (err) {
-    console.error('❌ Error firmando URL R2:', err);
-    res.status(500).json({ error: 'No se pudo generar URL firmada' });
+      const url = await getSignedUrl(s3, command, { expiresIn: 60 * 5 }); // 5 minutos
+      res.json({ url });
+    } catch (err) {
+      console.error('❌ Error firmando URL R2:', err);
+      res.status(500).json({ error: 'No se pudo generar URL firmada' });
+    }
   }
-});
+);
+
 
 // (Opcional) Diagnóstico rápido de env
 router.get('/diag', (_req, res) => {

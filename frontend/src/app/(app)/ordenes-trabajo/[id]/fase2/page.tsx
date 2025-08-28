@@ -78,9 +78,40 @@ try {
   }
 
   if (!orden) return <p className="p-4">Cargando orden...</p>;
-  
 
+// helpers iguales a herramientas
+async function obtenerUrlFirmada(key: string, disposition: 'inline' | 'attachment') {
+  const q = new URLSearchParams({ key, disposition }).toString();
+  return fetchJson<{ url: string }>(`/archivos/url-firmada?${q}`);
+}
 
+// VER solicitud (abre pestaña ya y luego la reemplaza)
+async function verSolicitud(key?: string) {
+  if (!key) return;
+  const win = window.open('about:blank', '_blank'); // abre YA (gesto del usuario)
+  try {
+    const { url } = await obtenerUrlFirmada(key, 'inline');
+    if (!url) { win?.close(); return; }
+    setTimeout(() => win && (win.location.replace(url)), 60); // ayuda Safari/ blockers
+  } catch (e) {
+    win?.close();
+    console.error('❌ No se pudo ver solicitud:', e);
+  }
+}
+
+// DESCARGAR solicitud (igual que en herramientas)
+async function descargarSolicitud(key?: string) {
+  if (!key) return;
+  const win = window.open('about:blank', '_blank');
+  try {
+    const { url } = await obtenerUrlFirmada(key, 'attachment');
+    if (!url) { win?.close(); return; }
+    setTimeout(() => win && (win.location.replace(url)), 60);
+  } catch (e) {
+    win?.close();
+    console.error('❌ No se pudo descargar solicitud:', e);
+  }
+}
 
 return (
   <div className="min-h-screen bg-slate-100">
@@ -254,40 +285,40 @@ return (
               {orden.solicitudFirma ? 'Reemplazar archivo' : 'Subir archivo'}
             </button>
 
-            {orden.solicitudFirma && (
-              <>
-                <a
-                  href={api(orden.solicitudFirma)}
-                  className="inline-flex items-center gap-1 text-cyan-600 hover:text-cyan-800 underline underline-offset-2"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  👁️ Ver archivo
-                </a>
-                <a
-                  href={api(orden.solicitudFirma)}
-                  download
-                  className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
-                >
-                  Descargar
-                </a>
-              </>
-            )}
+           {orden.solicitudFirma?.storageKey && (
+  <div className="flex flex-wrap items-center gap-3">
+    <button
+      type="button"
+      onClick={() => verSolicitud(orden.solicitudFirma.storageKey)}
+      className="inline-flex items-center gap-1 text-cyan-600 hover:text-cyan-800 underline underline-offset-2"
+    >
+      👁️ Ver archivo
+    </button>
+
+    <button
+      type="button"
+      onClick={() => descargarSolicitud(orden.solicitudFirma.storageKey)}
+      className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+    >
+      Descargar
+    </button>
+  </div>
+)}
+
+
           </div>
-
-          <SubirArchivo
-            open={mostrarSubirSolicitud}
-            onClose={() => setMostrarSubirSolicitud(false)}
-            url={`/ordenes-trabajo/${id}/solicitudFirma`}
-            label="Subir archivo de solicitud"
-            nombreCampo="solicitudFirma"
-            onUploaded={async () => {
-              const updated = await fetchJson<any>(`/ordenes-trabajo/${id}`);
-              setOrden(updated);
-            }}
-          />
-        </div>
-
+<SubirArchivo
+  open={mostrarSubirSolicitud}
+  onClose={() => setMostrarSubirSolicitud(false)}
+  url={`/ordenes-trabajo/${id}/solicitudFirma`}  // ✅ ruta correcta
+  label="Subir archivo de solicitud"
+  nombreCampo="solicitudFirma"                     // ✅ coincide con multer y controller
+  onUploaded={async () => {
+    const updated = await fetchJson<any>(`/ordenes-trabajo/${id}`);
+    setOrden(updated);
+  }}
+/>
+</div>
         {/* Navegación y acciones */}
         <div className="mt-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           {/* Fase anterior: apunté a /ordenes-trabajo/nueva. Si tenés una Fase 1 por id, cambiá la ruta aquí. */}

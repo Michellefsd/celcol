@@ -81,7 +81,7 @@ export default function EditarComponenteModal({
 
      await apiFetch(`/componentes/${componente.id}`, {
         method: 'PUT',
-        body, // FormData → el helper gestiona headers + cookies + refresh
+        body, 
       });
 
       onSaved?.();
@@ -111,7 +111,7 @@ export default function EditarComponenteModal({
         <input className="input" type="date" value={TBOFecha} onChange={(e) => setTBOFecha(e.target.value)} />
 <input
   type="file"
-  name="archivo8130"                         // 👈 necesario para que multer lo acepte
+  name="archivo8130"
   accept="application/pdf,image/png,image/jpeg,image/webp"
   onChange={handleFile}
 />

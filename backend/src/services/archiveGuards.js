@@ -1,58 +1,89 @@
-// src/services/archiveGuards.js  (ESM)
+// src/services/archiveGuards.js  (ESM, 3 estados: ABIERTA/CERRADA/CANCELADA)
 import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
-// Ajustá a tus estados "abiertos"
-export const OPEN_STATES = ['abierta', 'fase1', 'fase2', 'fase3', 'fase4'];
+// ÚNICO estado abierto
+export const OPEN_STATE = 'ABIERTA';
 
-export async function empleadoEnOtAbierta(id) {
-  return !!(await prisma.registroTrabajo.findFirst({
-    where: { empleadoId: id, orden: { estado: { in: OPEN_STATES } } },
+// Helper para evitar repetir (usa estadoOrden)
+const whereOrdenAbierta = { is: { estadoOrden: OPEN_STATE } };
+
+/**
+ * EMPLEADO: bloquea si está en una OT ABIERTA (asignado o con registro de trabajo)
+ */
+export async function empleadoEnOtAbierta(empleadoId) {
+  const asignacion = await prisma.empleadoAsignado.findFirst({
+    where: { empleadoId, orden: whereOrdenAbierta },
     select: { id: true },
-  }));
+  });
+  if (asignacion) return true;
+
+  const registro = await prisma.registroDeTrabajo.findFirst({
+    where: { empleadoId, orden: whereOrdenAbierta },
+    select: { id: true },
+  });
+  return !!registro;
 }
 
-export async function herramientaEnOtAbierta(id) {
-  // ⚠️ Ajustá el nombre de tu tabla/relación de uso de herramientas en OT si difiere
-  // ej: ordenTrabajoHerramienta / otHerramienta / herramientaEnOT
-  return !!(await prisma.ordenTrabajoHerramienta.findFirst({
-    where: { herramientaId: id, orden: { estado: { in: OPEN_STATES } } },
+/**
+ * HERRAMIENTA: bloquea si aparece en una OT ABIERTA
+ */
+export async function herramientaEnOtAbierta(herramientaId) {
+  const uso = await prisma.ordenHerramienta.findFirst({
+    where: { herramientaId, orden: whereOrdenAbierta },
     select: { id: true },
-  }));
+  });
+  return !!uso;
 }
 
-export async function stockEnOtAbierta(id) {
-  // ⚠️ Ajustá si tu tabla/relación difiere: ordenTrabajoItem / otItem / consumoStock
-  return !!(await prisma.ordenTrabajoItem.findFirst({
-    where: { stockId: id, orden: { estado: { in: OPEN_STATES } } },
+/**
+ * STOCK: bloquea si aparece en una OT ABIERTA
+ * (si tu política permite archivar Stock igual, no llames este guard en el controlador)
+ */
+export async function stockEnOtAbierta(stockId) {
+  const uso = await prisma.ordenStock.findFirst({
+    where: { stockId, orden: whereOrdenAbierta },
     select: { id: true },
-  }));
+  });
+  return !!uso;
 }
 
-export async function avionEnOtAbierta(id) {
-  return !!(await prisma.ordenTrabajo.findFirst({
-    where: { avionId: id, estado: { in: OPEN_STATES } },
+/**
+ * AVIÓN: bloquea si hay alguna OT ABIERTA sobre ese avión
+ */
+export async function avionEnOtAbierta(avionId) {
+  const ot = await prisma.ordenTrabajo.findFirst({
+    where: { avionId, estadoOrden: OPEN_STATE }, // campo correcto
     select: { id: true },
-  }));
+  });
+  return !!ot;
 }
 
-export async function propietarioEnOtAbierta(id) {
-  return !!(await prisma.ordenTrabajo.findFirst({
+/**
+ * PROPIETARIO: bloquea si existe una OT ABIERTA cuyo avión esté asociado a ese propietario
+ */
+export async function propietarioEnOtAbierta(propietarioId) {
+  const ot = await prisma.ordenTrabajo.findFirst({
     where: {
-      estado: { in: OPEN_STATES },
-      avion: { propietarios: { some: { propietarioId: id } } },
+      estadoOrden: OPEN_STATE, // campo correcto
+      avion: {
+        is: {
+          propietarios: { some: { propietarioId } },
+        },
+      },
     },
     select: { id: true },
-  }));
+  });
+  return !!ot;
 }
 
-export async function componenteExternoEnOtAbierta(id) {
-  // ⚠️ Ajustá el nombre de la relación componentesExternos en OT si difiere
-  return !!(await prisma.ordenTrabajo.findFirst({
-    where: {
-      estado: { in: OPEN_STATES },
-      componentesExternos: { some: { componenteExternoId: id } },
-    },
+/**
+ * COMPONENTE EXTERNO: bloquea si hay una OT ABIERTA sobre ese componente
+ */
+export async function componenteExternoEnOtAbierta(componenteExternoId) {
+  const ot = await prisma.ordenTrabajo.findFirst({
+    where: { componenteId: componenteExternoId, estadoOrden: OPEN_STATE }, // campos correctos
     select: { id: true },
-  }));
+  });
+  return !!ot;
 }

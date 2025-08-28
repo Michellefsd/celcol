@@ -3,16 +3,33 @@
 export const API_URL =
   process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
-// ⬇️ NUEVO: base real de auth del backend
 export const AUTH_BASE =
   process.env.NEXT_PUBLIC_AUTH_BASE || '/api/auth';
 
-function isAbsoluteUrl(path: string) {
-  return /^https?:\/\//i.test(path);
+function isAbsoluteUrl(v: string) {
+  return /^https?:\/\//i.test(v);
+}
+
+function ensurePath(input: unknown): string {
+  if (typeof input === 'string') return input;
+  if (input instanceof URL) return input.toString();
+
+  if (input && typeof input === 'object') {
+    const obj = input as any;
+    if (typeof obj.storageKey === 'string') return obj.storageKey; // ← ✅ AÑADIDO
+    if (typeof obj.href === 'string') return obj.href;
+    if (typeof obj.url === 'string') return obj.url;
+    if (typeof obj.path === 'string') return obj.path;
+    if (typeof obj.key === 'string') return obj.key;
+  }
+
+  console.error('api(): se esperaba string/URL y llegó ->', input);
+  throw new TypeError(`api() esperaba un string o URL; recibió ${typeof input}`);
 }
 
 // Devuelve URL absoluta al backend
-export function api(path: string) {
+export function api(p: unknown) {
+  const path = ensurePath(p);
   if (isAbsoluteUrl(path)) return path;
   const base = API_URL.replace(/\/+$/, '');
   const rel = path.startsWith('/') ? path : `/${path}`;
@@ -24,11 +41,10 @@ export function apiUrl(path: string) {
 }
 
 // ---- REFRESH TOLERANTE AL PATH ----
-// ⬇️ Preferimos `${AUTH_BASE}/refresh`; mantenemos otros por compat opcional
 const REFRESH_PATHS = [
   `${AUTH_BASE}/refresh`,
   process.env.NEXT_PUBLIC_AUTH_REFRESH_PATH || '',
-  '/auth/refresh', // (legacy) por si en algún lugar quedó viejo
+  '/auth/refresh', // (legacy) por compat
 ].filter(Boolean);
 
 async function refreshAuth(): Promise<boolean> {
@@ -44,7 +60,7 @@ async function refreshAuth(): Promise<boolean> {
   return false;
 }
 
-// ---- FETCH PRINCIPAL: con cookies + auto-refresh + MENSAJE REAL ----
+// ---- FETCH PRINCIPAL: con cookies + auto-refresh + headers globales ----
 export async function apiFetch<T = unknown>(
   path: string,
   init: RequestInit = {}
@@ -60,10 +76,18 @@ export async function apiFetch<T = unknown>(
       (init.body != null ||
         (init.method && init.method.toUpperCase() !== 'GET'));
 
+    // 🔐 Leemos token del storage (ajustá si usás otro provider)
+    const token =
+      typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+
     const headers: HeadersInit = {
       Accept: 'application/json',
       ...(needsJson ? { 'Content-Type': 'application/json' } : {}),
-      ...(init.headers || {}),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(process.env.NEXT_PUBLIC_API_KEY
+        ? { 'x-api-key': process.env.NEXT_PUBLIC_API_KEY }
+        : {}),
+      ...(init.headers || {}), // lo que venga en la llamada tiene prioridad
     };
 
     return fetch(url, {

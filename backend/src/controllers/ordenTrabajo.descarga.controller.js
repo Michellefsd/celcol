@@ -1,4 +1,4 @@
-// src/controllers/ordenTrabajo.descarga.controller.js (ESM completo)
+// src/controllers/ordenTrabajo.descarga.controller.js (ESM)
 import { PrismaClient } from '@prisma/client';
 import PDFDocument from 'pdfkit';
 import path from 'path';
@@ -7,9 +7,9 @@ import fs from 'fs';
 const prisma = new PrismaClient();
 
 export const descargarOrdenPDF = async (req, res) => {
-  const id = parseInt(req.params.id, 10);
+  const id = Number.parseInt(req.params.id, 10);
 
-  // ----- Helpers -----
+  // Helpers basicos
   const drawLine = (doc) => {
     doc.moveTo(doc.x, doc.y + 5)
       .lineTo(550, doc.y + 5)
@@ -19,34 +19,58 @@ export const descargarOrdenPDF = async (req, res) => {
       .moveDown(0.6);
   };
 
-  const fmtLocal = (d) => (d ? new Date(d).toLocaleDateString('es-UY') : '—');
+  const fmtLocal = (d) => {
+    if (!d) return '-';
+    const dt = new Date(d);
+    if (isNaN(dt)) return '-';
+    return dt.toLocaleDateString('es-UY');
+  };
+
   const fmtISO = (d) => {
-    if (!d) return '—';
+    if (!d) return '-';
     const dd = new Date(d);
-    if (isNaN(dd)) return '—';
+    if (isNaN(dd)) return '-';
     const y = dd.getUTCFullYear();
     const m = String(dd.getUTCMonth() + 1).padStart(2, '0');
     const day = String(dd.getUTCDate()).padStart(2, '0');
     return `${y}-${m}-${day}`;
   };
 
-  const nombrePropietario = (p) => {
-    if (!p) return '—';
-    const tipo = (p.tipoPropietario || '').toUpperCase();
-    if (tipo === 'INSTITUCION') {
-      return p.nombreEmpresa || p.razonSocial || p.nombre || '—';
+  // Normaliza posibles snapshots guardados como string JSON
+  const normalizeSnap = (val) => {
+    if (!val) return null;
+    if (typeof val === 'string') {
+      try {
+        const parsed = JSON.parse(val);
+        return parsed ?? null;
+      } catch {
+        return null;
+      }
     }
-    const full = [p.nombre, p.apellido].filter(Boolean).join(' ').trim();
-    return full || '—';
+    return val;
   };
 
-  // Acepta array de objetos de pivot [{ propietario: {...} }] o
-  // array directo [{...}] o incluso array de strings
+  const nombrePropietario = (p) => {
+    if (!p) return '-';
+    const tipo = (p.tipoPropietario || '').toUpperCase();
+    if (tipo === 'INSTITUCION') {
+      return p.nombreEmpresa || '-';
+    }
+    const full = [p.nombre, p.apellido].filter(Boolean).join(' ').trim();
+    return full || '-';
+  };
+
+  // Acepta array de objetos pivot { propietario: {...} }, array directo, o strings
   const propietariosTexto = (lista) => {
-    if (!Array.isArray(lista) || !lista.length) return '—';
+    if (!Array.isArray(lista) || !lista.length) return '-';
     return lista
       .map((x) => {
-        if (typeof x === 'string') return x;
+        if (typeof x === 'string') {
+          // Si el item viene serializado, intento parsear
+          const maybe = normalizeSnap(x);
+          if (maybe) return nombrePropietario(maybe);
+          return x;
+        }
         const p = x?.propietario ?? x;
         return nombrePropietario(p);
       })
@@ -55,46 +79,33 @@ export const descargarOrdenPDF = async (req, res) => {
   };
 
   const toolLabel = (h) => {
-    const nombre = h?.nombre ?? '—';
-    const marca = h?.marca?.trim();
-    const modelo = h?.modelo?.trim();
+    const nombre = h?.nombre ?? '-';
+    const marca = (h?.marca || '').trim();
+    const modelo = (h?.modelo || '').trim();
     let dentro = '';
     if (marca && modelo) dentro = `${marca} ${modelo}`;
     else if (modelo) dentro = modelo;
     return dentro ? `${nombre} (${dentro})` : nombre;
   };
 
-  // Construye URL absoluta para el archivo de solicitud.
-  // Revisa múltiples campos posibles y arma base confiable.
-  const solicitudURL = (orden) => {
-    // posibles ubicaciones
-    const f =
-      orden.archivoSolicitud ||
-      orden.solicitudArchivo ||
-      orden.archivos?.solicitud ||
-      orden.solicitud?.archivo ||
-      null;
-
-    if (!f) return null;
-
-    const raw =
-      typeof f === 'string'
-        ? f
-        : f.url || f.path || f.location || f.href || null;
-
-    if (!raw) return null;
-    if (/^https?:\/\//i.test(raw)) return raw;
-
-    // Base de URL pública del API. Preferí una env explícita si existe.
-    const base =
-      process.env.API_PUBLIC_URL ||
-      `${req.protocol}://${req.get('host')}`;
-
-    return `${base}/${String(raw).replace(/^\/+/, '')}`;
+  const pintarPropietario = (doc, p) => {
+    if (!p) {
+      doc.fillColor('#666').text('Sin datos de propietario').fillColor('#000');
+      return;
+    }
+    const tipo = (p.tipoPropietario || '').toUpperCase();
+    if (tipo === 'INSTITUCION') {
+      doc.text(`Razon Social / Empresa: ${p.nombreEmpresa || '-'}`);
+    } else {
+      doc.text(`Nombre: ${[p.nombre, p.apellido].filter(Boolean).join(' ') || '-'}`);
+    }
+    if (p.rut || p.cedula) doc.text(`RUT/Cedula: ${p.rut ?? p.cedula}`);
+    if (p.email) doc.text(`Email: ${p.email}`);
+    if (p.telefono) doc.text(`Telefono: ${p.telefono}`);
   };
 
   try {
-    if (!id) return res.status(400).json({ error: 'ID inválido' });
+    if (!id) return res.status(400).json({ error: 'ID invalido' });
 
     const orden = await prisma.ordenTrabajo.findUnique({
       where: { id },
@@ -103,29 +114,33 @@ export const descargarOrdenPDF = async (req, res) => {
         herramientas:      { include: { herramienta: true } },
         empleadosAsignados:{ include: { empleado: true } },
         registrosTrabajo:  { orderBy: { fecha: 'asc' }, include: { empleado: true } },
-
-        // AVIÓN: importante incluir propietario anidado en pivot
         avion: {
           include: {
             ComponenteAvion: true,
-            propietarios: { include: { propietario: true } },
-          },
+            propietarios: { include: { propietario: true } }
+          }
         },
-        // COMPONENTE: propietario directo
-        componente: { include: { propietario: true } },
-      },
+        componente: { include: { propietario: true } }
+      }
     });
 
     if (!orden) return res.status(404).json({ error: 'Orden no encontrada' });
 
-    if (!['CERRADA', 'CANCELADA'].includes(orden.estadoOrden)) {
-      return res
-        .status(400)
-        .json({ error: 'La descarga solo está disponible para órdenes CERRADAS o CANCELADAS' });
+    // Solo permitir CERRADA o CANCELADA (puede estar archivada como booleano aparte)
+    const estado = orden.estadoOrden || '';
+    if (!['CERRADA', 'CANCELADA'].includes(estado)) {
+      return res.status(400).json({ error: 'La descarga solo esta disponible para ordenes CERRADAS o CANCELADAS' });
     }
 
-    // ¿Fue sobre avión o sobre componente?
-    const trabajoEnAvion = !!orden.datosAvionSnapshot || !!orden.avionId;
+    // Preferencia por snapshots (normalizados por si llegan como texto)
+    const avSnap        = normalizeSnap(orden.datosAvionSnapshot);
+    const compSnap      = normalizeSnap(orden.datosComponenteSnapshot);
+    const propSnap      = normalizeSnap(orden.datosPropietarioSnapshot);
+    const herramientasSnap = normalizeSnap(orden.datosHerramientasSnapshot);
+    const stockSnap        = normalizeSnap(orden.datosStockSnapshot);
+    const personalSnap     = normalizeSnap(orden.datosPersonalSnapshot);
+
+    const trabajoEnAvion = !!avSnap || !!orden.avionId;
 
     // PDF
     const doc = new PDFDocument({ size: 'A4', margin: 40 });
@@ -144,192 +159,163 @@ export const descargarOrdenPDF = async (req, res) => {
     doc.fontSize(18).text('Celcol | Orden de Trabajo', 130, 40);
     doc.moveDown(2);
 
-    doc.fontSize(16).text(`OT N.º ${orden.numero ?? orden.id}`, { underline: true });
+    doc.fontSize(16).text(`OT Nro ${orden.numero ?? orden.id}`, { underline: true });
     doc.fontSize(12).moveDown(0.5);
-    doc.text(`Estado: ${orden.estadoOrden}`);
+    doc.text(`Estado: ${estado}`);
     doc.text(`Fecha de apertura: ${fmtLocal(orden.fechaApertura)}`);
-    if (orden.estadoOrden === 'CERRADA') {
+    if (estado === 'CERRADA') {
       doc.text(`Fecha de cierre: ${fmtLocal(orden.fechaCierre)}`);
     } else {
-      doc.text(`Fecha de cancelación: ${fmtLocal(orden.fechaCancelacion)}`);
+      doc.text(`Fecha de cancelacion: ${fmtLocal(orden.fechaCancelacion)}`);
+    }
+    if (orden.archivada === true) {
+      doc.text('Archivada: Si');
     }
     doc.moveDown();
 
-    // ===== ENTIDAD + PROPIETARIOS =====
+    // Entidad (sin propietario si es avion)
     if (trabajoEnAvion) {
-      // Avión
-      doc.fontSize(14).text('Datos del avión (snapshot)');
+      doc.fontSize(14).text('Datos del avion (snapshot)');
       drawLine(doc);
       doc.fontSize(12);
-      const av = orden.datosAvionSnapshot || null;
 
+      const av = avSnap;
       if (av) {
-        doc.text(`Matrícula: ${av.matricula ?? '—'}`);
-        doc.text(`Marca / Modelo: ${av.marca ?? '—'} ${av.modelo ?? ''}`);
-        if (av.numeroSerie) doc.text(`N.º de serie: ${av.numeroSerie}`);
+        doc.text(`Matricula: ${av.matricula ?? '-'}`);
+        doc.text(`Marca / Modelo: ${av.marca ?? '-'} ${av.modelo ?? ''}`);
+        if (av.numeroSerie) doc.text(`Nro de serie: ${av.numeroSerie}`);
         if (av.TSN != null) doc.text(`TSN: ${av.TSN}`);
-        // Algunos snapshots traen propietarios embebidos:
-        if (Array.isArray(av.propietarios) && av.propietarios.length) {
-          doc.text(`Propietario(s): ${propietariosTexto(av.propietarios)}`);
-        }
+      } else if (orden.avion) {
+        const a = orden.avion;
+        doc.text(`Matricula: ${a.matricula ?? '-'}`);
+        doc.text(`Marca / Modelo: ${a.marca ?? '-'} ${a.modelo ?? ''}`);
       } else {
         doc.fillColor('#666').text('Sin snapshot disponible').fillColor('#000');
       }
-
-      // Snapshot explícito de propietario de la OT (si existiera)
-      if (orden.datosPropietarioSnapshot) {
-        const snap = orden.datosPropietarioSnapshot;
-        if (Array.isArray(snap)) {
-          doc.text(`Propietario(s): ${propietariosTexto(snap)}`);
-        } else {
-          doc.text(`Propietario: ${nombrePropietario(snap)}`);
-        }
-      } else if (Array.isArray(orden.avion?.propietarios) && orden.avion.propietarios.length) {
-        // Fallback a propietarios actuales del avión
-        doc.text(`Propietario(s): ${propietariosTexto(orden.avion.propietarios)}`);
-      } else if (!av || !Array.isArray(av?.propietarios)) {
-        doc.text('Propietario(s): —');
-      }
-
       doc.moveDown();
     } else {
-      // Componente externo
       doc.fontSize(14).text('Componente externo (snapshot)');
       drawLine(doc);
       doc.fontSize(12);
-      const comp = orden.datosComponenteSnapshot || null;
 
+      const comp = compSnap || orden.componente || null;
       if (comp) {
-        doc.text(`Tipo: ${comp.tipo ?? '—'}`);
-        doc.text(`Marca / Modelo: ${comp.marca ?? '—'} ${comp.modelo ?? ''}`);
-        const serie = comp.numeroSerie ?? '—';
-        const parte = comp.numeroParte ?? '—';
-        doc.text(`N.º de serie / parte: ${serie} / ${parte}`);
+        doc.text(`Tipo: ${comp.tipo ?? '-'}`);
+        doc.text(`Marca / Modelo: ${comp.marca ?? '-'} ${comp.modelo ?? ''}`);
+        const serie = comp.numeroSerie ?? '-';
+        const parte = comp.numeroParte ?? '-';
+        doc.text(`Nro de serie / parte: ${serie} / ${parte}`);
         if (comp.TSN != null) doc.text(`TSN: ${comp.TSN}`);
       } else {
         doc.fillColor('#666').text('Sin snapshot disponible').fillColor('#000');
       }
       doc.moveDown();
 
-      // Propietario del componente
+      // Propietario (solo para componente externo)
       doc.fontSize(14).text('Propietario (al cierre)');
       drawLine(doc);
       doc.fontSize(12);
 
-      if (orden.datosPropietarioSnapshot) {
-        const p = orden.datosPropietarioSnapshot;
-        if (Array.isArray(p)) {
-          doc.text(`Propietario(s): ${propietariosTexto(p)}`);
+      if (propSnap) {
+        if (Array.isArray(propSnap)) {
+          doc.text(`Propietario(s): ${propietariosTexto(propSnap)}`);
         } else {
-          doc.text(`Nombre/Razón Social: ${nombrePropietario(p)}`);
-          if (p.rut || p.cedula) doc.text(`RUT/Cédula: ${p.rut ?? p.cedula}`);
-          if (p.email) doc.text(`Email: ${p.email}`);
-          if (p.telefono) doc.text(`Teléfono: ${p.telefono}`);
+          pintarPropietario(doc, propSnap);
         }
       } else if (orden.componente?.propietario) {
-        const p = orden.componente.propietario;
-        doc.text(`Nombre/Razón Social: ${nombrePropietario(p)}`);
-        if (p.rut) doc.text(`RUT: ${p.rut}`);
-        if (p.email) doc.text(`Email: ${p.email}`);
-        if (p.telefono) doc.text(`Teléfono: ${p.telefono}`);
+        pintarPropietario(doc, orden.componente.propietario);
       } else {
         doc.fillColor('#666').text('Sin datos de propietario').fillColor('#000');
       }
       doc.moveDown();
     }
 
-    // ===== DATOS DE SOLICITUD =====
+    // Datos de solicitud (sin archivo ni firma)
     doc.fontSize(14).text('Datos de solicitud');
     drawLine(doc);
     doc.fontSize(12);
-    doc.text(`Solicitado por: ${orden.solicitadoPor ?? '—'}`);
-    doc.text(`Descripción del trabajo solicitado: ${orden.solicitud ?? orden.descripcionTrabajo ?? '—'}`);
+    doc.text(`Solicitado por: ${orden.solicitadoPor ?? '-'}`);
+    doc.text(`Descripcion del trabajo solicitado: ${orden.solicitud ?? orden.descripcionTrabajo ?? '-'}`);
     const flag = !!orden.inspeccionRecibida;
-    doc.text(`¿Inspección recibida?: ${flag ? 'Sí' : 'No'}`);
-    if (orden.danosPrevios) doc.text(`Daños previos: ${orden.danosPrevios}`);
-    if (orden.accionTomada) doc.text(`Acción tomada: ${orden.accionTomada}`);
+    doc.text(`Inspeccion recibida: ${flag ? 'Si' : 'No'}`);
+    if (orden.danosPrevios) doc.text(`Danos previos: ${orden.danosPrevios}`);
+    if (orden.accionTomada) doc.text(`Accion tomada: ${orden.accionTomada}`);
     if (orden.observaciones) doc.text(`Observaciones: ${orden.observaciones}`);
-
-    const urlSol = solicitudURL(orden);
-    if (urlSol) {
-      doc.fillColor('#2563eb').text(`Archivo de solicitud: ${urlSol}`, { link: urlSol, underline: true }).fillColor('#000');
-    } else {
-      doc.text('Archivo de solicitud: —');
-    }
     doc.moveDown();
 
-    // ===== HERRAMIENTAS =====
+    // Herramientas (snapshot primero)
     doc.fontSize(14).text('Herramientas asignadas');
     drawLine(doc);
     doc.fontSize(12);
-    if (orden.herramientas?.length) {
-      orden.herramientas.forEach((h) => {
-        const label = toolLabel(h.herramienta);
-        const fv =
-          h.herramienta?.fechaVencimiento ||
-          h.herramienta?.vencimiento ||
-          h.herramienta?.fechaCalibracion ||
-          null;
-        const venc = fv ? ` · Vence: ${fmtISO(fv)}` : '';
+    const herramientasLista = Array.isArray(herramientasSnap) ? herramientasSnap : (orden.herramientas || []);
+    if (herramientasLista.length) {
+      herramientasLista.forEach((h) => {
+        const base = h?.herramienta ?? h;
+        const label = toolLabel(base);
+        const fv = base?.fechaVencimiento || base?.vencimiento || base?.fechaCalibracion || null;
+        const venc = fv ? `  Vence: ${fmtISO(fv)}` : '';
         doc.text(`- ${label}${venc}`);
       });
     } else {
-      doc.fillColor('#666').text('—').fillColor('#000');
+      doc.fillColor('#666').text('-').fillColor('#000');
     }
     doc.moveDown();
 
-    // ===== STOCK =====
+    // Stock (snapshot primero)
     doc.fontSize(14).text('Stock utilizado');
     drawLine(doc);
     doc.fontSize(12);
-    if (orden.stockAsignado?.length) {
-      orden.stockAsignado.forEach((s) => {
-        const nombre = s.stock?.nombre ?? s.stock?.codigo ?? 'Ítem';
-        const cant = s.cantidadUtilizada ?? s.cantidad ?? '—';
-        doc.text(`- ${nombre} · Cantidad: ${cant}`);
+    const stockLista = Array.isArray(stockSnap) ? stockSnap : (orden.stockAsignado || []);
+    if (stockLista.length) {
+      stockLista.forEach((s) => {
+        const nombre = s?.nombre ?? s?.codigo ?? s?.stock?.nombre ?? s?.stock?.codigo ?? 'Item';
+        const cant = s?.cantidadUtilizada ?? s?.cantidad ?? '-';
+        doc.text(`- ${nombre}  Cantidad: ${cant}`);
       });
     } else {
-      doc.fillColor('#666').text('—').fillColor('#000');
+      doc.fillColor('#666').text('-').fillColor('#000');
     }
     doc.moveDown();
 
-    // ===== PERSONAL (resumen) =====
+    // Personal (snapshot primero)
     doc.fontSize(14).text('Personal asignado');
     drawLine(doc);
     doc.fontSize(12);
-    if (orden.empleadosAsignados?.length) {
-      const tecnicos = orden.empleadosAsignados
-        .filter((a) => (a.rol || '').toUpperCase() === 'TECNICO')
-        .map((t) => [t.empleado?.nombre, t.empleado?.apellido].filter(Boolean).join(' ').trim())
-        .filter(Boolean);
-      const certificadores = orden.empleadosAsignados
-        .filter((a) => (a.rol || '').toUpperCase() === 'CERTIFICADOR')
-        .map((c) => [c.empleado?.nombre, c.empleado?.apellido].filter(Boolean).join(' ').trim())
-        .filter(Boolean);
+    const personalLista = Array.isArray(personalSnap) ? personalSnap : (orden.empleadosAsignados || []);
+    if (personalLista.length) {
+      const toNombre = (item) => {
+        const n = item?.nombre ?? item?.empleado?.nombre;
+        const a = item?.apellido ?? item?.empleado?.apellido;
+        const full = [n, a].filter(Boolean).join(' ').trim();
+        return full || '-';
+      };
+      const rolOf = (it) => (it?.rol || '').toUpperCase();
 
-      doc.text(`Técnicos: ${tecnicos.length ? tecnicos.join(', ') : '—'}`);
-      doc.text(`Certificadores: ${certificadores.length ? certificadores.join(', ') : '—'}`);
+      const tecnicos = personalLista.filter((a) => rolOf(a) === 'TECNICO').map(toNombre).filter(Boolean);
+      const certificadores = personalLista.filter((a) => rolOf(a) === 'CERTIFICADOR').map(toNombre).filter(Boolean);
+
+      doc.text(`Tecnicos: ${tecnicos.length ? tecnicos.join(', ') : '-'}`);
+      doc.text(`Certificadores: ${certificadores.length ? certificadores.join(', ') : '-'}`);
     } else {
-      doc.fillColor('#666').text('—').fillColor('#000');
+      doc.fillColor('#666').text('-').fillColor('#000');
     }
     doc.moveDown();
 
-    // ===== REGISTROS DE TRABAJO =====
-    if (orden.registrosTrabajo?.length) {
+    // Registros de trabajo
+    if (Array.isArray(orden.registrosTrabajo) && orden.registrosTrabajo.length) {
       doc.fontSize(14).text('Registros de trabajo');
       drawLine(doc);
       doc.fontSize(12);
       orden.registrosTrabajo.forEach((r) => {
-        const nombre = [r.empleado?.nombre, r.empleado?.apellido].filter(Boolean).join(' ').trim() || '—';
-        const rol = r.rol || '—';
-        const horas = r.horas ?? r.cantidadHoras ?? '—';
-        const desc = r.trabajoRealizado || r.detalle || r.descripcion || '—';
-        doc.text(`- ${fmtISO(r.fecha)} · ${nombre} (${rol}) · Horas: ${horas} · ${desc}`);
+        const nombre = [r?.empleado?.nombre, r?.empleado?.apellido].filter(Boolean).join(' ').trim() || '-';
+        const rol = r?.rol || '-';
+        const horas = r?.horas ?? r?.cantidadHoras ?? '-';
+        const desc = r?.trabajoRealizado || r?.detalle || r?.descripcion || '-';
+        doc.text(`- ${fmtISO(r?.fecha)}  ${nombre} (${rol})  Horas: ${horas}  ${desc}`);
       });
       doc.moveDown();
     }
 
-    // Cierre
     doc.end();
   } catch (error) {
     console.error('Error al generar PDF de OT:', error);

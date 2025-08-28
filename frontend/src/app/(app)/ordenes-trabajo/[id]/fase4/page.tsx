@@ -106,10 +106,19 @@ interface StockAsignado {
   };
 }
 
+type ArchivoRef = {
+  id: number;
+  storageKey: string;
+  mime?: string;
+  originalName?: string;
+  sizeAlmacen?: number;
+};
+
 interface OrdenTrabajo {
   id: number;
   estadoOrden: 'ABIERTA' | 'CERRADA' | 'CANCELADA';
-  archivoFactura?: string;
+  archivoFactura?: ArchivoRef | null; 
+  solicitudFirma?: ArchivoRef | null;  
   estadoFactura?: 'NO_ENVIADA' | 'ENVIADA' | 'PAGA' | '';
   numeroFactura?: string;
   registrosTrabajo?: RegistroTrabajo[];
@@ -119,7 +128,6 @@ interface OrdenTrabajo {
   solicitud?: string;
   solicitadoPor?: string;
   OTsolicitud?: string;
-  solicitudFirma?: string;
   inspeccionRecibida?: boolean;
   danosPrevios?: string;
   accionTomada?: string;
@@ -350,6 +358,69 @@ const opcionesEmpleado = Array.from(
 
 
 
+async function obtenerUrlFirmada(key: string, disposition: 'inline' | 'attachment') {
+  const q = new URLSearchParams({ key, disposition }).toString();
+  return fetchJson<{ url: string }>(`/archivos/url-firmada?${q}`);
+}
+
+async function verFactura(key?: string) {
+  if (!key) return;
+  const win = window.open('about:blank', '_blank'); // abre YA para evitar bloqueos
+  try {
+    const { url } = await obtenerUrlFirmada(key, 'inline');
+    if (!url) { win?.close(); return; }
+    setTimeout(() => win && (win.location.replace(url)), 60);
+  } catch (e) {
+    win?.close();
+    console.error('❌ No se pudo abrir la factura:', e);
+  }
+}
+
+async function descargarFactura(key?: string) {
+  if (!key) return;
+  const win = window.open('about:blank', '_blank');
+  try {
+    const { url } = await obtenerUrlFirmada(key, 'attachment');
+    if (!url) { win?.close(); return; }
+    setTimeout(() => win && (win.location.replace(url)), 60);
+  } catch (e) {
+    win?.close();
+    console.error('❌ No se pudo descargar la factura:', e);
+  }
+}
+
+// VER solicitud (abre pestaña ya y luego la reemplaza)
+async function verSolicitud(key?: string) {
+  if (!key) return;
+  const win = window.open('about:blank', '_blank'); // abre YA (gesto del usuario)
+  try {
+    const { url } = await obtenerUrlFirmada(key, 'inline');
+    if (!url) { win?.close(); return; }
+    setTimeout(() => win && (win.location.replace(url)), 60); // ayuda Safari/ blockers
+  } catch (e) {
+    win?.close();
+    console.error('❌ No se pudo ver solicitud:', e);
+  }
+}
+
+// DESCARGAR solicitud (igual que en herramientas)
+async function descargarSolicitud(key?: string) {
+  if (!key) return;
+  const win = window.open('about:blank', '_blank');
+  try {
+    const { url } = await obtenerUrlFirmada(key, 'attachment');
+    if (!url) { win?.close(); return; }
+    setTimeout(() => win && (win.location.replace(url)), 60);
+  } catch (e) {
+    win?.close();
+    console.error('❌ No se pudo descargar solicitud:', e);
+  }
+}
+
+
+
+
+
 return (
   <div className="min-h-screen bg-slate-100">
     <main className="mx-auto w-full lg:w-[80%] max-w-[1800px] px-4 md:px-6 lg:px-8 py-6 space-y-6">
@@ -483,25 +554,26 @@ return (
         {renderCampo('Solicitado por', orden.solicitadoPor)}
         {renderCampo('N.º de OT previa', orden.OTsolicitud)}
 
-        {orden.solicitudFirma && (
-          <div className="mt-1.5 flex flex-wrap items-center gap-3 text-[14px] leading-6">
-            <a
-              href={orden.solicitudFirma}
-              className="inline-flex items-center gap-1 text-cyan-600 hover:text-cyan-800 underline underline-offset-2"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              👁️ Ver archivo de solicitud
-            </a>
-            <a
-              href={orden.solicitudFirma}
-              download
-              className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-slate-700 hover:bg-slate-50"
-            >
-              Descargar
-            </a>
-          </div>
-        )}
+      {orden.solicitudFirma?.storageKey && (
+  <div className="mt-1.5 flex flex-wrap items-center gap-3 text-[14px] leading-6">
+    <button
+      type="button"
+      onClick={() => verSolicitud(orden.solicitudFirma!.storageKey)}
+      className="inline-flex items-center gap-1 text-cyan-600 hover:text-cyan-800 underline underline-offset-2"
+    >
+      👁️ Ver archivo de solicitud
+    </button>
+
+    <button
+      type="button"
+      onClick={() => descargarSolicitud(orden.solicitudFirma!.storageKey)}
+      className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-slate-700 hover:bg-slate-50"
+    >
+      Descargar
+    </button>
+  </div>
+)}
+
       </div>
     )}
 
@@ -735,19 +807,25 @@ return (
             }}
           />
 
-          {orden.archivoFactura && (
-            <div className="mt-2">
-              <span className="text-slate-500">Archivo actual: </span>
-              <a
-                href={api(orden.archivoFactura)}
-                className="text-cyan-600 hover:text-cyan-800 underline underline-offset-2"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                👁️ Ver archivo
-              </a>
-            </div>
-          )}
+       {orden.archivoFactura?.storageKey && (
+  <div className="mt-2 flex gap-3 items-center text-sm">
+    <button
+      type="button"
+      onClick={() => verFactura(orden.archivoFactura!.storageKey)}
+      className="inline-flex items-center gap-1 text-cyan-600 hover:text-cyan-800 underline underline-offset-2"
+    >
+      👁️ Ver archivo
+    </button>
+    <button
+      type="button"
+      onClick={() => descargarFactura(orden.archivoFactura!.storageKey)}
+      className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-slate-700 hover:bg-slate-50"
+    >
+      Descargar
+    </button>
+  </div>
+)}
+
         </div>
       </section>
 

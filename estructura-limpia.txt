@@ -12,9 +12,6 @@ find . -type f \
 
 
 
-
-
-
 celcol-logo.jpeg
 .DS_Store
 frontend/middleware.ts
@@ -92,6 +89,7 @@ frontend/src/services/api.ts
 estructura-limpia.txt
 backend/middleware/upload.middleware.js
 backend/middleware/authz.js
+backend/estructura-limpia.txt
 backend/prisma/migrations/migration_lock.toml
 backend/prisma/migrations/20250824015024_init/migration.sql
 backend/prisma/migrations/20250824131441_add_aviso_uniques/migration.sql
@@ -132,6 +130,7 @@ backend/src/routes/ordenTrabajo.routes.js
 backend/src/routes/auth.routes.js
 backend/src/routes/herramientas.routes.js
 backend/src/routes/componenteExterno.routes.js
+backend/src/routes/archivos.routes.js
 backend/src/routes/personal.routes.js
 backend/src/routes/avionComponente.routes.js
 backend/src/routes/avisos.routes.js

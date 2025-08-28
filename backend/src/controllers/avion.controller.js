@@ -72,7 +72,6 @@ export const obtenerAvion = async (req, res) => {
       return res.status(400).json({ error: 'ID inválido' });
     }
 
-    // acepta ?includeArchived=1 o =true
     const includeArchived =
       req.query.includeArchived === '1' || req.query.includeArchived === 'true';
 
@@ -83,7 +82,6 @@ export const obtenerAvion = async (req, res) => {
       include: {
         propietarios: { include: { propietario: true } },
         ComponenteAvion: true,
-        // 👇 Trae la relación del archivo igual que en herramienta
         certificadoMatricula: {
           select: {
             id: true,
@@ -100,7 +98,6 @@ export const obtenerAvion = async (req, res) => {
       return res.status(404).json({ error: 'Avión no encontrado' });
     }
 
-    // Podés renombrar ComponenteAvion si querés exponerlo como "componentes"
     const avionTransformado = {
       ...avion,
       componentes: avion.ComponenteAvion,
@@ -113,6 +110,7 @@ export const obtenerAvion = async (req, res) => {
     res.status(500).json({ error: 'Error al obtener el avión' });
   }
 };
+
 
 
 export const actualizarAvion = async (req, res) => {

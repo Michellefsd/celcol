@@ -6,8 +6,30 @@ import Link from 'next/link';
 import AgregarComponenteModal from '@/components/Asignaciones/AsignarComponente';
 import EditarComponenteModal from '@/components/Asignaciones/EditarComponente';
 import AccionBoton from '@/components/base/Boton';
-import { api, apiUrl, fetchJson } from '@/services/api'; // ⬅️ agregado apiUrl y fetchJson
+import { api, apiUrl, fetchJson } from '@/services/api'; 
 import VolverAtras from '@/components/Arrow';
+
+type ArchivoRef = {
+  id: number;
+  storageKey: string;
+  mime?: string | null;
+  originalName?: string | null;
+  sizeAlmacen?: number | null;
+}
+
+interface ComponenteExterno {
+  id: number;
+  tipo: string;
+  marca: string;
+  modelo: string;
+  numeroSerie: string;
+  numeroParte?: string | null;
+  TSN?: number | null;
+  TSO?: number | null;
+  TBOFecha?: string | null;
+  TBOHoras?: number | null;
+  archivo8130?: ArchivoRef | string | null; 
+}
 
 interface Avion {
   id: number;
@@ -17,19 +39,6 @@ interface Avion {
   archivado?: boolean;
 }
 
-interface ComponenteExterno {
-  id: number;
-  tipo: string;
-  marca: string;
-  modelo: string;
-  numeroSerie: string;
-  numeroParte?: string;
-  TSN?: number;
-  TSO?: number;
-  TBOFecha?: string;
-  TBOHoras?: number;
-  archivo8130?: string;
-}
 
 interface Propietario {
   id: number;
@@ -41,6 +50,43 @@ interface Propietario {
   telefono?: string;
   email?: string;
   direccion?: string;
+}
+
+// normaliza nullables a undefined y ArchivoRef a string para el modal
+type ComponenteModal = {
+  id: number;
+  tipo: string;
+  marca: string;
+  modelo: string;
+  numeroSerie: string;
+  numeroParte?: string;
+  TSN?: number;
+  TSO?: number;
+  TBOHoras?: number;
+  TBOFecha?: string;
+  archivo8130?: string;
+};
+
+// ✅ normaliza string | {storageKey} | null -> string | undefined
+function asKey(v?: string | ArchivoRef | null): string | undefined {
+  if (!v) return undefined;
+  return typeof v === 'string' ? v : v.storageKey;
+}
+
+function toComponenteModal(c: ComponenteExterno): ComponenteModal {
+  return {
+    id: c.id,
+    tipo: c.tipo,
+    marca: c.marca,
+    modelo: c.modelo,
+    numeroSerie: c.numeroSerie,
+    numeroParte: c.numeroParte ?? undefined,
+    TSN: c.TSN ?? undefined,
+    TSO: c.TSO ?? undefined,
+    TBOHoras: c.TBOHoras ?? undefined,
+    TBOFecha: c.TBOFecha ?? undefined,
+    archivo8130: asKey(c.archivo8130) ?? undefined,
+  };
 }
 
 export default function PropietarioDetallePage() {
@@ -66,7 +112,42 @@ const cargarPropietario = async () => {
   setLoading(false);
 }
 };
+// ✅ helper: normaliza a string
+function asKey(v?: string | ArchivoRef | null): string | undefined {
+  if (!v) return undefined;
+  return typeof v === 'string' ? v : v.storageKey;
+}
 
+async function obtenerUrlFirmada(key: string, disposition: 'inline' | 'attachment') {
+  const q = new URLSearchParams({ key, disposition }).toString();
+  return fetchJson<{ url: string }>(`/archivos/url-firmada?${q}`);
+}
+
+async function ver8130(input?: string | ArchivoRef | null) {
+  const key = asKey(input);
+  if (!key) return;
+  const win = window.open('about:blank', '_blank');
+  try {
+    const { url } = await obtenerUrlFirmada(key, 'inline');
+    if (!url) { win?.close(); return; }
+    setTimeout(() => win && (win.location.replace(url)), 60);
+  } catch {
+    win?.close();
+  }
+}
+
+async function descargar8130(input?: string | ArchivoRef | null) {
+  const key = asKey(input);
+  if (!key) return;
+  const win = window.open('about:blank', '_blank');
+  try {
+    const { url } = await obtenerUrlFirmada(key, 'attachment');
+    if (!url) { win?.close(); return; }
+    setTimeout(() => win && (win.location.replace(url)), 60);
+  } catch {
+    win?.close();
+  }
+}
 
 
   useEffect(() => {
@@ -154,108 +235,107 @@ const cargarPropietario = async () => {
 
 
 
-          {/* COMPONENTES EXTERNOS */}
-          <section className="rounded-2xl border border-slate-200 bg-white shadow-sm p-4 md:p-6">
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-lg font-semibold text-slate-900">Componentes externos</h2>
-              <button
-                className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-[#597BFF] to-[#4a6ee0] text-white font-semibold px-4 py-2 shadow-sm hover:from-[#4a6ee0] hover:to-[#3658d4] hover:shadow-lg hover:brightness-110 transform hover:scale-[1.03] transition-all duration-300"
-                onClick={() => setMostrarAgregarComponente(true)}
-              >
-                Agregar componente
-              </button>
-            </div>
+{/* COMPONENTES EXTERNOS */}
+<section className="rounded-2xl border border-slate-200 bg-white shadow-sm p-4 md:p-6">
+  <div className="flex items-center justify-between mb-3">
+    <h2 className="text-lg font-semibold text-slate-900">Componentes externos</h2>
+    <button
+      className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-[#597BFF] to-[#4a6ee0] text-white font-semibold px-4 py-2 shadow-sm hover:from-[#4a6ee0] hover:to-[#3658d4] hover:shadow-lg hover:brightness-110 transform hover:scale-[1.03] transition-all duration-300"
+      onClick={() => setMostrarAgregarComponente(true)}
+    >
+      Agregar componente
+    </button>
+  </div>
 
-            {componentes.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {componentes.map((c) => {
-                  const href8130 = c.archivo8130
-                    ? (c.archivo8130.startsWith('http')
-                        ? c.archivo8130
-                        : apiUrl(`/${c.archivo8130.replace(/^\/+/, '')}`)) // ⬅️ URL absoluta correcta
-                    : '';
+  {componentes.length > 0 ? (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {componentes.map((c) => (
+        <div key={c.id} className="rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3">
+          <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm text-slate-800">
+            <p><span className="text-slate-500">Tipo:</span> {c.tipo ?? '—'}</p>
+            <p><span className="text-slate-500">Marca:</span> {c.marca}</p>
+            <p><span className="text-slate-500">Modelo:</span> {c.modelo}</p>
+            <p><span className="text-slate-500">N° Serie:</span> {c.numeroSerie}</p>
+            {c.numeroParte && <p><span className="text-slate-500">N° Parte:</span> {c.numeroParte}</p>}
+            <p><span className="text-slate-500">TSN:</span> {c.TSN ?? '—'}</p>
+            <p><span className="text-slate-500">TSO:</span> {c.TSO ?? '—'}</p>
+            <p><span className="text-slate-500">TBO (Horas):</span> {c.TBOHoras ?? '—'}</p>
+            <p><span className="text-slate-500">TBO (Fecha):</span> {c.TBOFecha ? c.TBOFecha.slice(0, 10) : '—'}</p>
+          </div>
 
-                  return (
-                    <div key={c.id} className="rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3">
-                      <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm text-slate-800">
-                        <p><span className="text-slate-500">Tipo:</span> {c.tipo ?? '—'}</p>
-                        <p><span className="text-slate-500">Marca:</span> {c.marca}</p>
-                        <p><span className="text-slate-500">Modelo:</span> {c.modelo}</p>
-                        <p><span className="text-slate-500">N° Serie:</span> {c.numeroSerie}</p>
-                        {c.numeroParte && <p><span className="text-slate-500">N° Parte:</span> {c.numeroParte}</p>}
-                        <p><span className="text-slate-500">TSN:</span> {c.TSN ?? '—'}</p>
-                        <p><span className="text-slate-500">TSO:</span> {c.TSO ?? '—'}</p>
-                        <p><span className="text-slate-500">TBO (Horas):</span> {c.TBOHoras ?? '—'}</p>
-                        <p><span className="text-slate-500">TBO (Fecha):</span> {c.TBOFecha ? c.TBOFecha.slice(0, 10) : '—'}</p>
+          {/* Acciones 8130 */}
+{asKey(c.archivo8130) ? (
+  <div className="mt-3 flex gap-3">
+    <button
+      type="button"
+      onClick={() => ver8130(asKey(c.archivo8130))}
+      className="text-cyan-600 hover:text-cyan-800 underline underline-offset-2"
+    >
+      👁️ Ver 8130
+    </button>
+    <button
+      type="button"
+      onClick={() => descargar8130(asKey(c.archivo8130))}
+      className="rounded-xl border px-3 py-1.5 text-sm hover:bg-slate-50"
+    >
+      Descargar
+    </button>
+  </div>
+) : (
+  <p className="mt-3 text-sm text-slate-500">Sin 8130.</p>
+)}
 
-                        {href8130 && (
-                          <p className="col-span-2">
-                            <span className="text-slate-500 font-normal">8130:</span>{' '}
-                            <a
-                              href={href8130}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-2 text-cyan-600 hover:text-cyan-800 underline underline-offset-2"
-                            >
-                              👁️ Ver archivo
-                            </a>
-                          </p>
-                        )}
-                      </div>
 
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        <AccionBoton
-                          label="Editar"
-                          color="blue"
-                          onClick={() => {
-                            setComponenteSeleccionado(c);
-                            setMostrarEditarComponente(true);
-                          }}
-                        />
-<AccionBoton
-  label="Archivar"
-  color="red"
-  onClick={async () => {
-    const ok = confirm(`¿Archivar el componente "${c.marca} ${c.modelo}"?`);
-    if (!ok) return;
-
-    try {
-      await fetchJson(`/componentes/archivar/${c.id}`, { method: 'PATCH' });
-      await cargarPropietario(); // refresca la vista
-    } catch (e: any) {
-      alert(e?.message ?? 'Error'); // muestra el mensaje del backend (OT abierta, etc.)
-    }
-  }}
-/>
-
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <p className="text-slate-600 text-sm mt-2">No hay componentes asignados.</p>
-            )}
-          </section>
-
-          {/* MODALES */}
-          {mostrarAgregarComponente && (
-            <AgregarComponenteModal
-              propietarioId={parseInt(id as string)}
-              open={true}
-              onClose={() => setMostrarAgregarComponente(false)}
-              onSaved={cargarPropietario}
+          <div className="mt-3 flex flex-wrap gap-2">
+            <AccionBoton
+              label="Editar"
+              color="blue"
+              onClick={() => {
+                setComponenteSeleccionado(c);
+                setMostrarEditarComponente(true);
+              }}
             />
-          )}
-
-          {mostrarEditarComponente && componenteSeleccionado && (
-            <EditarComponenteModal
-              componente={componenteSeleccionado}
-              open={true}
-              onClose={() => setMostrarEditarComponente(false)}
-              onSaved={cargarPropietario}
+            <AccionBoton
+              label="Archivar"
+              color="red"
+              onClick={async () => {
+                const ok = confirm(`¿Archivar el componente "${c.marca} ${c.modelo}"?`);
+                if (!ok) return;
+                try {
+                  await fetchJson(`/componentes/archivar/${c.id}`, { method: 'PATCH' });
+                  await cargarPropietario(); // refresca la vista
+                } catch (e: any) {
+                  alert(e?.message ?? 'Error');
+                }
+              }}
             />
-          )}
+          </div>
+        </div>
+      ))}
+    </div>
+  ) : (
+    <p className="text-slate-600 text-sm mt-2">No hay componentes asignados.</p>
+  )}
+</section>
+
+{/* MODALES */}
+{mostrarAgregarComponente && (
+  <AgregarComponenteModal
+    propietarioId={parseInt(id as string)}
+    open={true}
+    onClose={() => setMostrarAgregarComponente(false)}
+    onSaved={cargarPropietario}
+  />
+)}
+
+{mostrarEditarComponente && componenteSeleccionado && (
+  <EditarComponenteModal
+    componente={toComponenteModal(componenteSeleccionado)} 
+    open={true}
+    onClose={() => setMostrarEditarComponente(false)}
+    onSaved={cargarPropietario}
+  />
+)}
         </div>
       </main>
     </div>

@@ -169,22 +169,32 @@ export const archivarHerramienta = async (req, res) => {
   if (!Number.isFinite(id)) return res.status(400).json({ error: 'ID inválido' });
 
   try {
-    const existe = await prisma.herramienta.findUnique({ where: { id } });
+    const existe = await prisma.herramienta.findUnique({ where: { id }, select: { id: true } });
     if (!existe) return res.status(404).json({ error: 'Herramienta no encontrada' });
-    if (await herramientaEnOtAbierta(id)) {
-      return res.status(409).json({ error: 'No se puede archivar: la herramienta está usada en OT abiertas' });
+
+    // Buscar una OT ABIERTA concreta para el mensaje
+    const ot = await prisma.ordenHerramienta.findFirst({
+      where: { herramientaId: id, orden: { is: { estadoOrden: 'ABIERTA' } } },
+      select: { ordenId: true },
+    });
+    if (ot) {
+      return res.status(409).json({
+        error: `No se puede archivar: la herramienta está usada en una OT ABIERTA (OT ${ot.ordenId}).`,
+      });
     }
 
     const out = await prisma.herramienta.update({
       where: { id },
-      data: { archivado: true, archivedAt: new Date(), archivedBy: req.user?.sub || null },
+      data: { archivado: true },
     });
-    res.json(out);
+    return res.json({ mensaje: 'Herramienta archivada correctamente', herramienta: out });
   } catch (error) {
+    if (error.code === 'P2025') return res.status(404).json({ error: 'Herramienta no encontrada' });
     console.error('Error al archivar herramienta:', error);
-    res.status(500).json({ error: 'Error al archivar la herramienta' });
+    return res.status(500).json({ error: 'Error al archivar la herramienta' });
   }
 };
+
 
 export const subirCertificadoCalibracion = (req, res) =>
   subirArchivoGenerico({

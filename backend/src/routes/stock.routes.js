@@ -1,3 +1,4 @@
+
 // src/routes/stock.route.js
 import { Router } from 'express';
 import {
@@ -6,9 +7,8 @@ import {
   listarStock,
   obtenerStock,
   archivarStock,
-  subirArchivoStock,
   subirImagenStock,
-  // Facturas:
+  // Facturas (1:N)
   listarPorStock,
   crear,
   eliminar,
@@ -18,31 +18,26 @@ import { uploadStock, uploadUnico } from '../../middleware/upload.middleware.js'
 
 const router = Router();
 
-// Crear producto de stock con imagen y factura
+// Crear producto de stock
 router.post('/', uploadStock, crearStock);
 
-// Actualizar producto de stock (también puede incluir archivos)
+// Actualizar producto de stock
 router.put('/:id', uploadStock, actualizarStock);
 
-// Obtener todos los productos de stock
+// Listar y obtener
 router.get('/', listarStock);
-
-// Obtener un producto por ID
 router.get('/:id', obtenerStock);
 
-// Archivar producto de stock (soft-delete)
+// Archivar (soft-delete)
 router.patch('/archivar/:id', archivarStock);
 
-// Subir factura PDF (archivo)
-router.post('/:id/archivo', uploadStock, subirArchivoStock);
-
-// Facturas vinculadas a un item de stock
-router.get('/:id/facturas', listarPorStock);
-router.post('/:id/facturas', uploadUnico, crear);
-router.delete('/facturas/:facturaId', eliminar);
-router.put('/facturas/:facturaId', actualizar);
-
-// Subir imagen optimizada
+// Imagen (1:1)
 router.post('/:id/imagen', uploadStock, subirImagenStock);
+
+// Facturas (1:N)
+router.get('/:id/facturas', listarPorStock);
+router.post('/:id/facturas', uploadUnico, crear);      // ← sin .single()
+router.put('/facturas/:facturaId', actualizar);
+router.delete('/facturas/:facturaId', eliminar);
 
 export default router;

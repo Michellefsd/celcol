@@ -28,6 +28,7 @@ const renderContenido = () => {
   switch (tipo) {
     case 'ordenes':
       return <TrabajoCard soloArchivadas />;
+      
 
     case 'empleados':
       return (
@@ -214,5 +215,4 @@ return (
     </div>
   </BaseCard>
 );
-
 }

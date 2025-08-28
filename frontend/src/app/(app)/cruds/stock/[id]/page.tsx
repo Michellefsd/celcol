@@ -6,6 +6,15 @@ import SubirArchivo from '@/components/Asignaciones/SubirArchivo';
 import { api, fetchJson } from '@/services/api';
 import VolverAtras from '@/components/Arrow';
 
+type ArchivoRef = {
+  id: number;
+  storageKey: string;
+  mime?: string | null;
+  originalName?: string | null;
+  sizeAlmacen?: number | null;
+  urlPublica?: string | null; // opcional: si tu backend la expone
+};
+
 interface StockItem {
   id: number;
   nombre: string;
@@ -23,23 +32,25 @@ interface StockItem {
   cantidad: number;
   stockMinimo: number;
   fechaIngreso?: string;
-  imagen?: string;
-  archivo?: string; // legacy (compat)
+
+  // relaciones Archivo (no strings)
+  imagen?: ArchivoRef | null;
+  archivo?: ArchivoRef | null;
 }
 
 type IdLike = number | string;
 
 interface FacturaStock {
-  id: IdLike;             // puede venir "legacy-<stockId>"
+  id: IdLike;
   stockId: number;
   numero?: string | null;
   proveedor?: string | null;
-  fecha?: string | null;  // ISO
+  fecha?: string | null;           // ISO
   monto?: number | string | null;
   moneda?: string | null;
-  archivo: string;        // "uploads/..."
+  archivo?: ArchivoRef | null;     // relación normalizada por el backend
   creadoEn?: string;
-  legacy?: boolean;       // marcado por el backend para compat
+  legacy?: boolean;
 }
 
 export default function DetalleStockPage() {
@@ -53,11 +64,11 @@ export default function DetalleStockPage() {
   const [loading, setLoading] = useState(true);
   const [editFactura, setEditFactura] = useState<FacturaStock | null>(null);
 
+  // ===== cargar datos =====
   const cargarProducto = async () => {
     if (!id) return;
     try {
-      // ✔ cookies incluidas → sin 401
-      const data = await fetchJson<StockItem>(`/stock/${id}`);
+      const data = await fetchJson<StockItem>(`/stock/${id}`); // incluye imagen/archivo como ArchivoRef
       setItem(data);
     } catch (err) {
       console.error('❌ Error al cargar el producto de stock:', err);
@@ -67,7 +78,6 @@ export default function DetalleStockPage() {
   const cargarFacturas = async () => {
     if (!id) return;
     try {
-      // ✔ cookies incluidas → sin 401
       const data = await fetchJson<FacturaStock[]>(`/stock/${id}/facturas`);
       setFacturas(data);
     } catch (err) {
@@ -83,17 +93,119 @@ export default function DetalleStockPage() {
     })();
   }, [id]);
 
-  const esVisualizableEnNavegador = (url: string): boolean => {
-    const ext = url.split('.').pop()?.toLowerCase();
-    return ['pdf', 'jpg', 'jpeg', 'png', 'webp'].includes(ext || '');
+  // ===== Helpers URL firmada (imagen y facturas) =====
+
+
+  async function obtenerUrlFirmada(key: string, disposition: 'inline' | 'attachment') {
+    const q = new URLSearchParams({ key, disposition }).toString();
+    return fetchJson<{ url: string }>(`/archivos/url-firmada?${q}`);
+  }
+
+   // Abrir ventana antes del await (evita bloqueos de popup)
+  async function abrirConPresign(storageKey: string, disposition: 'inline' | 'attachment') {
+    const win = window.open('about:blank', '_blank');
+    try {
+      const { url } = await obtenerUrlFirmada(storageKey, disposition);
+      if (!url) throw new Error('No llegó URL firmada');
+
+      if (win) {
+        setTimeout(() => win.location.replace(url), 60);
+      } else {
+        // fallback si el popup fue bloqueado
+        if (disposition === 'attachment') {
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = '';
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+        } else {
+          window.open(url, '_blank');
+        }
+      }
+    } catch (e) {
+      win?.close();
+      console.error('❌ No se pudo obtener URL firmada:', e);
+      alert('No se pudo abrir el archivo.');
+    }
+  }
+
+  const abrirEnNuevaPestana = (url: string) => {
+    const win = window.open('about:blank', '_blank');
+    if (win) setTimeout(() => (win.location.href = url), 60);
+    else window.open(url, '_blank');
   };
 
+  // ===== Imagen: preview cuadrado con cover (cacheamos una sola URL) =====
+  const [imagenUrl, setImagenUrl] = useState<string>('');
+  const [cargandoImg, setCargandoImg] = useState(false);
+
+  const esArchivoRef = (v: any): v is ArchivoRef =>
+    v && typeof v === 'object' && typeof v.storageKey === 'string';
+
+  useEffect(() => {
+    const run = async () => {
+      if (!item?.imagen) {
+        setImagenUrl('');
+        return;
+      }
+
+      // si el backend ya devuelve urlPublica, úsala directo
+      if (esArchivoRef(item.imagen) && item.imagen.urlPublica) {
+        setImagenUrl(item.imagen.urlPublica);
+        return;
+      }
+
+      // si sólo hay storageKey -> pedimos firmada (inline) 1 vez
+      if (esArchivoRef(item.imagen) && item.imagen.storageKey) {
+        try {
+          setCargandoImg(true);
+          const { url } = await obtenerUrlFirmada(item.imagen.storageKey, 'inline');
+          setImagenUrl(url || '');
+        } catch {
+          setImagenUrl('');
+        } finally {
+          setCargandoImg(false);
+        }
+        return;
+      }
+
+      // compat raro
+      setImagenUrl('');
+    };
+
+    run();
+  }, [item?.imagen]);
+
+  const verImagen = async () => {
+    const key = item?.imagen?.storageKey;
+    if (!key) return;
+    try {
+      const { url } = await obtenerUrlFirmada(key, 'inline');
+      if (url) abrirEnNuevaPestana(url);
+    } catch (e) {
+      console.error('❌ No se pudo abrir la imagen:', e);
+    }
+  };
+
+  const descargarImagen = async () => {
+    const key = item?.imagen?.storageKey;
+    if (!key) return;
+    try {
+      const { url } = await obtenerUrlFirmada(key, 'attachment');
+      if (url) abrirEnNuevaPestana(url);
+    } catch (e) {
+      console.error('❌ No se pudo descargar la imagen:', e);
+    }
+  };
+
+  // ===== Facturas: eliminar (ver/descargar lo harás en los botones usando archivo.storageKey) =====
   const eliminarFactura = async (facturaId: IdLike) => {
     if (!confirm('¿Eliminar esta factura? Esta acción no se puede deshacer.')) return;
     try {
       const res = await fetch(api(`/stock/facturas/${facturaId}`), {
         method: 'DELETE',
-        credentials: 'include', // ✔ envía cookies
+        credentials: 'include',
       });
       if (!res.ok) throw new Error(`No se pudo eliminar la factura (${res.status})`);
       await cargarFacturas();
@@ -105,6 +217,7 @@ export default function DetalleStockPage() {
 
   if (loading) return <p className="text-gray-500 p-6">Cargando producto...</p>;
   if (!item) return <p className="text-rose-600 p-6">No se encontró el producto.</p>;
+
 
   return (
     <div className="min-h-screen bg-slate-100">
@@ -119,6 +232,55 @@ export default function DetalleStockPage() {
         <div className="max-w-4xl space-y-6">
           {/* Datos del producto */}
           <section className="rounded-2xl border border-slate-200 bg-white shadow-sm p-6">
+
+
+ {/* Imagen */}
+<div className="mt-6">
+  {imagenUrl ? (
+    <div className="relative inline-block">
+      {/* Contenedor cuadrado */}
+      <div
+        className="w-48 h-48 rounded-xl border border-slate-200 overflow-hidden bg-slate-100 shadow-sm"
+        title="Ver en grande"
+      >
+        {cargandoImg ? (
+          <div className="w-full h-full grid place-items-center text-slate-500 text-sm">
+            Cargando…
+          </div>
+        ) : (
+          <img
+            src={imagenUrl}
+            alt="Imagen del stock"
+            className="w-full h-full object-cover cursor-zoom-in"
+            onClick={verImagen}
+            draggable={false}
+          />
+        )}
+      </div>
+
+      {/* Botón lápiz (reemplazar) */}
+      <button
+        type="button"
+        onClick={() => setMostrarSubirImagen(true)}
+        className="absolute -top-2 -right-2 inline-flex items-center justify-center w-9 h-9 rounded-full shadow-sm border border-slate-200 bg-white hover:bg-slate-50"
+        title="Reemplazar imagen"
+      >
+        ✏️
+      </button>
+    </div>
+  ) : (
+    <button
+      onClick={() => setMostrarSubirImagen(true)}
+      className="inline-flex items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 bg-white px-5 py-10 text-slate-600 hover:bg-slate-50"
+      title="Subir imagen"
+    >
+      <span className="text-xl">🖼️</span>
+      <span>Subir imagen</span>
+    </button>
+  )}
+</div>
+
+
             <h2 className="text-xl font-semibold text-slate-900">{item.nombre}</h2>
 
             <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-1 text-sm">
@@ -142,123 +304,118 @@ export default function DetalleStockPage() {
               )}
             </div>
 
-            {/* Imagen */}
-            <div className="mt-6">
-              {item.imagen ? (
-                <div className="space-y-3">
-                  <h3 className="font-semibold">Imagen del producto</h3>
-                  <img
-                    src={item.imagen}
-                    alt="Imagen del stock"
-                    className="mt-2 max-w-xs rounded-lg border border-slate-300"
-                  />
-                  <button
-                    onClick={() => setMostrarSubirImagen(true)}
-                    className="text-sm text-cyan-600 underline underline-offset-2 hover:text-cyan-800"
-                  >
-                    Reemplazar imagen
-                  </button>
-                </div>
-              ) : (
-                <button
-                  onClick={() => setMostrarSubirImagen(true)}
-                  className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-[#597BFF] to-[#4a6ee0] text-white font-semibold px-5 py-2.5 shadow-sm hover:from-[#4a6ee0] hover:to-[#3658d4] hover:shadow-lg hover:brightness-110 transform hover:scale-[1.03] transition-all duration-300"
-                >
-                  Subir imagen
-                </button>
-              )}
-            </div>
+         
+
           </section>
 
-          {/* Facturas */}
-          <section className="rounded-2xl border border-slate-200 bg-white shadow-sm p-6">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-lg font-semibold">Facturas</h3>
-              <button
-                onClick={() => setMostrarSubirFactura(true)}
-                className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-[#597BFF] to-[#4a6ee0] text-white font-semibold px-4 py-2 shadow-sm hover:from-[#4a6ee0] hover:to-[#3658d4]"
-              >
-                Agregar factura
-              </button>
-            </div>
+{/* Facturas */}
+<section className="rounded-2xl border border-slate-200 bg-white shadow-sm p-6">
+  <div className="flex items-center justify-between mb-3">
+    <h3 className="text-lg font-semibold">Facturas</h3>
+    <button
+      onClick={() => setMostrarSubirFactura(true)}
+      className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-[#597BFF] to-[#4a6ee0] text-white font-semibold px-4 py-2 shadow-sm hover:from-[#4a6ee0] hover:to-[#3658d4]"
+    >
+      Agregar factura
+    </button>
+  </div>
 
-            {facturas.length === 0 ? (
-              <p className="text-sm text-slate-500">Sin facturas registradas.</p>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-slate-50">
-                    <tr>
-                      <th className="text-left px-3 py-2">Fecha</th>
-                      <th className="text-left px-3 py-2">Número</th>
-                      <th className="text-left px-3 py-2">Proveedor</th>
-                      <th className="text-left px-3 py-2">Monto</th>
-                      <th className="text-left px-3 py-2">Archivo</th>
-                      <th className="text-left px-3 py-2">Acciones</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-200">
-                    {facturas.map((f) => {
-                      const verUrl = api(`/${f.archivo}`);
-                      const fechaFmt = f.fecha ? new Date(f.fecha).toLocaleDateString() : '';
-                      const montoNum = f.monto != null ? Number(f.monto) : null;
-                      const montoFmt = montoNum != null ? `${f.moneda ?? ''} ${montoNum.toFixed(2)}`.trim() : '';
-                      return (
-                        <tr key={String(f.id)}>
-                          <td className="px-3 py-2">{fechaFmt}</td>
-                          <td className="px-3 py-2">{f.numero ?? (f.legacy ? 'LEGACY' : '')}</td>
-                          <td className="px-3 py-2">{f.proveedor ?? ''}</td>
-                          <td className="px-3 py-2">{montoFmt}</td>
-                          <td className="px-3 py-2">
-                            <div className="flex gap-3">
-                              {esVisualizableEnNavegador(f.archivo) && (
-                                <a
-                                  href={verUrl}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="text-cyan-600 hover:text-cyan-800 underline underline-offset-2"
-                                >
-                                  Ver
-                                </a>
-                              )}
-                              <a
-                                href={verUrl}
-                                download
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-slate-700 hover:text-slate-900 underline underline-offset-2"
-                              >
-                                Descargar
-                              </a>
-                            </div>
-                          </td>
-                          <td className="px-3 py-2">
-                            <div className="flex gap-3">
-                              {!f.legacy && (
-                                <button
-                                  onClick={() => setEditFactura(f)}
-                                  className="text-blue-600 hover:text-blue-800"
-                                >
-                                  Editar
-                                </button>
-                              )}
-                              <button
-                                onClick={() => eliminarFactura(f.id)}
-                                className="text-rose-600 hover:text-rose-700"
-                                title="Eliminar"
-                              >
-                                Eliminar
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </section>
+  {facturas.length === 0 ? (
+    <p className="text-sm text-slate-500">Sin facturas registradas.</p>
+  ) : (
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead className="bg-slate-50">
+          <tr>
+            <th className="text-left px-3 py-2">Fecha</th>
+            <th className="text-left px-3 py-2">Número</th>
+            <th className="text-left px-3 py-2">Proveedor</th>
+            <th className="text-left px-3 py-2">Monto</th>
+            <th className="text-left px-3 py-2">Archivo</th>
+            <th className="text-left px-3 py-2">Acciones</th>
+          </tr>
+        </thead>
+
+        <tbody className="divide-y divide-slate-200">
+          {facturas.map((f) => {
+            const fechaFmt = f.fecha ? new Date(f.fecha).toLocaleDateString() : '';
+            const montoNum = f.monto != null ? Number(f.monto) : null;
+            const montoFmt = montoNum != null ? `${f.moneda ?? ''} ${montoNum.toFixed(2)}`.trim() : '';
+
+            const storageKey = f.archivo?.storageKey ?? null;
+
+            // ✅ abrir la pestaña ANTES del await (evita bloqueo)
+            const verFactura = () => {
+              if (!storageKey) return;
+              abrirConPresign(storageKey, 'inline');
+            };
+
+            const descargarFactura = () => {
+              if (!storageKey) return;
+              abrirConPresign(storageKey, 'attachment');
+            };
+
+            return (
+              <tr key={String(f.id)}>
+                <td className="px-3 py-2">{fechaFmt}</td>
+                <td className="px-3 py-2">{f.numero ?? (f.legacy ? 'LEGACY' : '')}</td>
+                <td className="px-3 py-2">{f.proveedor ?? ''}</td>
+                <td className="px-3 py-2">{montoFmt}</td>
+
+                {/* Archivo */}
+                <td className="px-3 py-2">
+                  <div className="flex gap-3">
+                    {storageKey ? (
+                      <>
+                        <button
+                          type="button"
+                          onClick={verFactura}
+                          className="text-cyan-600 hover:text-cyan-800 underline underline-offset-2"
+                        >
+                          Ver
+                        </button>
+                        <button
+                          type="button"
+                          onClick={descargarFactura}
+                          className="text-slate-700 hover:text-slate-900 underline underline-offset-2"
+                        >
+                          Descargar
+                        </button>
+                      </>
+                    ) : (
+                      <span className="text-slate-400">—</span>
+                    )}
+                  </div>
+                </td>
+
+                <td className="px-3 py-2">
+                  <div className="flex gap-3">
+                    {!f.legacy && (
+                      <button
+                        onClick={() => setEditFactura(f)}
+                        className="text-blue-600 hover:text-blue-800"
+                      >
+                        Editar
+                      </button>
+                    )}
+                    <button
+                      onClick={() => eliminarFactura(f.id)}
+                      className="text-rose-600 hover:text-rose-700"
+                      title="Eliminar"
+                    >
+                      Eliminar
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  )}
+</section>
+
 
           {/* Modales de subida */}
           <SubirArchivo

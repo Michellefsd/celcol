@@ -1,23 +1,24 @@
 'use client';
 
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { api, fetchJson } from '@/services/api';
 import SubirArchivo from '@/components/Asignaciones/SubirArchivo';
 
-export default function OrdenCerradaPage() {
-  const { id } = useParams();
-  const router = useRouter();
-
-interface Empleado {
-  nombre: string;
-  apellido: string;
-}
+interface Empleado { nombre: string; apellido: string; }
 
 interface EmpleadoAsignado {
   empleado: Empleado;
   rol: 'TECNICO' | 'CERTIFICADOR';
 }
+
+export default function OrdenCerradaPage() {
+  const { id } = useParams();
+  const router = useRouter();
+  const search = useSearchParams(); // 👈 nuevo
+  const includeArchived =
+    search.get('includeArchived') === '1' || search.get('includeArchived') === 'true'; // 👈 nuevo
+
 
 interface StockAsignado {
   stock: {
@@ -35,14 +36,16 @@ interface HerramientaAsignada {
     modelo?: string;
   };
 }
-
 interface RegistroTrabajo {
   empleado: {
+    id?: number;            // opcional por si lo traés (mejora el match)
     nombre: string;
     apellido: string;
   };
-  horasTrabajadas: number;
+  horasTrabajadas: number;  // mantenemos tu nombre actual
   fecha: string;
+  trabajoRealizado?: string | null; // ⬅️ NUEVO
+  rol?: 'TECNICO' | 'CERTIFICADOR'; // opcional (ya existe en Prisma)
 }
 
 interface Avion {
@@ -67,17 +70,40 @@ interface Componente {
   fechaTBO?: string;
 }
 
+ type ArchivoRef = {
+  id: number;
+  storageKey: string;
+  mime?: string;
+  originalName?: string;
+  sizeAlmacen?: number;
+};
+
+type PropietarioSnap = {
+  tipo?: 'PERSONA' | 'EMPRESA';
+  nombre?: string;
+  apellido?: string;
+  cedula?: string;
+  // empresa:
+  razonSocial?: string;     // ← así viene del backend
+  nombreEmpresa?: string;   // ← compat viejo si lo hubiese
+  rut?: string;
+  telefono?: string;
+  email?: string;
+  direccion?: string;
+};
+
 interface OrdenTrabajo {
   id: number;
   solicitadoPor?: string;
   solicitud?: string;
-  solicitudFirma?: string;
-  inspeccionRecibida?: boolean;
+  solicitudFirma?: ArchivoRef | null;  inspeccionRecibida?: boolean;
   danosPrevios?: string;
   accionTomada?: string;
   observaciones?: string;
-  archivoFactura?: string;
-  estadoFactura?: string;
+  archivoFactura?: ArchivoRef | null;
+  estadoFactura?: 'NO_ENVIADA' | 'ENVIADA' | 'PAGA' | 'PENDIENTE' | '';
+  numeroFactura?: string | null;
+  fechaApertura?: string;
   fechaCierre?: string;
 
   datosAvionSnapshot?: {
@@ -127,38 +153,102 @@ interface OrdenTrabajo {
   componente?: Componente;
 }
 
-
   const [orden, setOrden] = useState<OrdenTrabajo | null>(null);
   const [estadoFactura, setEstadoFactura] = useState('PENDIENTE');
   const [mostrarSubirFactura, setMostrarSubirFactura] = useState(false);
+  const [numeroFactura, setNumeroFactura] = useState('');
 
   useEffect(() => {
-    fetchJson<any>(`/ordenes-trabajo/${id}`)
+    const qs = includeArchived ? '?includeArchived=1' : '';          // 👈 nuevo
+    fetchJson<OrdenTrabajo>(`/ordenes-trabajo/${id}${qs}`)            // 👈 ajustado
       .then((data) => {
         setOrden(data);
         setEstadoFactura(data.estadoFactura ?? 'PENDIENTE');
+        setNumeroFactura(data.numeroFactura ?? '');
       })
       .catch(err => console.error('Error al cargar orden:', err));
-  }, [id]);
+  }, [id, includeArchived]);
+
+
 
 const handleGuardarFactura = async () => {
-    try {
-      await fetchJson(`/ordenes-trabajo/${id}/factura`, {
-        method: 'POST',
-        body: JSON.stringify({ estadoFactura }),
-      });
-      alert('Factura actualizada');
-      router.refresh();
-    } catch (e: any) {
-      alert(e?.body?.error || e?.message || 'Error al guardar');
-    }
-  };
+  try {
+    await fetchJson(`/ordenes-trabajo/${id}/factura`, {
+      method: 'PUT',                                           
+      body: JSON.stringify({ estadoFactura, numeroFactura }),  
+    });
+    alert('Factura actualizada');
+    router.refresh();
+  } catch (e: any) {
+    alert(e?.body?.error || e?.message || 'Error al guardar');
+  }
+};
 
   if (!orden) return <p>Cargando...</p>;
+const esComponente = Boolean(orden.datosComponenteSnapshot || orden.componente);
+const esAvion = !esComponente && Boolean(orden.datosAvionSnapshot || orden.avion);
 const herramientas = orden.herramientas ?? [];
 const empleadosAsignados = orden.empleadosAsignados ?? [];
 const stockAsignado = orden.stockAsignado ?? [];
 const registrosTrabajo = orden.registrosTrabajo ?? [];
+
+
+async function obtenerUrlFirmada(key: string, disposition: 'inline' | 'attachment') {
+  const q = new URLSearchParams({ key, disposition }).toString();
+  return fetchJson<{ url: string }>(`/archivos/url-firmada?${q}`);
+}
+
+async function verArchivo(key?: string) {
+  if (!key) return;
+  const win = window.open('about:blank', '_blank');
+  try {
+    const { url } = await obtenerUrlFirmada(key, 'inline');
+    if (!url) { win?.close(); return; }
+    setTimeout(() => win && (win.location.replace(url)), 60);
+  } catch (e) {
+    win?.close();
+    console.error('❌ No se pudo abrir archivo:', e);
+  }
+}
+
+async function descargarArchivo(key?: string) {
+  if (!key) return;
+  const win = window.open('about:blank', '_blank');
+  try {
+    const { url } = await obtenerUrlFirmada(key, 'attachment');
+    if (!url) { win?.close(); return; }
+    setTimeout(() => win && (win.location.replace(url)), 60);
+  } catch (e) {
+    win?.close();
+    console.error('❌ No se pudo descargar archivo:', e);
+  }
+}
+
+function RenderPropietario({ p }: { p: PropietarioSnap }) {
+  const esEmpresa = p.tipo === 'EMPRESA';
+  const empresa = p.razonSocial ?? p.nombreEmpresa; // compat nombres
+  return (
+    <div className="space-y-1">
+      {esEmpresa ? (
+        <>
+          {empresa && <p><span className="text-slate-500">Nombre empresa:</span> {empresa}</p>}
+          {p.rut && <p><span className="text-slate-500">RUT:</span> {p.rut}</p>}
+        </>
+      ) : (
+        <>
+          {p.nombre && <p><span className="text-slate-500">Nombre:</span> {p.nombre}</p>}
+          {p.apellido && <p><span className="text-slate-500">Apellido:</span> {p.apellido}</p>}
+          {p.cedula && <p><span className="text-slate-500">Cédula:</span> {p.cedula}</p>}
+        </>
+      )}
+      {p.telefono && <p><span className="text-slate-500">Teléfono:</span> {p.telefono}</p>}
+      {p.email && <p><span className="text-slate-500">Email:</span> {p.email}</p>}
+      {p.direccion && <p><span className="text-slate-500">Dirección:</span> {p.direccion}</p>}
+    </div>
+  );
+}
+
+
 
 return (
   <div className="min-h-screen bg-slate-100">
@@ -168,128 +258,216 @@ return (
       </h1>
 
       {/* CARD — Resumen */}
-      <section className="rounded-2xl border border-slate-200 bg-white shadow-sm p-4 md:p-6">
-        <h2 className="text-lg font-semibold text-slate-900 mb-2">Resumen</h2>
+      
+  {esAvion && orden.datosAvionSnapshot && (
+  <div className="mt-4 rounded-xl border border-slate-200 bg-white p-4 text-[15px] leading-7">
+    <h3 className="font-semibold text-slate-900 mb-1.5">
+      Datos del avión al momento del cierre
+    </h3>
+    {orden.datosAvionSnapshot.matricula && (
+      <p><span className="text-slate-500">Matrícula:</span> {orden.datosAvionSnapshot.matricula}</p>
+    )}
+    {orden.datosAvionSnapshot.marca && (
+      <p><span className="text-slate-500">Marca:</span> {orden.datosAvionSnapshot.marca}</p>
+    )}
+    {orden.datosAvionSnapshot.modelo && (
+      <p><span className="text-slate-500">Modelo:</span> {orden.datosAvionSnapshot.modelo}</p>
+    )}
+    {orden.datosAvionSnapshot.numeroSerie && (
+      <p><span className="text-slate-500">Número de serie:</span> {orden.datosAvionSnapshot.numeroSerie}</p>
+    )}
+    {orden.datosAvionSnapshot.TSN && (
+      <p><span className="text-slate-500">TSN:</span> {orden.datosAvionSnapshot.TSN}</p>
+    )}
+    {orden.datosAvionSnapshot.TSO && (
+      <p><span className="text-slate-500">TSO:</span> {orden.datosAvionSnapshot.TSO}</p>
+    )}
+    {orden.datosAvionSnapshot.TBO && (
+      <p><span className="text-slate-500">TBO:</span> {orden.datosAvionSnapshot.TBO}</p>
+    )}
+    {orden.datosAvionSnapshot.fechaTBO && (
+      <p><span className="text-slate-500">Fecha TBO:</span> {orden.datosAvionSnapshot.fechaTBO}</p>
+    )}
+    {orden.datosAvionSnapshot.vencimientoMatricula && (
+      <p>
+        <span className="text-slate-500">Vencimiento matrícula:</span>{" "}
+        {new Date(orden.datosAvionSnapshot.vencimientoMatricula).toLocaleDateString("es-UY")}
+      </p>
+    )}
+    {orden.datosAvionSnapshot.vencimientoSeguro && (
+      <p>
+        <span className="text-slate-500">Vencimiento seguro:</span>{" "}
+        {new Date(orden.datosAvionSnapshot.vencimientoSeguro).toLocaleDateString("es-UY")}
+      </p>
+    )}
+    {orden.datosAvionSnapshot.certificadoMatricula && (
+      <p className="mt-1 text-[14px] leading-6">
+        <span className="text-slate-500">Certificado matrícula: </span>
+        <button
+          type="button"
+          onClick={() => verArchivo(orden.datosAvionSnapshot!.certificadoMatricula!)}
+          className="text-cyan-600 hover:text-cyan-800 underline underline-offset-2"
+        >
+          Ver
+        </button>
+        <span className="mx-2">·</span>
+        <button
+          type="button"
+          onClick={() => descargarArchivo(orden.datosAvionSnapshot!.certificadoMatricula!)}
+          className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-2 py-0.5 text-[13px] text-slate-700 hover:bg-slate-50 ml-1"
+        >
+          Descargar
+        </button>
+      </p>
+    )}
+  </div>
+)}
 
-        {/* 🔷 Datos del avión (snapshot) */}
-        {orden.datosAvionSnapshot && (
-          <div className="mt-4 rounded-xl border border-slate-200 bg-white p-4 text-[15px] leading-7">
-            <h3 className="font-semibold text-slate-900 mb-1.5">
-              Datos del avión al momento del cierre
-            </h3>
-            {orden.datosAvionSnapshot.matricula && <p><span className="text-slate-500">Matrícula:</span> {orden.datosAvionSnapshot.matricula}</p>}
-            {orden.datosAvionSnapshot.marca && <p><span className="text-slate-500">Marca:</span> {orden.datosAvionSnapshot.marca}</p>}
-            {orden.datosAvionSnapshot.modelo && <p><span className="text-slate-500">Modelo:</span> {orden.datosAvionSnapshot.modelo}</p>}
-            {orden.datosAvionSnapshot.numeroSerie && <p><span className="text-slate-500">Número de serie:</span> {orden.datosAvionSnapshot.numeroSerie}</p>}
-            {orden.datosAvionSnapshot.TSN && <p><span className="text-slate-500">TSN:</span> {orden.datosAvionSnapshot.TSN}</p>}
-            {orden.datosAvionSnapshot.TSO && <p><span className="text-slate-500">TSO:</span> {orden.datosAvionSnapshot.TSO}</p>}
-            {orden.datosAvionSnapshot.TBO && <p><span className="text-slate-500">TBO:</span> {orden.datosAvionSnapshot.TBO}</p>}
-            {orden.datosAvionSnapshot.fechaTBO && <p><span className="text-slate-500">Fecha TBO:</span> {orden.datosAvionSnapshot.fechaTBO}</p>}
-            {orden.datosAvionSnapshot.vencimientoMatricula && <p><span className="text-slate-500">Vencimiento matrícula:</span> {new Date(orden.datosAvionSnapshot.vencimientoMatricula).toLocaleDateString()}</p>}
-            {orden.datosAvionSnapshot.vencimientoSeguro && <p><span className="text-slate-500">Vencimiento seguro:</span> {new Date(orden.datosAvionSnapshot.vencimientoSeguro).toLocaleDateString()}</p>}
-            {orden.datosAvionSnapshot.certificadoMatricula && (
-              <p>
-                <span className="text-slate-500">Certificado matrícula:</span>{' '}
-                <a
-                  href={api(`/${orden.datosAvionSnapshot.certificadoMatricula}`)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-cyan-600 hover:text-cyan-800 underline underline-offset-2"
-                >
-                  Ver archivo
-                </a>
-              </p>
-            )}
-          </div>
-        )}
+{esComponente && orden.datosComponenteSnapshot && (
+  <div className="mt-4 rounded-xl border border-slate-200 bg-white p-4 text-[15px] leading-7">
+    <h3 className="font-semibold text-slate-900 mb-1.5">
+      Componente externo al momento del cierre
+    </h3>
+    {orden.datosComponenteSnapshot.tipo && (
+      <p><span className="text-slate-500">Tipo:</span> {orden.datosComponenteSnapshot.tipo}</p>
+    )}
+    {orden.datosComponenteSnapshot.marca && (
+      <p><span className="text-slate-500">Marca:</span> {orden.datosComponenteSnapshot.marca}</p>
+    )}
+    {orden.datosComponenteSnapshot.modelo && (
+      <p><span className="text-slate-500">Modelo:</span> {orden.datosComponenteSnapshot.modelo}</p>
+    )}
+    {orden.datosComponenteSnapshot.numeroSerie && (
+      <p><span className="text-slate-500">Número de serie:</span> {orden.datosComponenteSnapshot.numeroSerie}</p>
+    )}
+    {orden.datosComponenteSnapshot.numeroParte && (
+      <p><span className="text-slate-500">Número de parte:</span> {orden.datosComponenteSnapshot.numeroParte}</p>
+    )}
+    {orden.datosComponenteSnapshot.TSN && (
+      <p><span className="text-slate-500">TSN:</span> {orden.datosComponenteSnapshot.TSN}</p>
+    )}
+    {orden.datosComponenteSnapshot.TSO && (
+      <p><span className="text-slate-500">TSO:</span> {orden.datosComponenteSnapshot.TSO}</p>
+    )}
+    {orden.datosComponenteSnapshot.TBO && (
+      <p><span className="text-slate-500">TBO:</span> {orden.datosComponenteSnapshot.TBO}</p>
+    )}
+    {orden.datosComponenteSnapshot.fechaTBO && (
+      <p><span className="text-slate-500">Fecha TBO:</span> {orden.datosComponenteSnapshot.fechaTBO}</p>
+    )}
 
-        {/* 🔶 Datos del componente externo (snapshot) */}
-        {orden.datosComponenteSnapshot && (
-          <div className="mt-4 rounded-xl border border-slate-200 bg-white p-4 text-[15px] leading-7">
-            <h3 className="font-semibold text-slate-900 mb-1.5">
-              Datos del componente externo al momento del cierre
-            </h3>
-            {orden.datosComponenteSnapshot.tipo && <p><span className="text-slate-500">Tipo:</span> {orden.datosComponenteSnapshot.tipo}</p>}
-            {orden.datosComponenteSnapshot.marca && <p><span className="text-slate-500">Marca:</span> {orden.datosComponenteSnapshot.marca}</p>}
-            {orden.datosComponenteSnapshot.modelo && <p><span className="text-slate-500">Modelo:</span> {orden.datosComponenteSnapshot.modelo}</p>}
-            {orden.datosComponenteSnapshot.numeroSerie && <p><span className="text-slate-500">Número de serie:</span> {orden.datosComponenteSnapshot.numeroSerie}</p>}
-            {orden.datosComponenteSnapshot.numeroParte && <p><span className="text-slate-500">Número de parte:</span> {orden.datosComponenteSnapshot.numeroParte}</p>}
-            {orden.datosComponenteSnapshot.TSN && <p><span className="text-slate-500">TSN:</span> {orden.datosComponenteSnapshot.TSN}</p>}
-            {orden.datosComponenteSnapshot.TSO && <p><span className="text-slate-500">TSO:</span> {orden.datosComponenteSnapshot.TSO}</p>}
-            {orden.datosComponenteSnapshot.TBO && <p><span className="text-slate-500">TBO:</span> {orden.datosComponenteSnapshot.TBO}</p>}
-            {orden.datosComponenteSnapshot.fechaTBO && <p><span className="text-slate-500">Fecha TBO:</span> {orden.datosComponenteSnapshot.fechaTBO}</p>}
-            {orden.datosComponenteSnapshot.archivo8130 && (
-              <p>
-                <span className="text-slate-500">Archivo 8130:</span>{' '}
-                <a
-                  href={api(`/${orden.datosComponenteSnapshot.archivo8130}`)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-cyan-600 hover:text-cyan-800 underline underline-offset-2"
-                >
-                  Ver archivo
-                </a>
-              </p>
-            )}
-          </div>
-        )}
+    {orden.datosComponenteSnapshot.archivo8130 && (
+      <p className="mt-1 text-[14px] leading-6">
+        <span className="text-slate-500">Archivo 8130: </span>
+        <button
+          type="button"
+          onClick={() => verArchivo(orden.datosComponenteSnapshot!.archivo8130!)}
+          className="text-cyan-600 hover:text-cyan-800 underline underline-offset-2"
+        >
+          Ver
+        </button>
+        <span className="mx-2">·</span>
+        <button
+          type="button"
+          onClick={() => descargarArchivo(orden.datosComponenteSnapshot!.archivo8130!)}
+          className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-2 py-0.5 text-[13px] text-slate-700 hover:bg-slate-50 ml-1"
+        >
+          Descargar
+        </button>
+      </p>
+    )}
+  </div>
+)}
 
-        {/* 🟢 Datos del propietario (snapshot) */}
-        {orden.datosPropietarioSnapshot && (
-          <div className="mt-4 rounded-xl border border-slate-200 bg-white p-4 text-[15px] leading-7">
-            <h3 className="font-semibold text-slate-900 mb-1.5">
-              Datos del propietario al momento del cierre
-            </h3>
-            {orden.datosPropietarioSnapshot.tipo === 'EMPRESA' ? (
-              <>
-                {orden.datosPropietarioSnapshot.nombreEmpresa && <p><span className="text-slate-500">Nombre empresa:</span> {orden.datosPropietarioSnapshot.nombreEmpresa}</p>}
-                {orden.datosPropietarioSnapshot.rut && <p><span className="text-slate-500">RUT:</span> {orden.datosPropietarioSnapshot.rut}</p>}
-              </>
-            ) : (
-              <>
-                {orden.datosPropietarioSnapshot.nombre && <p><span className="text-slate-500">Nombre:</span> {orden.datosPropietarioSnapshot.nombre}</p>}
-                {orden.datosPropietarioSnapshot.apellido && <p><span className="text-slate-500">Apellido:</span> {orden.datosPropietarioSnapshot.apellido}</p>}
-                {orden.datosPropietarioSnapshot.cedula && <p><span className="text-slate-500">Cédula:</span> {orden.datosPropietarioSnapshot.cedula}</p>}
-              </>
-            )}
-            {orden.datosPropietarioSnapshot.telefono && <p><span className="text-slate-500">Teléfono:</span> {orden.datosPropietarioSnapshot.telefono}</p>}
-            {orden.datosPropietarioSnapshot.email && <p><span className="text-slate-500">Email:</span> {orden.datosPropietarioSnapshot.email}</p>}
-            {orden.datosPropietarioSnapshot.direccion && <p><span className="text-slate-500">Dirección:</span> {orden.datosPropietarioSnapshot.direccion}</p>}
-          </div>
-        )}
-      </section>
+{esComponente && orden.datosPropietarioSnapshot && (
+  <div className="mt-4 rounded-xl border border-slate-200 bg-white p-4 text-[15px] leading-7">
+    <h3 className="font-semibold text-slate-900 mb-1.5">
+      Datos del propietario al momento del cierre
+    </h3>
+    <RenderPropietario p={orden.datosPropietarioSnapshot as any} />
+  </div>
+)}
 
-      {/* CARD — Datos generales de la orden */}
-      <section className="rounded-2xl border border-slate-200 bg-white shadow-sm p-4 md:p-6">
-        <h2 className="text-lg font-semibold text-slate-900 mb-2">Datos generales de la orden</h2>
 
-        <div className="text-[15px] leading-7 space-y-1">
-          {orden.solicitadoPor && <p><span className="text-slate-500">Solicitado por:</span> {orden.solicitadoPor}</p>}
-          {orden.solicitud && <p><span className="text-slate-500">Descripción del trabajo solicitado:</span> {orden.solicitud}</p>}
-          {orden.inspeccionRecibida !== undefined && (
-            <p><span className="text-slate-500">¿Inspección recibida?</span> {orden.inspeccionRecibida ? 'Sí' : 'No'}</p>
-          )}
-          {orden.danosPrevios && <p><span className="text-slate-500">Daños previos:</span> {orden.danosPrevios}</p>}
-          {orden.accionTomada && <p><span className="text-slate-500">Acción tomada:</span> {orden.accionTomada}</p>}
-          {orden.observaciones && <p><span className="text-slate-500">Observaciones:</span> {orden.observaciones}</p>}
-          {orden.solicitudFirma && (
-            <p>
-              <span className="text-slate-500">Archivo de solicitud:</span>{' '}
-              <a
-                href={orden.solicitudFirma}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-cyan-600 hover:text-cyan-800 underline underline-offset-2"
-              >
-                Ver archivo
-              </a>
-            </p>
-          )}
-          {orden.fechaCierre && (
-            <p><span className="text-slate-500">Fecha de cierre:</span> {new Date(orden.fechaCierre).toLocaleDateString()}</p>
-          )}
-        </div>
-      </section>
+<section className="rounded-2xl border border-slate-200 bg-white shadow-sm p-4 md:p-6">
+  <h2 className="text-lg font-semibold text-slate-900 mb-2">Datos generales de la orden</h2>
+
+  <div className="text-[15px] leading-7 space-y-1">
+
+    {orden.fechaApertura && (
+      <p>
+        <span className="text-slate-500">Fecha de apertura:</span>{" "}
+        {new Date(orden.fechaApertura).toLocaleDateString("es-UY")}
+      </p>
+    )}
+
+    {orden.fechaCierre && (
+      <p>
+        <span className="text-slate-500">Fecha de cierre:</span>{" "}
+        {new Date(orden.fechaCierre).toLocaleDateString("es-UY")}
+      </p>
+    )}
+
+    {orden.solicitadoPor && (
+      <p>
+        <span className="text-slate-500">Solicitado por:</span> {orden.solicitadoPor}
+      </p>
+    )}
+
+    {orden.solicitud && (
+      <p>
+        <span className="text-slate-500">Descripción del trabajo solicitado:</span>{" "}
+        {orden.solicitud}
+      </p>
+    )}
+
+    {orden.inspeccionRecibida !== undefined && (
+      <p>
+        <span className="text-slate-500">¿Inspección recibida?</span>{" "}
+        {orden.inspeccionRecibida ? "Sí" : "No"}
+      </p>
+    )}
+
+    {orden.danosPrevios && (
+      <p>
+        <span className="text-slate-500">Daños previos:</span> {orden.danosPrevios}
+      </p>
+    )}
+
+    {orden.accionTomada && (
+      <p>
+        <span className="text-slate-500">Acción tomada:</span> {orden.accionTomada}
+      </p>
+    )}
+
+    {orden.observaciones && (
+      <p>
+        <span className="text-slate-500">Observaciones:</span> {orden.observaciones}
+      </p>
+    )}
+
+    {orden.solicitudFirma?.storageKey && (
+      <p className="mt-2 text-[14px] leading-6">
+        <span className="text-slate-500">Archivo de solicitud: </span>
+        <button
+          type="button"
+          onClick={() => verArchivo(orden.solicitudFirma!.storageKey)}
+          className="text-cyan-600 hover:text-cyan-800 underline underline-offset-2"
+        >
+          Ver
+        </button>
+        <span className="mx-2">·</span>
+        <button
+          type="button"
+          onClick={() => descargarArchivo(orden.solicitudFirma!.storageKey)}
+          className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-2 py-0.5 text-[13px] text-slate-700 hover:bg-slate-50 ml-1"
+        >
+          Descargar
+        </button>
+      </p>
+    )}
+  </div>
+</section>
 
       {/* CARD — Herramientas */}
       {herramientas.length > 0 && (
@@ -325,91 +503,133 @@ return (
         </section>
       )}
 
-      {/* CARD — Personal */}
-      {empleadosAsignados.length > 0 && (
-        <section className="rounded-2xl border border-slate-200 bg-white shadow-sm p-4 md:p-6">
-          <h2 className="text-lg font-semibold text-slate-900 mb-2">Personal asignado</h2>
-          <div className="space-y-3 text-[15px] leading-7">
-            {empleadosAsignados.map((asignacion, index) => {
-              const registros = registrosTrabajo.filter(
-                (r) =>
-                  r.empleado.nombre === asignacion.empleado.nombre &&
-                  r.empleado.apellido === asignacion.empleado.apellido
-              );
-              return (
-                <div key={index}>
-                  <p>
-                    <span className="text-slate-500">
-                      {asignacion.rol === 'TECNICO' ? 'Técnico' : 'Certificador'}:
-                    </span>{' '}
-                    {asignacion.empleado.nombre} {asignacion.empleado.apellido}
-                  </p>
-                  {registros.length > 0 && (
-                    <ul className="ml-6 list-disc text-slate-700">
-                      {registros.map((r, i) => (
-                        <li key={i}>{new Date(r.fecha).toLocaleDateString()}</li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              );
-            })}
+{/* CARD — Personal */}
+{empleadosAsignados.length > 0 && (
+  <section className="rounded-2xl border border-slate-200 bg-white shadow-sm p-4 md:p-6">
+    <h2 className="text-lg font-semibold text-slate-900 mb-2">Personal asignado</h2>
+
+    <div className="space-y-3 text-[15px] leading-7">
+      {empleadosAsignados.map((asignacion, index) => {
+        // normaliza para comparar (sin acentos, trim, lower)
+        const norm = (s: string) =>
+          (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+
+        const registrosEmpleado = registrosTrabajo.filter((r) =>
+          norm(r.empleado.nombre) === norm(asignacion.empleado.nombre) &&
+          norm(r.empleado.apellido) === norm(asignacion.empleado.apellido)
+        );
+
+        const fmtFecha = (d: string) => new Date(d).toLocaleDateString('es-UY');
+
+        return (
+          <div key={index} className="pb-2 border-b last:border-b-0 border-slate-100">
+            <p>
+              <span className="text-slate-500">
+                {asignacion.rol === 'TECNICO' ? 'Técnico' : 'Certificador'}:
+              </span>{' '}
+              {asignacion.empleado.nombre} {asignacion.empleado.apellido}
+            </p>
+
+            {registrosEmpleado.length > 0 && (
+              <ul className="mt-1 ml-6 list-disc text-slate-700">
+                {registrosEmpleado.map((r, i) => (
+                  <li key={`${r.fecha}-${i}`}>
+                    <span className="text-slate-500">{fmtFecha(r.fecha)}:</span>{' '}
+                    <span>{Number(r.horasTrabajadas).toFixed(2)} h — </span>
+                    <span>{r.trabajoRealizado?.trim() || 'Sin detalle'}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
-        </section>
-      )}
+        );
+      })}
+    </div>
+  </section>
+)}
 
-      {/* CARD — Factura */}
-      <section className="rounded-2xl border border-slate-200 bg-white shadow-sm p-4 md:p-6">
-        <h2 className="text-lg font-semibold text-slate-900">Factura</h2>
 
-        <label className="block text-sm font-medium text-slate-700 mt-4 mb-1">Estado de la factura</label>
-        <select
-          className="w-full rounded-xl border border-slate-300 px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
-          value={estadoFactura}
-          onChange={(e) => setEstadoFactura(e.target.value)}
-        >
-          <option value="PENDIENTE">Pendiente</option>
-          <option value="FACTURADA">Facturada</option>
-          <option value="PAGADA">Pagada</option>
-        </select>
 
-        <div className="mt-4 flex flex-wrap gap-3">
-          <button
-            onClick={handleGuardarFactura}
-            className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-[#597BFF] to-[#4a6ee0] text-white font-semibold px-4 py-2 shadow-sm hover:from-[#4a6ee0] hover:to-[#3658d4] hover:shadow-lg hover:brightness-110 transform hover:scale-[1.03] transition-all duration-300"
-          >
-            Guardar estado
-          </button>
+     <section className="rounded-2xl border border-slate-200 bg-white shadow-sm p-4 md:p-6">
+  <h2 className="text-lg font-semibold text-slate-900">Factura</h2>
 
-          <button
-            onClick={() => setMostrarSubirFactura(true)}
-            className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white
-                       px-4 py-2 text-slate-700 hover:bg-slate-50 hover:border-slate-400
-                       transform hover:scale-[1.02] transition-all duration-200"
-          >
-            {orden.archivoFactura ? 'Ver / reemplazar factura' : 'Subir archivo de factura'}
-          </button>
-        </div>
+  <label className="block text-sm font-medium text-slate-700 mt-4 mb-1">Estado de la factura</label>
+  <select
+    className="w-full rounded-xl border border-slate-300 px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
+    value={estadoFactura ?? ''}
+    onChange={(e) => setEstadoFactura(e.target.value)}
+  >
+    <option value="">— Seleccionar —</option>
+    <option value="NO_ENVIADA">No enviada</option>
+    <option value="ENVIADA">Enviada</option>
+    <option value="PAGA">Paga</option>
+  </select>
 
-        {orden.archivoFactura && (
-          <p className="mt-2 text-[14px] leading-6">
-            <span className="text-slate-500">Actual: </span>
-            <a
-              href={orden.archivoFactura}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-cyan-600 hover:text-cyan-800 underline underline-offset-2"
-            >
-              ver
-            </a>
-          </p>
-        )}
+  <div className="mt-4 flex flex-wrap gap-3">
+    <button
+      onClick={handleGuardarFactura}
+      className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-[#597BFF] to-[#4a6ee0] text-white font-semibold px-4 py-2 shadow-sm hover:from-[#4a6ee0] hover:to-[#3658d4] hover:shadow-lg hover:brightness-110 transform hover:scale-[1.03] transition-all duration-300"
+    >
+      Guardar estado
+    </button>
 
-        <SubirArchivo
-          open={mostrarSubirFactura}
-          onClose={() => setMostrarSubirFactura(false)}
-          url={`/ordenes-trabajo/${id}/factura`}
-        />
+    <button
+      onClick={() => setMostrarSubirFactura(true)}
+      className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white
+                 px-4 py-2 text-slate-700 hover:bg-slate-50 hover:border-slate-400
+                 transform hover:scale-[1.02] transition-all duration-200"
+    >
+      {orden.archivoFactura?.storageKey ? 'Reemplazar' : 'Subir archivo de factura'}
+    </button>
+  </div>
+
+  {/* Modal de subida */}
+  <SubirArchivo
+    open={mostrarSubirFactura}
+    onClose={() => setMostrarSubirFactura(false)}
+    url={`/ordenes-trabajo/${id}/subir-factura`}   // POST de subida
+    label="Subir archivo de factura"
+    nombreCampo="archivoFactura"
+    onUploaded={async () => {
+      setMostrarSubirFactura(false);
+      const updated = await fetchJson<any>(`/ordenes-trabajo/${id}`);
+      setOrden(updated);
+    }}
+  />
+
+  {/* Ver / Descargar factura */}
+  {orden.archivoFactura?.storageKey && (
+    <div className="mt-2 flex items-center gap-3 text-[14px] leading-6">
+      <button
+        type="button"
+        onClick={() => verArchivo(orden.archivoFactura!.storageKey)}
+        className="inline-flex items-center gap-1 text-cyan-600 hover:text-cyan-800 underline underline-offset-2"
+      >
+        👁️ Ver factura
+      </button>
+      <button
+        type="button"
+        onClick={() => descargarArchivo(orden.archivoFactura!.storageKey)}
+        className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-slate-700 hover:bg-slate-50"
+      >
+        Descargar
+      </button>
+    </div>
+  )}
+
+ <SubirArchivo
+  open={mostrarSubirFactura}
+  onClose={() => setMostrarSubirFactura(false)}
+  url={`/ordenes-trabajo/${id}/subir-factura`}   
+  label="Subir archivo de factura"
+  nombreCampo="archivoFactura"                   
+  onUploaded={async () => {
+    setMostrarSubirFactura(false);
+    const updated = await fetchJson<OrdenTrabajo>(`/ordenes-trabajo/${id}`);
+    setOrden(updated);
+  }}
+/>
+
       </section>
     </main>
   </div>

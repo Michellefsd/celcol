@@ -1,9 +1,6 @@
 // src/controllers/ordenTrabajo.controller.js — Parte 1/3 (ESM)
 import { PrismaClient } from '@prisma/client';
 import { subirArchivoGenerico } from '../utils/archivoupload.js';
-import PDFDocument from 'pdfkit';
-import path from 'path';
-import fs from 'fs';
 
 const prisma = new PrismaClient();
 
@@ -34,38 +31,25 @@ export const getAllOrdenes = async (req, res) => {
   }
 };
 
+// ✅ OBTENER OT POR ID — admite ?includeArchived=1 y devuelve relación Archivo (storageKey)
 export const getOrdenById = async (req, res) => {
-  const id = parseInt(req.params.id);
-
   try {
-    const orden = await prisma.ordenTrabajo.findUnique({
-      where: { id },
+    const id = Number(req.params.id);
+    if (Number.isNaN(id)) return res.status(400).json({ error: 'ID inválido' });
+
+    const includeArchived =
+      req.query.includeArchived === '1' || req.query.includeArchived === 'true';
+
+    const where = includeArchived ? { id } : { id, archivada: false };
+
+    const orden = await prisma.ordenTrabajo.findFirst({
+      where,
       include: {
-        avion: {
-          include: {
-            ComponenteAvion: true,
-          },
-        },
-        componente: {
-          include: {
-            propietario: true,
-          },
-        },
-        empleadosAsignados: {
-          include: {
-            empleado: true,
-          },
-        },
-        herramientas: {
-          include: {
-            herramienta: true,
-          },
-        },
-        stockAsignado: {
-          include: {
-            stock: true,
-          },
-        },
+        avion: { include: { ComponenteAvion: true } },
+        componente: { include: { propietario: true } },
+        empleadosAsignados: { include: { empleado: true } },
+        herramientas: { include: { herramienta: true } },
+        stockAsignado: { include: { stock: true } },
         registrosTrabajo: {
           orderBy: { fecha: 'asc' },
           select: {
@@ -78,25 +62,36 @@ export const getOrdenById = async (req, res) => {
             empleado: { select: { id: true, nombre: true, apellido: true } },
           },
         },
+        // 👇 relaciones Archivo (igual que herramientas; sin construir URLs)
+        solicitudFirma: {
+          select: {
+            id: true,
+            storageKey: true,
+            mime: true,
+            originalName: true,
+            sizeAlmacen: true,
+          },
+        },
+        archivoFactura: {
+          select: {
+            id: true,
+            storageKey: true,
+            mime: true,
+            originalName: true,
+            sizeAlmacen: true,
+          },
+        },
       },
     });
 
-    if (!orden) {
-      return res.status(404).json({ error: 'Orden no encontrada' });
-    }
-
-    const baseUrl = `${req.protocol}://${req.get('host')}`;
-
-    res.json({
-      ...orden,
-      solicitudFirma: orden.solicitudFirma ? `${baseUrl}/${orden.solicitudFirma}` : null,
-      archivoFactura: orden.archivoFactura ? `${baseUrl}/${orden.archivoFactura}` : null,
-    });
+    if (!orden) return res.status(404).json({ error: 'Orden no encontrada' });
+    res.json(orden);
   } catch (error) {
-    console.error('❌ Error al obtener orden:', error);
-    res.status(500).json({ error: 'Error al obtener orden' });
+    console.error('Error al obtener la orden:', error);
+    res.status(500).json({ error: 'Error al obtener la orden' });
   }
 };
+
 
 // 3. Crear nueva orden de trabajo
 export const createOrden = async (req, res) => {
@@ -195,15 +190,31 @@ export const updateFase2 = async (req, res) => {
   }
 };
 
-// Fase 2: Subir archivo de solicitud de firma
+// ✅ Fase 2: Subir archivo de solicitud (RELACIÓN 'solicitudFirma' en tu schema)
 export const subirArchivoOrden = (req, res) =>
   subirArchivoGenerico({
     req,
     res,
-    modeloPrisma: prisma.ordenTrabajo, // 👈 este es tu modelo en Prisma
-    campoArchivo: 'solicitudFirma',   // 👈 este es el campo que contiene el archivo
-    nombreRecurso: 'Orden de trabajo' // 👈 solo para los mensajes de respuesta
+    modeloPrisma: prisma.ordenTrabajo,
+    campoArchivo: 'solicitudFirma',      // relación y field de multer
+    nombreRecurso: 'Orden de trabajo (solicitud)',
+    borrarAnterior: true,
+    prefix: 'orden',
   });
+
+
+  // ✅ Fase 4: Subir archivo de factura (RELACIÓN 'archivoFactura')
+export const subirArchivoFactura = (req, res) =>
+  subirArchivoGenerico({
+    req,
+    res,
+    modeloPrisma: prisma.ordenTrabajo,
+    campoArchivo: 'archivoFactura',      // relación y field de multer
+    nombreRecurso: 'Orden de trabajo (factura)',
+    borrarAnterior: true,
+    prefix: 'orden',
+  });
+
 
 
   // FASE 3 
@@ -419,15 +430,35 @@ export const updateFase3 = async (req, res) => {
 
 // Archivar orden (solo si está cerrada o cancelada)
 export const archivarOrden = async (req, res) => {
-  const id = parseInt(req.params.id);
+  const id = Number.parseInt(req.params.id, 10);
+  if (!Number.isFinite(id)) {
+    return res.status(400).json({ error: 'ID inválido' });
+  }
 
   try {
-    const orden = await prisma.ordenTrabajo.findUnique({ where: { id } });
-
+    const orden = await prisma.ordenTrabajo.findUnique({
+  where: { id },
+  include: {
+    avion: {
+      include: {
+        ComponenteAvion: true,
+        // ⬇️ IMPORTANTE: incluir el propietario real dentro de la fila de relación
+        propietarios: { include: { propietario: true } },
+      },
+    },
+    componente: { include: { propietario: true } },
+  },
+});
     if (!orden) {
       return res.status(404).json({ error: 'Orden no encontrada' });
     }
 
+    // Idempotencia: si ya está archivada, no falles
+    if (orden.archivada) {
+      return res.json({ mensaje: 'La orden ya estaba archivada', orden });
+    }
+
+    // Solo se archivan CERRADAS o CANCELADAS
     if (!['CERRADA', 'CANCELADA'].includes(orden.estadoOrden)) {
       return res
         .status(400)
@@ -436,15 +467,19 @@ export const archivarOrden = async (req, res) => {
 
     const ordenArchivada = await prisma.ordenTrabajo.update({
       where: { id },
-      data: { archivada: true },
+      data: {
+        archivada: true,
+        // fechaArchivado: new Date(), // ← descomenta si agregaste este campo
+      },
     });
 
-    res.json({ mensaje: 'Orden archivada con éxito', orden: ordenArchivada });
+    return res.json({ mensaje: 'Orden archivada con éxito', orden: ordenArchivada });
   } catch (error) {
     console.error('❌ Error al archivar orden:', error);
-    res.status(500).json({ error: 'Error al archivar orden' });
+    return res.status(500).json({ error: 'Error al archivar orden' });
   }
 };
+
 
 // 5. Eliminar orden
 export const deleteOrden = async (req, res) => {
@@ -575,15 +610,6 @@ export const editarRegistroTrabajo = async (req, res) => {
   }
 };
 
-// Fase 4: Subir archivo de factura
-export const subirArchivoFactura = (req, res) =>
-  subirArchivoGenerico({
-    req,
-    res,
-    modeloPrisma: prisma.ordenTrabajo,
-    campoArchivo: 'archivoFactura',
-    nombreRecurso: 'Orden de trabajo (factura)',
-  });
 
 // Fase 4: Guardar datos de factura (número y estado)
 export const guardarDatosFactura = async (req, res) => {
@@ -605,9 +631,55 @@ export const guardarDatosFactura = async (req, res) => {
   }
 };
 
-// Cancelar orden de trabajo
+
+
+// ==== helpers (SOLO UNA VEZ) ====
+function firstNonEmpty(...vals) {
+  for (const v of vals) if (v != null && String(v).trim() !== '') return v;
+  return null;
+}
+
+function pickStorageKey(v) {
+  if (!v) return null;
+  if (typeof v === 'string') return v;
+  if (typeof v === 'object') return v.storageKey || v.key || v.path || v.url || null;
+  return null;
+}
+
+function buildPropietarioSnapshot(p) {
+  if (!p) return null;
+
+  const tipoRaw = String(p.tipo || p.tipoPropietario || '').toUpperCase();
+  const tipo = tipoRaw === 'INSTITUCION' ? 'EMPRESA' : (tipoRaw || 'PERSONA');
+
+  const nombre = firstNonEmpty(p.nombre, p.nombres, p.nombrePropietario, p.firstName);
+  const apellido = firstNonEmpty(p.apellido, p.apellidos, p.apellidoPropietario, p.lastName);
+  const razonSocial = firstNonEmpty(p.razonSocial, p.nombreEmpresa, p.empresa);
+  const rut = firstNonEmpty(p.rut, p.ruc);
+  const cedula = firstNonEmpty(p.cedula, p.ci, p.dni);
+  const telefono = firstNonEmpty(p.telefono, p.phone, p.telefonoPropietario);
+  const email = firstNonEmpty(p.email, p.mail, p.correo);
+  const direccion = firstNonEmpty(p.direccion, p.address);
+
+  return {
+    tipo,                          // 'PERSONA' | 'EMPRESA'
+    nombre: nombre || null,
+    apellido: apellido || null,
+    cedula: cedula || null,
+    razonSocial: razonSocial || null,
+    rut: rut || null,
+    telefono: telefono || null,
+    email: email || null,
+    direccion: direccion || null,
+  };
+}
+// ==== fin helpers ====
+
+
+
+// Cancelar orden
 export const cancelarOrden = async (req, res) => {
-  const id = parseInt(req.params.id);
+  const id = Number.parseInt(req.params.id, 10);
   try {
     const orden = await prisma.ordenTrabajo.findUnique({
       where: { id },
@@ -618,54 +690,63 @@ export const cancelarOrden = async (req, res) => {
     });
     if (!orden) return res.status(404).json({ error: 'Orden no encontrada' });
 
-    // Si ya hay snapshots, no los recalculo: solo estado + fechaCancelacion
-    if (orden.datosAvionSnapshot || orden.datosComponenteSnapshot) {
+    // 🟡 Si ya hay snapshots → NO tocamos snapshots; solo estado/fecha
+    if (
+      orden.datosAvionSnapshot ||
+      orden.datosComponenteSnapshot ||
+      orden.datosPropietarioSnapshot
+    ) {
       const actualizada = await prisma.ordenTrabajo.update({
         where: { id },
-        data: { estadoOrden: 'CANCELADA', fechaCancelacion: new Date() },
+        data: {
+          estadoOrden: 'CANCELADA',
+          fechaCancelacion: new Date(),
+        },
       });
       return res.json({ mensaje: 'Orden cancelada', orden: actualizada });
     }
 
-    // Caso normal: genero snapshots
-    let datosAvionSnapshot = null, datosComponenteSnapshot = null, datosPropietarioSnapshot = null;
+    // 🟢 Primera vez: construir snapshots
+    let datosAvionSnapshot = null;
+    let datosComponenteSnapshot = null;
+    let datosPropietarioSnapshot = null; // ← SOLO si es componente
 
     if (orden.avion) {
       const a = orden.avion;
       datosAvionSnapshot = {
-        id: a.id, matricula: a.matricula, marca: a.marca, modelo: a.modelo,
-        numeroSerie: a.numeroSerie, TSN: a.TSN, vencimientoMatricula: a.vencimientoMatricula,
-        vencimientoSeguro: a.vencimientoSeguro, certificadoMatricula: a.certificadoMatricula,
-        componentes: a.ComponenteAvion.map(c => ({
+        id: a.id,
+        matricula: a.matricula,
+        marca: a.marca,
+        modelo: a.modelo,
+        numeroSerie: a.numeroSerie,
+        TSN: a.TSN,
+        vencimientoMatricula: a.vencimientoMatricula,
+        vencimientoSeguro: a.vencimientoSeguro,
+        certificadoMatricula: pickStorageKey(a.certificadoMatricula),
+        componentes: (a.ComponenteAvion || []).map(c => ({
           tipo: c.tipo, marca: c.marca, modelo: c.modelo, numeroSerie: c.numeroSerie,
           TSN: c.TSN, TSO: c.TSO, TBOHoras: c.TBOHoras, TBOFecha: c.TBOFecha,
         })),
-        propietarios: a.propietarios.map(p => ({
-          tipo: p.tipo, nombre: p.nombre, apellido: p.apellido, razonSocial: p.razonSocial,
+        propietarios: (a.propietarios || []).map(p => ({
+          tipo: p.tipo || p.tipoPropietario,
+          nombre: p.nombre, apellido: p.apellido,
+          razonSocial: p.razonSocial || p.nombreEmpresa,
           rut: p.rut, cedula: p.cedula, email: p.email, telefono: p.telefono,
         })),
       };
-      if (a.propietarios.length === 1) {
-        const p = a.propietarios[0];
-        datosPropietarioSnapshot = {
-          tipo: p.tipo, nombre: p.nombre, apellido: p.apellido, razonSocial: p.razonSocial,
-          rut: p.rut, cedula: p.cedula, email: p.email, telefono: p.telefono,
-        };
-      }
     }
 
     if (orden.componente) {
       const c = orden.componente;
       datosComponenteSnapshot = {
         tipo: c.tipo, marca: c.marca, modelo: c.modelo, numeroSerie: c.numeroSerie,
-        TSN: c.TSN, TSO: c.TSO, TBOHoras: c.TBOHoras, TBOFecha: c.TBOFecha, archivo8130: c.archivo8130,
+        TSN: c.TSN, TSO: c.TSO, TBOHoras: c.TBOHoras, TBOFecha: c.TBOFecha,
+        archivo8130: pickStorageKey(c.archivo8130),
       };
+
+      // 👉 Propietario SOLO si la OT es de componente
       if (c.propietario) {
-        const p = c.propietario;
-        datosPropietarioSnapshot = {
-          tipo: p.tipo, nombre: p.nombre, apellido: p.apellido, razonSocial: p.razonSocial,
-          rut: p.rut, cedula: p.cedula, email: p.email, telefono: p.telefono,
-        };
+        datosPropietarioSnapshot = buildPropietarioSnapshot(c.propietario);
       }
     }
 
@@ -676,51 +757,51 @@ export const cancelarOrden = async (req, res) => {
         fechaCancelacion: new Date(),
         datosAvionSnapshot,
         datosComponenteSnapshot,
-        datosPropietarioSnapshot,
+        datosPropietarioSnapshot, // ← null si era OT de avión
       },
     });
 
-    res.json({ mensaje: 'Orden cancelada', orden: ordenCancelada });
+    return res.json({ mensaje: 'Orden cancelada', orden: ordenCancelada });
   } catch (error) {
     console.error('Error al cancelar orden:', error);
-    res.status(500).json({ error: 'Error al cancelar orden' });
+    return res.status(500).json({ error: 'Error al cancelar orden' });
   }
 };
 
-// Cerrar orden de trabajos
+
+
+// Cerrar orden de trabajo
 export const cerrarOrden = async (req, res) => {
-  const id = parseInt(req.params.id);
+  const id = Number.parseInt(req.params.id, 10);
+  if (!Number.isFinite(id)) {
+    return res.status(400).json({ error: 'ID inválido' });
+  }
+
+  // 🔧 helper: siempre string/null para archivo (storageKey / key / path / url)
+  const pickStorageKey = (v) => {
+    if (!v) return null;
+    if (typeof v === 'string') return v;
+    if (typeof v === 'object') return v.storageKey || v.key || v.path || v.url || null;
+    return null;
+  };
 
   try {
     const orden = await prisma.ordenTrabajo.findUnique({
       where: { id },
       include: {
-        avion: {
-          include: {
-            ComponenteAvion: true,
-            propietarios: true,
-          },
-        },
-        componente: {
-          include: { propietario: true },
-        },
+        avion: { include: { ComponenteAvion: true, propietarios: true } },
+        componente: { include: { propietario: true } },
       },
     });
+    if (!orden) return res.status(404).json({ error: 'Orden no encontrada' });
 
-    if (!orden) {
-      return res.status(404).json({ error: 'Orden no encontrada' });
-    }
-
-    // Si ya tiene snapshot, solo actualizamos estado + fecha de cierre
+    // Si ya tiene snapshot, solo estado + fecha
     if (orden.datosAvionSnapshot || orden.datosComponenteSnapshot) {
       const actualizada = await prisma.ordenTrabajo.update({
         where: { id },
-        data: {
-          estadoOrden: 'CERRADA',
-          fechaCierre: new Date(),
-        },
+        data: { estadoOrden: 'CERRADA', fechaCierre: new Date() },
       });
-      return res.json(actualizada);
+      return res.json({ mensaje: 'Orden cerrada', orden: actualizada });
     }
 
     let datosAvionSnapshot = null;
@@ -728,28 +809,29 @@ export const cerrarOrden = async (req, res) => {
     let datosPropietarioSnapshot = null;
 
     if (orden.avion) {
-      const avion = orden.avion;
+      const a = orden.avion;
       datosAvionSnapshot = {
-        id: avion.id,
-        matricula: avion.matricula,
-        marca: avion.marca,
-        modelo: avion.modelo,
-        numeroSerie: avion.numeroSerie,
-        TSN: avion.TSN,
-        vencimientoMatricula: avion.vencimientoMatricula,
-        vencimientoSeguro: avion.vencimientoSeguro,
-        certificadoMatricula: avion.certificadoMatricula,
-        componentes: avion.ComponenteAvion.map(comp => ({
-          tipo: comp.tipo,
-          marca: comp.marca,
-          modelo: comp.modelo,
-          numeroSerie: comp.numeroSerie,
-          TSN: comp.TSN,
-          TSO: comp.TSO,
-          TBOHoras: comp.TBOHoras,
-          TBOFecha: comp.TBOFecha,
+        id: a.id,
+        matricula: a.matricula,
+        marca: a.marca,
+        modelo: a.modelo,
+        numeroSerie: a.numeroSerie,
+        TSN: a.TSN,
+        vencimientoMatricula: a.vencimientoMatricula,
+        vencimientoSeguro: a.vencimientoSeguro,
+        // ⬇️ serializar a string
+        certificadoMatricula: pickStorageKey(a.certificadoMatricula),
+        componentes: a.ComponenteAvion.map(c => ({
+          tipo: c.tipo,
+          marca: c.marca,
+          modelo: c.modelo,
+          numeroSerie: c.numeroSerie,
+          TSN: c.TSN,
+          TSO: c.TSO,
+          TBOHoras: c.TBOHoras,
+          TBOFecha: c.TBOFecha,
         })),
-        propietarios: avion.propietarios.map(p => ({
+        propietarios: a.propietarios.map(p => ({
           tipo: p.tipo,
           nombre: p.nombre,
           apellido: p.apellido,
@@ -761,8 +843,8 @@ export const cerrarOrden = async (req, res) => {
         })),
       };
 
-      if (avion.propietarios.length === 1) {
-        const p = avion.propietarios[0];
+      if (a.propietarios.length === 1) {
+        const p = a.propietarios[0];
         datosPropietarioSnapshot = {
           tipo: p.tipo,
           nombre: p.nombre,
@@ -777,21 +859,21 @@ export const cerrarOrden = async (req, res) => {
     }
 
     if (orden.componente) {
-      const comp = orden.componente;
+      const c = orden.componente;
       datosComponenteSnapshot = {
-        tipo: comp.tipo,
-        marca: comp.marca,
-        modelo: comp.modelo,
-        numeroSerie: comp.numeroSerie,
-        TSN: comp.TSN,
-        TSO: comp.TSO,
-        TBOHoras: comp.TBOHoras,
-        TBOFecha: comp.TBOFecha,
-        archivo8130: comp.archivo8130,
+        tipo: c.tipo,
+        marca: c.marca,
+        modelo: c.modelo,
+        numeroSerie: c.numeroSerie,
+        TSN: c.TSN,
+        TSO: c.TSO,
+        TBOHoras: c.TBOHoras,
+        TBOFecha: c.TBOFecha,
+        // ⬇️ serializar a string
+        archivo8130: pickStorageKey(c.archivo8130),
       };
-
-      if (comp.propietario) {
-        const p = comp.propietario;
+      if (c.propietario) {
+        const p = c.propietario;
         datosPropietarioSnapshot = {
           tipo: p.tipo,
           nombre: p.nombre,
@@ -816,10 +898,10 @@ export const cerrarOrden = async (req, res) => {
       },
     });
 
-    res.json(ordenCerrada);
+    return res.json({ mensaje: 'Orden cerrada', orden: ordenCerrada });
   } catch (error) {
     console.error('❌ Error al cerrar orden:', error);
-    res.status(500).json({ error: 'Error al cerrar orden' });
+    return res.status(500).json({ error: 'Error al cerrar orden' });
   }
 };
 
@@ -842,5 +924,29 @@ export const eliminarRegistroTrabajo = async (req, res) => {
   } catch (e) {
     console.error('❌ Error eliminando registro:', e);
     res.status(500).json({ error: 'Error eliminando registro' });
+  }
+};
+
+
+export const desarchivarOrden = async (req, res) => {
+  const id = Number.parseInt(req.params.id, 10);
+  if (!Number.isFinite(id)) return res.status(400).json({ error: 'ID inválido' });
+
+  try {
+    const orden = await prisma.ordenTrabajo.findUnique({ where: { id } });
+    if (!orden) return res.status(404).json({ error: 'Orden no encontrada' });
+
+    if (!orden.archivada) {
+      return res.json({ mensaje: 'La orden no estaba archivada', orden });
+    }
+
+    const ordenActiva = await prisma.ordenTrabajo.update({
+      where: { id },
+      data: { archivada: false /*, fechaArchivado: null*/ },
+    });
+    return res.json({ mensaje: 'Orden desarchivada', orden: ordenActiva });
+  } catch (e) {
+    console.error('❌ Error al desarchivar orden:', e);
+    return res.status(500).json({ error: 'Error al desarchivar orden' });
   }
 };

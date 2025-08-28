@@ -138,7 +138,7 @@ app.use('/avisos',            requireAuth, avisosRoutes);
 app.use('/archivados',        requireAuth, archivadosRoutes);
 app.use('/archivadas',        requireAuth, archivadosRoutes);
 
-app.use('/archivos', requireAuth, archivosRoutes);
+app.use('/archivos', archivosRoutes);
 
 // === REVISIÓN INICIAL DIFERIDA ===
 (async () => {

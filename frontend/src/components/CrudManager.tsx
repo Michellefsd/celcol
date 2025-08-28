@@ -227,37 +227,6 @@ try {
     return '';
   };
 
- /*const renderValue = (item: T, key: keyof T): string => {
-    const value = item[key];
-    if (Array.isArray(value)) {
-      return value.map((v) => {
-        if (
-          typeof v === 'object' &&
-          v !== null &&
-          'propietario' in v &&
-          typeof v.propietario === 'object'
-        ) {
-          const p = v.propietario;
-          return p.nombreEmpresa || `${p.nombre ?? ''} ${p.apellido ?? ''}`.trim();
-        }
-        return '';
-      }).join(', ');
-    }
-    if (
-      typeof value === 'object' &&
-      value !== null &&
-      ('nombreEmpresa' in value || 'nombre' in value || 'apellido' in value)
-    ) {
-      const p = value as { nombreEmpresa?: string; nombre?: string; apellido?: string };
-      if (p.nombreEmpresa) return p.nombreEmpresa;
-      if (p.nombre || p.apellido) return `${p.nombre ?? ''} ${p.apellido ?? ''}`.trim();
-    }
-    if (value instanceof Date) return value.toLocaleDateString();
-    if (typeof value === 'boolean') return value ? 'Sí' : 'No';
-    return value !== undefined && value !== null ? String(value) : '';
-  };
-  */
-
 const renderValue = (item: T, key: keyof T): string => {
   const value = item[key];
 

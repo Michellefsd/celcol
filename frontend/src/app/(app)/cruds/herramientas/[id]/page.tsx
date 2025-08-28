@@ -11,6 +11,7 @@ type ArchivoRef = {
   storageKey: string;
   mime?: string | null;
   originalName?: string | null;
+  sizeAlmacen?: number | null;
 };
 
 interface Herramienta {
@@ -31,76 +32,86 @@ export default function DetalleHerramientaPage() {
   const [mostrarSubirCertificado, setMostrarSubirCertificado] = useState(false);
 
   // Carga del recurso (sin pedir URL firmada acá)
-  const cargarHerramientaYUrl = async () => {
+  const cargarHerramienta = async () => {
     if (!id) return;
     const data = await fetchJson<Herramienta>(`/herramientas/${id}`);
     setItem(data);
   };
 
   useEffect(() => {
-    cargarHerramientaYUrl().catch(err => console.error('❌ Error:', err));
+    cargarHerramienta().catch(err => console.error('❌ Error:', err));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
+  async function obtenerUrlFirmada(key: string, disposition: 'inline' | 'attachment') {
+    const q = new URLSearchParams({ key, disposition }).toString();
+    return fetchJson<{ url: string }>(`/archivos/url-firmada?${q}`);
+  }
+
   // Ver en NUEVA pestaña (evita bloqueos de popup)
-const verCertificado = async () => {
-  const key = item?.certificadoCalibracion?.storageKey;
-  if (!key) return;
+  const verCertificado = async () => {
+    const key = item?.certificadoCalibracion?.storageKey;
+    if (!key) return;
 
-  // 1) abrir la pestaña inmediatamente (gesto del usuario)
-  const win = window.open('', '_blank'); // sin noopener/noreferrer
+    // 1) abrir la pestaña inmediatamente (gesto del usuario)
+    const win = window.open('about:blank', '_blank'); // sin noopener/noreferrer
 
-  // 2) opcional: mostrar un loader simple
-  if (win && win.document) {
-    win.document.write('<!doctype html><title>Cargando…</title><p style="font:14px sans-serif;padding:16px">Generando acceso temporal…</p>');
-  }
+    try {
+      const { url } = await obtenerUrlFirmada(key, 'inline');
 
-  try {
-    // 3) pedir URL firmada (inline)
-    const q = new URLSearchParams({ key, disposition: 'inline' }).toString();    const { url } = await fetchJson<{ url: string }>(`/archivos/url-firmada?${q}`);
+      if (!url) {
+        win?.close();
+        console.error('No llegó URL firmada');
+        return;
+      }
 
-    if (url) {
-      if (win) win.location.replace(url);
-      else window.open(url, '_blank');
-    } else {
-      if (win) win.close();
-      console.error('No llegó URL firmada');
+      if (win) {
+        // pequeño delay ayuda a Safari/Pop-up blockers
+        setTimeout(() => win.location.replace(url), 60);
+      } else {
+        // Fallback si el popup fue bloqueado
+        window.open(url, '_blank');
+      }
+    } catch (e) {
+      win?.close();
+      console.error('❌ No se pudo abrir certificado:', e);
     }
-  } catch (e) {
-    if (win) win.close();
-    console.error('❌ No se pudo abrir certificado:', e);
-  }
-};
+  };
 
-// Descargar en NUEVA pestaña (mismo patrón, attachment)
-const descargarCertificado = async () => {
-  const key = item?.certificadoCalibracion?.storageKey;
-  if (!key) return;
+  // Descargar (abre nueva pestaña y fuerza descarga con "attachment")
+  const descargarCertificado = async () => {
+    const key = item?.certificadoCalibracion?.storageKey;
+    if (!key) return;
 
-  const win = window.open('', '_blank'); // mantener handle
+    const win = window.open('about:blank', '_blank'); // mantener handle
 
-  if (win && win.document) {
-    win.document.write('<!doctype html><title>Cargando…</title><p style="font:14px sans-serif;padding:16px">Preparando descarga…</p>');
-  }
+    try {
+      const { url } = await obtenerUrlFirmada(key, 'attachment');
 
-  try {
-    const q = new URLSearchParams({ key, disposition: 'attachment' }).toString();
-    const { url } = await fetchJson<{ url: string }>(`/archivos/url-firmada?${q}`);
+      if (!url) {
+        win?.close();
+        console.error('No llegó URL firmada');
+        return;
+      }
 
-    if (url) {
-      if (win) win.location.replace(url);
-      else window.open(url, '_blank');
-    } else {
-      if (win) win.close();
-      console.error('No llegó URL firmada');
+      if (win) {
+        setTimeout(() => win.location.replace(url), 60);
+      } else {
+        // Fallback si el popup fue bloqueado
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = '';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      }
+    } catch (e) {
+      win?.close();
+      console.error('❌ No se pudo descargar certificado:', e);
     }
-  } catch (e) {
-    if (win) win.close();
-    console.error('❌ No se pudo descargar certificado:', e);
-  }
-};
+  };
 
-
-  if (!item) return <p className="text-gray-500">Cargando herramienta...</p>;
+  if (!item) return <p className="text-gray-500 p-4">Cargando herramienta...</p>;
 
   return (
     <div className="min-h-screen bg-slate-100">
@@ -116,12 +127,46 @@ const descargarCertificado = async () => {
             <h2 className="text-xl font-semibold text-slate-900">{item.nombre}</h2>
 
             <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-1 text-sm">
-              {item.tipo && <p><span className="text-slate-500">Tipo:</span> <span className="text-slate-800 font-medium">{item.tipo}</span></p>}
-              {item.marca && <p><span className="text-slate-500">Marca:</span> <span className="text-slate-800 font-medium">{item.marca}</span></p>}
-              {item.modelo && <p><span className="text-slate-500">Modelo:</span> <span className="text-slate-800 font-medium">{item.modelo}</span></p>}
-              {item.numeroSerie && <p><span className="text-slate-500">N° Serie:</span> <span className="text-slate-800 font-medium">{item.numeroSerie}</span></p>}
-              {item.fechaIngreso && <p><span className="text-slate-500">Fecha ingreso:</span> <span className="text-slate-800 font-medium">{new Date(item.fechaIngreso).toLocaleDateString()}</span></p>}
-              {item.fechaVencimiento && <p><span className="text-slate-500">Vencimiento:</span> <span className="text-slate-800 font-medium">{new Date(item.fechaVencimiento).toLocaleDateString()}</span></p>}
+              {item.tipo && (
+                <p>
+                  <span className="text-slate-500">Tipo:</span>{' '}
+                  <span className="text-slate-800 font-medium">{item.tipo}</span>
+                </p>
+              )}
+              {item.marca && (
+                <p>
+                  <span className="text-slate-500">Marca:</span>{' '}
+                  <span className="text-slate-800 font-medium">{item.marca}</span>
+                </p>
+              )}
+              {item.modelo && (
+                <p>
+                  <span className="text-slate-500">Modelo:</span>{' '}
+                  <span className="text-slate-800 font-medium">{item.modelo}</span>
+                </p>
+              )}
+              {item.numeroSerie && (
+                <p>
+                  <span className="text-slate-500">N° Serie:</span>{' '}
+                  <span className="text-slate-800 font-medium">{item.numeroSerie}</span>
+                </p>
+              )}
+              {item.fechaIngreso && (
+                <p>
+                  <span className="text-slate-500">Fecha ingreso:</span>{' '}
+                  <span className="text-slate-800 font-medium">
+                    {new Date(item.fechaIngreso).toLocaleDateString()}
+                  </span>
+                </p>
+              )}
+              {item.fechaVencimiento && (
+                <p>
+                  <span className="text-slate-500">Vencimiento:</span>{' '}
+                  <span className="text-slate-800 font-medium">
+                    {new Date(item.fechaVencimiento).toLocaleDateString()}
+                  </span>
+                </p>
+              )}
             </div>
 
             {/* Certificado */}
@@ -137,7 +182,7 @@ const descargarCertificado = async () => {
                     👁️ Ver certificado
                   </button>
 
-                  {/* Descargar (misma pestaña) */}
+                  {/* Descargar */}
                   <button
                     type="button"
                     onClick={descargarCertificado}
@@ -168,11 +213,11 @@ const descargarCertificado = async () => {
           <SubirArchivo
             open={mostrarSubirCertificado}
             onClose={() => setMostrarSubirCertificado(false)}
-            url={api(`/herramientas/${item.id}/certificadoCalibracion`)}
+            url={api(`/herramientas/${item.id}/certificadoCalibracion`)} // POST absoluto al backend
             label="Subir certificado de calibración"
             nombreCampo="certificadoCalibracion"
             onUploaded={async () => {
-              await cargarHerramientaYUrl(); // recarga y listo
+              await cargarHerramienta();
               setMostrarSubirCertificado(false);
             }}
           />

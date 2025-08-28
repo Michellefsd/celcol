@@ -1,15 +1,15 @@
 import { subirArchivoGenerico } from '../utils/archivoupload.js';
+import { PrismaClient } from '@prisma/client';
+import { empleadoEnOtAbierta } from '../services/archiveGuards.js';
 import PDFDocument from 'pdfkit';
 import path from 'path';
 import fs from 'fs';
-import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
-
-// CREATE
-
 const ALLOWED_LIC = ['MOTOR', 'AERONAVE', 'AVIONICA'];
 
+
+// CREATE
 export const crearPersonal = async (req, res) => {
   try {
     const {
@@ -20,7 +20,7 @@ export const crearPersonal = async (req, res) => {
       esCertificador,
       esTecnico,
       direccion,
-      tipoLicencia,               // "MOTOR" o ["MOTOR","AERONAVE"]
+      tipoLicencia,              
       numeroLicencia,
       vencimientoLicencia,
       fechaAlta,
@@ -84,7 +84,7 @@ export const listarPersonal = async (_req, res) => {
   }
 };
 
-// READ ONE — includeArchived + URL absoluta de carneSalud
+// READ ONE — GET BY ID con includeArchived y relación Archivo
 export const obtenerPersonal = async (req, res) => {
   try {
     const id = Number(req.params.id);
@@ -96,21 +96,27 @@ export const obtenerPersonal = async (req, res) => {
       req.query.includeArchived === '1' || req.query.includeArchived === 'true';
 
     const where = includeArchived ? { id } : { id, archivado: false };
-    const empleado = await prisma.empleado.findFirst({ where });
+
+    const empleado = await prisma.empleado.findFirst({
+      where,
+      include: {
+        carneSalud: {
+          select: {
+            id: true,
+            storageKey: true,
+            mime: true,
+            originalName: true,
+            sizeAlmacen: true,
+          },
+        },
+      },
+    });
 
     if (!empleado) {
       return res.status(404).json({ error: 'Empleado no encontrado' });
     }
 
-    if (empleado.carneSalud && typeof empleado.carneSalud === 'string') {
-      const isAbsolute = /^https?:\/\//i.test(empleado.carneSalud);
-      if (!isAbsolute) {
-        const baseUrl = `${req.protocol}://${req.get('host')}`;
-        const normalized = empleado.carneSalud.replace(/\\/g, '/').replace(/^\/+/, '');
-        empleado.carneSalud = `${baseUrl}/${normalized}`;
-      }
-    }
-
+    // 🚫 Nada de toAbs ni URL públicas
     res.json(empleado);
   } catch (error) {
     console.error('Error al obtener empleado:', error);
@@ -166,7 +172,7 @@ export const actualizarPersonal = async (req, res) => {
   }
 };
 
-// ARCHIVAR PERSONAL (estricto: no archiva si está en OT abiertas)
+// ARCHIVAR personal (sin force)
 export const archivarPersonal = async (req, res) => {
   try {
     const id = Number(req.params.id);
@@ -174,61 +180,47 @@ export const archivarPersonal = async (req, res) => {
       return res.status(400).json({ error: 'ID inválido' });
     }
 
-    // estados considerados "abiertos" (ajustá a tus valores reales)
-    const OPEN_STATES = ['abierta', 'fase1', 'fase2', 'fase3', 'fase4'];
+    const vinculado = await empleadoEnOtAbierta(id);
+    if (vinculado) {
+      const otRef =
+        (await prisma.empleadoAsignado.findFirst({
+          where: { empleadoId: id, orden: { is: { estadoOrden: 'ABIERTA' } } },
+          select: { ordenId: true },
+        })) ||
+        (await prisma.registroDeTrabajo.findFirst({
+          where: { empleadoId: id, orden: { is: { estadoOrden: 'ABIERTA' } } },
+          select: { ordenId: true },
+        }));
 
-    const force = ['1', 'true', 'yes'].includes(
-      String(req.query.force || '').toLowerCase()
-    );
-
-    // 🔧 micro-fix: usar registroDeTrabajo (consistente con el resto del código)
-    const enOtAbierta = await prisma.registroDeTrabajo.findFirst({
-      where: {
-        empleadoId: id,
-        orden: {
-          archivada: false,
-          // si tu campo real es estadoOrden, ajustá aquí:
-          estado: { in: OPEN_STATES },
-        },
-      },
-      select: { id: true },
-    });
-
-    if (enOtAbierta && !force) {
-      return res
-        .status(409)
-        .json({ error: 'No se puede archivar: el empleado participa en OT abiertas' });
+      return res.status(409).json({
+        error: `No se puede archivar: el empleado participa en una OT ABIERTA${otRef?.ordenId ? ` (OT ${otRef.ordenId})` : ''}.`,
+      });
     }
 
-    await prisma.empleado.update({
+    const actualizado = await prisma.empleado.update({
       where: { id },
-      data: {
-        archivado: true,
-        // archivedAt: new Date(),
-        // archivedBy: req.user?.sub || null,
-      },
+      data: { archivado: true },
     });
 
-    return res.json({
-      mensaje: 'Empleado archivado correctamente',
-      ...(enOtAbierta && force ? { warning: 'Se forzó el archivado con OT abierta' } : {}),
-    });
+    return res.json({ mensaje: 'Empleado archivado correctamente', empleado: actualizado });
   } catch (error) {
+    if (error.code === 'P2025') return res.status(404).json({ error: 'No existe el registro' });
     console.error('Error al archivar personal:', error);
     return res.status(500).json({ error: 'Error al archivar el personal' });
   }
 };
+
 
 export const subirCarneSalud = (req, res) =>
   subirArchivoGenerico({
     req,
     res,
     modeloPrisma: prisma.empleado,
-    campoArchivo: 'carneSalud',   // nombre de la relación en Prisma y field de multer
+    campoArchivo: 'carneSalud',   // 👈 nombre exacto de la relación en Prisma
     nombreRecurso: 'Empleado',
-    borrarAnterior: true,         // reemplaza el anterior y limpia
-    prefix: 'empleado',           // para el nombre/ubicación del archivo
-    campoParam: 'id',             // toma req.params.id
+    borrarAnterior: true,
+    prefix: 'empleado',
+    campoParam: 'id',
   });
 
 // GET /personal/:id/registros-trabajo?desde=YYYY-MM-DD&hasta=YYYY-MM-DD
@@ -340,7 +332,7 @@ export const descargarHorasEmpleado = async (req, res) => {
 
       doc.text(fmt(r.fecha), col.fecha, y, { width: 70 });
       doc.text(String(r.ordenId || '—'), col.ot, y, { width: 40 });
-      doc.text(r.rol || '—', col.rol, y, { width: 60 });
+      doc.text(r.rol || '—', col.rol, y, { width: 80 });
       doc.text(String(r.horas ?? '—'), col.horas, y, { width: 40, align: 'right' });
       doc.text(r.trabajoRealizado || '—', col.trabajo, y, { width: trabajoWidth });
 

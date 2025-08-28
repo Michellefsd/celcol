@@ -13,9 +13,16 @@ interface RegistroDeTrabajo {
   ordenId: number;
   solicitud: string;
   rol: 'TECNICO' | 'CERTIFICADOR' | 'NO_ESPECIFICADO';
-  trabajoRealizado?: string | null;   // <- NUEVO
+  trabajoRealizado?: string | null;
 }
 
+type ArchivoRef = {
+  id: number;
+  storageKey: string;
+  mime?: string | null;
+  originalName?: string | null;
+  sizeAlmacen?: number | null;
+};
 
 interface EmpleadoDetalle {
   id: number;
@@ -31,7 +38,8 @@ interface EmpleadoDetalle {
   vencimientoLicencia: string;
   fechaAlta: string;
   horasTrabajadas: number;
-  carneSalud?: string; 
+  // 👇 relación Archivo en vez de string
+  carneSalud?: ArchivoRef | null;
 }
 
 export default function EmpleadoRegistrosPage() {
@@ -45,11 +53,11 @@ export default function EmpleadoRegistrosPage() {
   const [hasta, setHasta] = useState('');
   const [mostrarSubirCarne, setMostrarSubirCarne] = useState(false);
 
- const fetchEmpleado = async () => {
+  const fetchEmpleado = async () => {
     if (!empleadoId) return;
     try {
-      const data = await fetchJson<EmpleadoDetalle>(`/personal/${empleadoId}`);
-       setEmpleado(data);
+      const data = await fetchJson<EmpleadoDetalle>(`/personal/${empleadoId}`); // trae relación Archivo
+      setEmpleado(data);
     } catch (err) {
       console.error(err);
       alert('Error al cargar los datos del empleado');
@@ -58,73 +66,110 @@ export default function EmpleadoRegistrosPage() {
 
   useEffect(() => {
     fetchEmpleado();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [empleadoId]);
 
-const cargarRegistros = async () => {
-  if (!empleadoId) return;
+  const cargarRegistros = async () => {
+    if (!empleadoId) return;
 
-  const query: string[] = [];
-  if (desde) query.push(`desde=${desde}`);
-  if (hasta) query.push(`hasta=${hasta}`);
+    const query: string[] = [];
+    if (desde) query.push(`desde=${desde}`);
+    if (hasta) query.push(`hasta=${hasta}`);
 
-  const url = api(
-    `/personal/${empleadoId}/registros-trabajo${query.length ? `?${query.join('&')}` : ''}`
-  );
+    const url = api(
+      `/personal/${empleadoId}/registros-trabajo${query.length ? `?${query.join('&')}` : ''}`
+    );
 
-  try {
-    const res = await fetch(url, {
-      credentials: 'include',               // 👈 manda cookies
-      headers: { Accept: 'application/json' } // 👈 sin Content-Type en GET
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
-    setRegistros(Array.isArray(data) ? data : []);
-  } catch (err) {
-    console.error('❌ Error al filtrar registros:', err);
-  }
-};
-
+    try {
+      const res = await fetch(url, {
+        credentials: 'include',
+        headers: { Accept: 'application/json' }
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      setRegistros(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error('❌ Error al filtrar registros:', err);
+    }
+  };
 
   const totalHoras = registros.reduce((sum, r) => sum + r.horas, 0);
 
-    const esVisualizableEnNavegador = (url: string): boolean => {
-  const extension = url.split('.').pop()?.toLowerCase();
-  return ['pdf', 'jpg', 'jpeg', 'png', 'webp'].includes(extension || '');
-};
+  // 👇 Helpers para URL firmada (nada de URLs públicas)
+  async function obtenerUrlFirmada(key: string, disposition: 'inline' | 'attachment') {
+    const q = new URLSearchParams({ key, disposition }).toString();
+    return fetchJson<{ url: string }>(`/archivos/url-firmada?${q}`);
+  }
 
-const urlCarne = empleado?.carneSalud?.startsWith('http')
-  ? empleado.carneSalud
-  : empleado?.carneSalud
-  ? api(`/${empleado.carneSalud}`)
-  : '';
+  // 👁️ Ver carné de salud (nueva pestaña)
+  const verCarneSalud = async () => {
+    const key = empleado?.carneSalud?.storageKey;
+    if (!key) return;
 
-
-useEffect(() => {
-  if (!empleadoId) return;
-
-  // Calcular fechas: desde hace 7 días hasta hoy
-  const hoy = new Date();
-  const hace7Dias = new Date();
-  hace7Dias.setDate(hoy.getDate() - 7);
-
-  const formato = (d: Date) => d.toISOString().slice(0, 10);
-  const desdeStr = formato(hace7Dias);
-  const hastaStr = formato(hoy);
-
-  setDesde(desdeStr);
-  setHasta(hastaStr);
-
-  // Cargar registros automáticamente
-  const cargar = async () => {
-    const data = await fetchJson<RegistroDeTrabajo[]>(
-      `/personal/${empleadoId}/registros-trabajo?desde=${desdeStr}&hasta=${hastaStr}`
-    );
-    setRegistros(data);
+    const win = window.open('about:blank', '_blank');
+    try {
+      const { url } = await obtenerUrlFirmada(key, 'inline');
+      if (!url) { win?.close(); return; }
+      if (win) setTimeout(() => (win.location.href = url), 60);
+      else window.open(url, '_blank');
+    } catch (e) {
+      win?.close();
+      console.error('❌ No se pudo abrir el carné de salud:', e);
+    }
   };
 
-  cargar();
-}, [empleadoId]);
+  // ⬇️ Descargar carné (attachment)
+  const descargarCarneSalud = async () => {
+    const key = empleado?.carneSalud?.storageKey;
+    if (!key) return;
 
+    const win = window.open('about:blank', '_blank');
+    try {
+      const { url } = await obtenerUrlFirmada(key, 'attachment');
+      if (!url) { win?.close(); return; }
+      if (win) setTimeout(() => (win.location.href = url), 60);
+      else {
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = '';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      }
+    } catch (e) {
+      win?.close();
+      console.error('❌ No se pudo descargar el carné de salud:', e);
+    }
+  };
+
+  // ⛔️ Eliminado: esVisualizableEnNavegador/urlCarne (ya no se usan URLs públicas)
+
+  useEffect(() => {
+    if (!empleadoId) return;
+
+    // Calcular fechas: desde hace 7 días hasta hoy
+    const hoy = new Date();
+    const hace7Dias = new Date();
+    hace7Dias.setDate(hoy.getDate() - 7);
+
+    const formato = (d: Date) => d.toISOString().slice(0, 10);
+    const desdeStr = formato(hace7Dias);
+    const hastaStr = formato(hoy);
+
+    setDesde(desdeStr);
+    setHasta(hastaStr);
+
+    // Cargar registros automáticamente
+    const cargar = async () => {
+      const data = await fetchJson<RegistroDeTrabajo[]>(
+        `/personal/${empleadoId}/registros-trabajo?desde=${desdeStr}&hasta=${hastaStr}`
+      );
+      setRegistros(data);
+    };
+
+    cargar();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [empleadoId]);
 
 
   return (
@@ -163,53 +208,50 @@ useEffect(() => {
             <p><span className="text-slate-500">Vencimiento:</span> {empleado.vencimientoLicencia?.slice(0, 10)}</p>
           </div>
 
-          {/* Carné de salud */}
-          
-          <div className="pt-4">
-            {empleado.carneSalud ? (
-              <div className="space-y-2">
-                <h3 className="font-semibold">Carné de salud</h3>
-                <div className="flex flex-wrap gap-3">
-                 {esVisualizableEnNavegador(urlCarne) && (
-                    <a
-href={urlCarne}
+      {/* Carné de salud */}
+<div className="pt-4">
+  {empleado.carneSalud ? (
+    <div className="space-y-2">
+      <h3 className="font-semibold">Carné de salud</h3>
+      <div className="flex flex-wrap gap-3">
+        {/* Ver (URL firmada inline) */}
+        <button
+          type="button"
+          onClick={verCarneSalud}
+          className="inline-flex items-center gap-1 text-cyan-600 hover:text-cyan-800 underline underline-offset-2"
+        >
+          👁️ Ver carné
+        </button>
 
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-cyan-600 hover:text-cyan-800 underline underline-offset-2"
-                    >
-                      👁️ Ver carné
-                    </a>
-                  )}
-                  <a
-                    href={urlCarne}
-                    download
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition"
-                  >
-                    Descargar
-                  </a>
-                  <button
-                    type="button"
-                    onClick={() => setMostrarSubirCarne(true)}
-                    className="text-sm text-cyan-600 underline underline-offset-2 hover:text-cyan-800"
-                  >
-                    Reemplazar
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={() => setMostrarSubirCarne(true)}
-                className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-[#597BFF] to-[#4a6ee0] text-white font-semibold px-5 py-2.5 shadow-sm hover:from-[#4a6ee0] hover:to-[#3658d4] hover:shadow-lg hover:brightness-110 transform hover:scale-[1.03] transition-all duration-300"
-              >
-                Subir carné de salud
-              </button>
-            )}
-          </div>
+        {/* Descargar (attachment) */}
+        <button
+          type="button"
+          onClick={descargarCarneSalud}
+          className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition"
+        >
+          Descargar
+        </button>
 
+        {/* Reemplazar */}
+        <button
+          type="button"
+          onClick={() => setMostrarSubirCarne(true)}
+          className="text-sm text-cyan-600 underline underline-offset-2 hover:text-cyan-800"
+        >
+          Reemplazar
+        </button>
+      </div>
+    </div>
+  ) : (
+    <button
+      type="button"
+      onClick={() => setMostrarSubirCarne(true)}
+      className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-[#597BFF] to-[#4a6ee0] text-white font-semibold px-5 py-2.5 shadow-sm hover:from-[#4a6ee0] hover:to-[#3658d4] hover:shadow-lg hover:brightness-110 transform hover:scale-[1.03] transition-all duration-300"
+    >
+      Subir carné de salud
+    </button>
+  )}
+</div>
           <SubirArchivo
             open={mostrarSubirCarne}
             onClose={() => setMostrarSubirCarne(false)}
