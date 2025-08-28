@@ -422,8 +422,8 @@ export const crear = async (req, res) => {
     const archivo = await crearArchivoDesdeFile({
       file: req.file,
       keyPrefix: 'stock/factura',
-      keySuffix: `${stockId}`,     // queda: stock/factura/<stockId>/<ts>-<safeName>
-      allow: ['application/pdf', 'image/*'], // ajustá si querés
+      keySuffix: `${stockId}`,     
+      allow: ['application/pdf', 'image/*'], 
       blockSvg: true,
       maxSizeMB: 20,
     });

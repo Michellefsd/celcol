@@ -1,134 +1,123 @@
-# Celcol
-Celcol es un sistema integral de gestión para talleres mecánicos aeronáuticos.
-Permite controlar aviones, tareas, herramientas calibrables, stock, empleados y clientes desde una interfaz intuitiva y moderna desarrollada con Next.js, Tailwind CSS, Node.js, Express y PostgreSQL.
+# ✈️ Celcol
 
+Celcol es un sistema integral de gestión para talleres mecánicos aeronáuticos.  
+Permite controlar aviones, componentes, tareas, herramientas calibrables, stock, empleados y clientes desde una interfaz moderna.
 
-# 📜 Licencia
-Este software es propiedad intelectual de Michelle Rodriguez.
-Todos los derechos reservados.
+**Stack**
+- **Frontend:** Next.js 15.1.8 + React 19 + TailwindCSS 3.4
+- **Backend:** Node.js (Express 5) + Prisma 6
+- **DB:** PostgreSQL 17.5
+- **Auth:** Keycloak (OIDC)
+- **Storage:** Cloudflare R2
+
+---
+
+## 📜 Licencia
+Este software es propiedad intelectual de **Michelle Rodriguez**.  
+Todos los derechos reservados.  
 No se autoriza la reproducción, redistribución ni modificación total o parcial sin consentimiento explícito.
 
+---
 
-# 📋 Requisitos previos
-Node.js 22.x (recomendado instalar con nvm)
-PostgreSQL 17.5
-Git
+## 📋 Requisitos previos
+- Node.js **≥20.11** (recomendado; también funciona con 22.x)
+- PostgreSQL **17.5**
+- Git
+- Keycloak **24+** (para auth local)
+- Cuenta en **Cloudflare R2** (archivos)
 
+> ℹ️ **Notas internas**: las credenciales de Keycloak (admin), Cloudflare (cuenta y tarjeta) y otras claves se guardan en un documento privado fuera del repositorio (ej. `infra/credentials.md` o gestor de contraseñas).
 
-### mishisystemssolutions@gmail es el mail de donde salen los avisos cuenta conectada a keycloak y la cuenta de cloudflare
+---
 
-# Celcol (monorepo)
+## 🗂️ Monorepo
 
-## Apps
-- `frontend/` (Next.js 14)
-- `backend/` (Express + Prisma + Postgres)
+celcol/
+├─ backend/ → Express + Prisma
+└─ frontend/ → Next.js
 
-## Dev local
-### Backend
-1. Crear `backend/.env` (ver ejemplo en README / arriba)
-2. `cd backend`
-3. `npm i`
-4. `npx prisma migrate dev`
-5. `npm run dev` (o `node index.js` si no tienes script)
+---
 
-### Frontend
-1. Crear `frontend/.env.local`
-2. `cd frontend`
-3. `npm i`
-4. `npm run dev` → http://localhost:3000
+## 🚀 Desarrollo local
 
-### Keycloak local
-- URL: `http://localhost:8080`
-- Realm: `Cellcol`
-- Client: `cellcol-app` (OIDC, confidential)
-- Redirect URI: `http://localhost:3000/api/auth/callback`
-- Web origin: `http://localhost:3000`
-
-## Rutas útiles
-- Backend health: `GET http://localhost:3001/health`
-- Login: botón en `/` o `/login` → redirige a Keycloak
-- Callback: `GET /api/auth/callback` (backend)
-- Área protegida: `GET /me` (requiere cookie `cc_access`)
-
-## Deploy (staging)
-- Frontend: Vercel apuntando a `frontend/`
-- Backend: Render / Railway apuntando a `backend/`
-- DB: Neon / Render Postgres
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-1️⃣ Clonar el repositorio
+### 1) Clonar
+```bash
 git clone https://github.com/Michellefsd/celcol
 cd celcol
-2️⃣ Backend — configuración y base de datos
+2) Backend
 cd backend
 cp .env.example .env
-Editar el archivo .env para poner tus credenciales locales:
+Ejemplo .env (local):
+# Base de datos
 DATABASE_URL="postgresql://postgres:1234@localhost:5432/celcol?schema=public"
 PORT=3001
-Crear la base de datos (si no existe):
-createdb celcol || true
-# o:
-# psql -U postgres -c "CREATE DATABASE celcol;"
-Instalar dependencias y preparar Prisma:
+
+# Cloudflare R2
+R2_ENDPOINT="https://<your-account-id>.r2.cloudflarestorage.com"
+R2_BUCKET="celcol"
+R2_ACCESS_KEY_ID="xxxxx"
+R2_SECRET_ACCESS_KEY="xxxxx"
+
+# Keycloak
+KEYCLOAK_URL="http://localhost:9090"
+KEYCLOAK_REALM="Celcol"
+KEYCLOAK_CLIENT_ID="celcol-app"
+KEYCLOAK_CLIENT_SECRET="xxxxx"
+Instalar y levantar:
 npm install
 npx prisma generate
-npx prisma migrate dev --name init
-Esto crea solo las tablas, no carga datos de ejemplo.
-Levantar el backend:
+npx prisma migrate dev
 npm run dev
-📍 El API estará disponible en:
-http://localhost:3001
-
-# 3️⃣ Frontend
-En otra terminal:
+API: http://localhost:3001
+Healthcheck: http://localhost:3001/health
+3) Frontend
 cd ../frontend
-cp .env.example .env  # si existe; si no, crear uno con la URL del backend
-# Ejemplo de contenido:
-# NEXT_PUBLIC_API_BASE="http://localhost:3001"
-
+cp .env.example .env.local
+Ejemplo .env.local:
+NEXT_PUBLIC_API_BASE="http://localhost:3001"
+Instalar y levantar:
 npm install
 npm run dev
-📍 El frontend estará disponible en:
-http://localhost:3000
+Frontend: http://localhost:3000
+4) Keycloak local (referencia)
+URL: http://localhost:9090
+Realm: Celcol
+Client: celcol-app (OIDC, confidential)
+Redirect URI: http://localhost:3000/api/auth/callback
+Web origin: http://localhost:3000
+El login se realiza mediante OIDC con Keycloak (no existe endpoint /auth/login en el backend).
+🌐 Rutas útiles (backend)
+GET /health → estado del backend
+GET /archivos/url-firmada → descarga/inline mediante URL firmada (R2)
+(Endpoints de Órdenes de Trabajo, Stock, Herramientas, Empleados, etc., según controladores del proyecto)
+☁️ Deploy (staging / prod)
+Frontend: Vercel → carpeta frontend/
+Backend: Railway → carpeta backend/
+DB: Railway Postgres
+Storage: Cloudflare R2
+Auth: Keycloak (instancia accesible públicamente)
+Variables necesarias en producción (Railway/Vercel):
+DATABASE_URL="postgresql://..."
+PORT=3001
 
-# ℹ️ Notas
-Este setup no carga datos de ejemplo: ingresá los datos desde la app.
-El backend debe estar corriendo antes de iniciar el frontend.
-Si cambia el puerto del backend, actualizá NEXT_PUBLIC_API_BASE en el frontend.
-Si Prisma da errores de cliente, corré:
-npx prisma generate
-Asegurate de que PostgreSQL esté ejecutándose antes de iniciar.
+R2_ENDPOINT="https://<account-id>.r2.cloudflarestorage.com"
+R2_BUCKET="celcol"
+R2_ACCESS_KEY_ID="xxxxx"
+R2_SECRET_ACCESS_KEY="xxxxx"
 
-# 🐳 (Opcional) Levantar PostgreSQL con Docker
-docker run --name celcol-db \
-  -e POSTGRES_USER=postgres \
-  -e POSTGRES_PASSWORD=1234 \
-  -e POSTGRES_DB=celcol \
-  -p 5432:5432 \
-  -d postgres:17.5
-.env:
-DATABASE_URL="postgresql://postgres:1234@localhost:5432/celcol?schema=public"
-
-
+KEYCLOAK_URL="https://auth.celcol.com"   # tu instancia
+KEYCLOAK_REALM="Celcol"
+KEYCLOAK_CLIENT_ID="celcol-app"
+KEYCLOAK_CLIENT_SECRET="xxxxx"
+Migraciones en server:
+npx prisma migrate deploy
+🧪 QA / Testing (escenarios mínimos)
+Crear OT → Fase 3 (stock/herr/humanos) → Fase 4 (horas) → Cerrar/Cancelar.
+Alertas de stock (bajo mínimo) en fase 3 y edición directa de stock.
+Subida/descarga/reemplazo de archivos (todas las entidades).
+PDF de OT (cerrada/cancelada/archivada).
+Archivado y listados de archivados.
+🛡️ Notas
+Los archivos .env no se versionan.
+Para staging/prod, usar variables de entorno en Railway / Vercel.
+Mantener @prisma/client y prisma en la misma versión.
