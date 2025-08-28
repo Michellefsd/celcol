@@ -5,6 +5,8 @@ import { subirArchivoGenerico } from '../utils/archivoupload.js';
 import { stockEnOtAbierta } from '../services/archiveGuards.js';
 import { archivoStorage } from '../services/archivo.service.js';
 import { createHash } from 'node:crypto';
+import { crearArchivoDesdeFile } from '../services/archivo.service.js';
+
 
 const prisma = new PrismaClient({
   log: ['query', 'info', 'warn', 'error'],
