@@ -5,7 +5,21 @@ import BaseHeading from './BaseHeading';
 import BaseCard from './BaseCard';
 import BaseButton from './BaseButton';
 import { getAvionPorMatricula } from '../services/api';
-import { AvionConClientes } from '../types/index';
+
+// 🔹 Definís el tipo acá mismo
+export interface AvionConClientes {
+  avion: {
+    id: number;
+    marca: string;
+    modelo: string;
+    matricula: string;
+  };
+  duenios: Array<{
+    id: number;
+    nombre: string;
+    email?: string | null;
+  }>;
+}
 
 export default function AvionInfo() {
   const [matricula, setMatricula] = useState('');
@@ -19,7 +33,8 @@ export default function AvionInfo() {
     setLoading(true);
     try {
       const resultado = await getAvionPorMatricula(matricula);
-      setData(resultado);
+      // 👇 casteo rápido si getAvionPorMatricula aún devuelve unknown
+      setData(resultado as AvionConClientes | null);
     } catch (err) {
       if (err instanceof Error) {
         setError(err.message);
