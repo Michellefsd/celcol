@@ -1,7 +1,7 @@
 // src/services/api.ts
 
 export const API_URL =
-  process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+  process.env.NEXT_PUBLIC_API_URL || 'https://celcol-production.up.railway.app';
 
 export const AUTH_BASE =
   process.env.NEXT_PUBLIC_AUTH_BASE || '/api/auth';
