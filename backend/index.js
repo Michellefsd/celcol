@@ -62,7 +62,11 @@ app.use(cookieParser());
 
 // === CORS (una sola vez) ===
 const FRONT_ORIGIN = process.env.APP_URL || 'http://localhost:3000';
-const ALLOWED_ORIGINS = [FRONT_ORIGIN];
+const ALLOWED_ORIGINS = [
+  FRONT_ORIGIN,
+  process.env.API_URL, // opcional
+];
+
 
 const corsOptions = {
   origin(origin, cb) {
