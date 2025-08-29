@@ -81,7 +81,11 @@ app.options(/.*/, cors(corsOptions)); // preflight
 app.set('trust proxy', 1);
 
 // === HEALTH ===
-app.get('/health', (req, res) => {
+app.get('/', (_req, res) => {
+  res.send('Celcol API: ok');
+});
+
+app.get('/health', (_req, res) => {
   res.status(200).send('ok');
 });
 
