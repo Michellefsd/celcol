@@ -1,18 +1,19 @@
 // src/auth/oidc.js
 import 'dotenv/config';
-import { createRemoteJWKSet, jwtVerify } from 'jose';
+import { createRemoteJWKSet, jwtVerify, decodeJwt } from 'jose';
 
 const KC_BASE_CLEAN = (process.env.KC_BASE || '').replace(/\/$/, '');
 const KC_REALM = process.env.KC_REALM;
 const KC_CLIENT_ID = process.env.KC_CLIENT_ID;
 const KC_CLIENT_SECRET = process.env.KC_CLIENT_SECRET;
 const JWT_AUDIENCE = process.env.JWT_AUDIENCE; // opcional
+const DISABLE_JWT_VERIFY = process.env.DISABLE_JWT_VERIFY === '1';
 
-// Issuer y endpoints públicos de Keycloak (⚠️ KC_BASE debe ser HTTPS público)
-const ISSUER   = `${KC_BASE_CLEAN}/realms/${KC_REALM}`;
+// Issuer y endpoints (⚠️ KC_BASE debe ser HTTPS público)
+const ISSUER = `${KC_BASE_CLEAN}/realms/${KC_REALM}`;
 const tokenEndpoint = `${ISSUER}/protocol/openid-connect/token`;
-const jwksUri  = `${ISSUER}/protocol/openid-connect/certs`;
-const JWKS     = createRemoteJWKSet(new URL(jwksUri));
+const jwksUri = `${ISSUER}/protocol/openid-connect/certs`;
+const JWKS = createRemoteJWKSet(new URL(jwksUri));
 
 // --- Intercambio de código por tokens ---
 export async function exchangeCodeForToken(code, redirectUri) {
@@ -23,7 +24,6 @@ export async function exchangeCodeForToken(code, redirectUri) {
     client_id: KC_CLIENT_ID,
     client_secret: KC_CLIENT_SECRET,
   });
-
   const r = await fetch(tokenEndpoint, {
     method: 'POST',
     headers: { 'content-type': 'application/x-www-form-urlencoded' },
@@ -33,7 +33,7 @@ export async function exchangeCodeForToken(code, redirectUri) {
     const t = await r.text().catch(() => '');
     throw new Error(`Token exchange failed: ${r.status} ${t}`);
   }
-  return r.json(); // { access_token, id_token, refresh_token, ... }
+  return r.json();
 }
 
 // --- Refresh con refresh_token ---
@@ -44,7 +44,6 @@ export async function refreshWithToken(refreshToken) {
     client_secret: KC_CLIENT_SECRET,
     refresh_token: refreshToken,
   });
-
   const r = await fetch(tokenEndpoint, {
     method: 'POST',
     headers: { 'content-type': 'application/x-www-form-urlencoded' },
@@ -57,23 +56,26 @@ export async function refreshWithToken(refreshToken) {
   return r.json();
 }
 
-// --- Verificación del access_token (issuer estricto, audience tolerante) ---
+// --- Verificación de access_token ---
 export async function verifyAccessToken(token) {
+  if (DISABLE_JWT_VERIFY) {
+    // Modo diagnóstico: no verifica firma, solo decodifica para seguir operando
+    return decodeJwt(token);
+  }
+
   const baseOpts = { issuer: ISSUER, algorithms: ['RS256'] };
   const aud = (JWT_AUDIENCE || KC_CLIENT_ID || '').trim();
 
   try {
-    // 1) Intentar con audience si está definida (clientId o "account")
     if (aud) {
       const { payload } = await jwtVerify(token, JWKS, { ...baseOpts, audience: aud });
       return payload;
     }
-    // 2) Sin audience (Keycloak a veces usa aud múltiple)
     const { payload } = await jwtVerify(token, JWKS, baseOpts);
     return payload;
   } catch (e) {
-    // Si el fallo fue por audience, reintenta sin audience
     const msg = String(e?.message || '');
+    // Si falló por audience, reintenta sin audience
     if (/audience/i.test(msg) || e?.code === 'ERR_JWT_CLAIM_VALIDATION_FAILED') {
       const { payload } = await jwtVerify(token, JWKS, baseOpts);
       return payload;
