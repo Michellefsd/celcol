@@ -86,7 +86,7 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 // Preflight global
-app.options('*', cors(corsOptions));
+app.options(/.*/, cors(corsOptions));
 
 
 // Si vas a estar detrás de proxy (https), útil:
