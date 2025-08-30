@@ -1,6 +1,5 @@
 // src/services/api.ts
-
-// src/services/api.ts
+/*
 export const API_URL =
   process.env.NEXT_PUBLIC_API_URL || 'https://celcol-production.up.railway.app';
 
@@ -157,4 +156,55 @@ export async function fetchText(
 // Ejemplo de helper: obtener avión por matrícula
 export async function getAvionPorMatricula(matricula: string) {
   return fetchJson(`/aviones/por-matricula/${encodeURIComponent(matricula)}`);
+}
+*/
+
+
+
+
+
+
+
+
+
+
+// src/services/api.ts
+export const API_URL = process.env.NEXT_PUBLIC_API_URL || ''; // ← vacío = usar proxy same-origin
+export const AUTH_BASE = process.env.NEXT_PUBLIC_AUTH_BASE || '/api/auth';
+
+function isAbsoluteUrl(v: string) {
+  return /^https?:\/\//i.test(v);
+}
+
+function ensurePath(input: unknown): string {
+  if (typeof input === 'string') return input;
+  if (input instanceof URL) return input.toString();
+  if (input && typeof input === 'object') {
+    const obj = input as any;
+    if (typeof obj.storageKey === 'string') return obj.storageKey;
+    if (typeof obj.href === 'string') return obj.href;
+    if (typeof obj.url === 'string') return obj.url;
+    if (typeof obj.path === 'string') return obj.path;
+    if (typeof obj.key === 'string') return obj.key;
+  }
+  throw new TypeError('api(): path inválido');
+}
+
+// Devuelve URL para el navegador
+export function api(p: unknown) {
+  const path = ensurePath(p);
+  if (isAbsoluteUrl(path)) return path;
+
+  const rel = path.startsWith('/') ? path : `/${path}`;
+
+  if (API_URL) {
+    // Modo API absoluta
+    return `${API_URL}${rel}`;
+  }
+  // Modo proxy same-origin: asegurar prefijo /api
+  return rel.startsWith('/api/') ? rel : `/api${rel}`;
+}
+
+export function apiUrl(path: string) {
+  return api(path);
 }

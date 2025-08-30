@@ -85,12 +85,17 @@ function getHost(req) {
 }
 
 function buildCallbackUrl(req) {
-  const proto = getProto(req);
-  const host  = getHost(req);
+  const front = (process.env.APP_URL || '').replace(/\/$/, ''); // p.ej. https://celcol-administradores.vercel.app
+  if (front) {
+    // usa el mismo baseUrl con el que está montado el router (normalmente /api/auth)
+    return `${front}${req.baseUrl}/callback`;
+  }
+  // fallback por si APP_URL faltara
+  const proto = req.headers['x-forwarded-proto'] || req.protocol || 'https';
+  const host  = process.env.BACKEND_PUBLIC_HOST || req.get('host');
   const base  = `${proto}://${host}${req.baseUrl}`;
   return `${base}/callback`;
 }
-
 
 // ---------- LOGIN ----------
 router.get('/login', (req, res) => {
