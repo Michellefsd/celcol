@@ -111,7 +111,7 @@ app.get('/api/health/auth', (_req, res) => {
 });
 
 // Perfil (protegido)
-app.get('/api/me', requireAuth, (req, res) => {
+app.get('/me', requireAuth, (req, res) => {
   res.json({
     sub: req.user.sub,
     email: req.user.email,
@@ -121,20 +121,20 @@ app.get('/api/me', requireAuth, (req, res) => {
 });
 
 // === RUTAS PROTEGIDAS (todas bajo /api) ===
-app.use('/api/propietarios',      requireAuth, propietariosRoutes);
-app.use('/api/aviones',           requireAuth, avionRoutes);
-app.use('/api/componentes-avion', requireAuth, avionComponentesRoutes);
-app.use('/api/stock',             requireAuth, stockRoutes);
-app.use('/api/herramientas',      requireAuth, herramientasRoutes);
-app.use('/api/personal',          requireAuth, personalRoutes);
-app.use('/api/componentes',       requireAuth, componentesExtRoutes);
-app.use('/api/ordenes-trabajo',   requireAuth, ordenTrabajoRoutes);
-app.use('/api/avisos',            requireAuth, avisosRoutes);
-app.use('/api/archivados',        requireAuth, archivadosRoutes);
-app.use('/api/archivadas',        requireAuth, archivadosRoutes);
+app.use('/propietarios',      requireAuth, propietariosRoutes);
+app.use('/aviones',           requireAuth, avionRoutes);
+app.use('/componentes-avion', requireAuth, avionComponentesRoutes);
+app.use('/stock',             requireAuth, stockRoutes);
+app.use('/herramientas',      requireAuth, herramientasRoutes);
+app.use('/personal',          requireAuth, personalRoutes);
+app.use('/componentes',       requireAuth, componentesExtRoutes);
+app.use('/ordenes-trabajo',   requireAuth, ordenTrabajoRoutes);
+app.use('/avisos',            requireAuth, avisosRoutes);
+app.use('/archivados',        requireAuth, archivadosRoutes);
+app.use('/archivadas',        requireAuth, archivadosRoutes);
 
 // Rutas de archivos (públicas o privadas según tus handlers)
-app.use('/api/archivos', archivosRoutes);
+app.use('/archivos', archivosRoutes);
 
 // === REVISIÓN INICIAL DIFERIDA ===
 (async () => {
