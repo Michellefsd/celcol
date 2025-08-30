@@ -102,7 +102,6 @@ export async function apiFetch<T = unknown>(
   const shouldTryRefresh = (s: number) => s === 401 || s === 403 || s === 419;
   const isRefreshCall =
     REFRESH_PATHS.some((p) => path.includes(p)) ||
-    path.includes('/auth/refresh') ||
     path.includes('/api/auth/refresh');
 
   if (!isRefreshCall && shouldTryRefresh(res.status)) {
