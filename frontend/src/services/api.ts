@@ -42,7 +42,7 @@ export function apiUrl(path: string) {
 }
 
 // ---- REFRESH TOLERANTE AL PATH ----
-const REFRESH_PATHS = [`${AUTH_BASE}/refresh`, '/auth/refresh', '/api/auth/refresh'];
+const REFRESH_PATHS = [`${AUTH_BASE}/refresh`, '/api/auth/refresh'];
 
 
 async function refreshAuth(): Promise<boolean> {
