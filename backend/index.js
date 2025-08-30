@@ -11,25 +11,22 @@ import cron from 'node-cron';
 import { PrismaClient } from '@prisma/client';
 import { fileURLToPath } from 'url';
 
-
 // Rutas y middlewares (ESM)
 import authRoutes from './src/routes/auth.routes.js';
-import { requireAuth } from './middleware/authz.js';
-
+import { requireAuth } from './middleware/authz.js'
 // Utils (ESM)
 import {
   revisarTodasLasHerramientas,
   revisarAvionesSinPropietario,
 } from './src/utils/avisos.js';
 
-
-// impoortar usl privada para archivos 
-import archivosRoutes from './src/routes/archivos.routes.js'
+// Rutas públicas/archivos
+import archivosRoutes from './src/routes/archivos.routes.js';
 
 // Rutas protegidas (ESM)
 import propietariosRoutes from './src/routes/propietario.routes.js';
 import avionRoutes from './src/routes/avion.routes.js';
-import avionComponentesRoutes from './src/routes/avionComponente.routes.js'
+import avionComponentesRoutes from './src/routes/avionComponente.routes.js';
 import stockRoutes from './src/routes/stock.routes.js';
 import herramientasRoutes from './src/routes/herramientas.routes.js';
 import personalRoutes from './src/routes/personal.routes.js';
@@ -38,7 +35,6 @@ import ordenTrabajoRoutes from './src/routes/ordenTrabajo.routes.js';
 import avisosRoutes from './src/routes/avisos.routes.js';
 import archivadosRoutes from './src/routes/archivados.routes.js';
 
-
 const prisma = new PrismaClient({ log: ['query', 'info', 'warn', 'error'] });
 
 // __dirname en ESM
@@ -46,62 +42,43 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
+
+// ✅ detrás de proxy (Railway)
 app.set('trust proxy', 1);
 
 // === CONFIG ARCHIVOS / URLS PÚBLICAS ===
-// PUBLIC_BASE se usa para construir Archivo.urlPublica (p. ej. http://localhost:3001 o https://api.tu-dominio.com)
 const PUBLIC_BASE = process.env.API_PUBLIC_URL || process.env.PUBLIC_BASE || '';
-
 const UPLOADS_DIR = path.join(__dirname, 'uploads');
-
-// Asegura que /uploads exista
 try { fs.mkdirSync(UPLOADS_DIR, { recursive: true }); } catch {}
 
 // === PARSERS ===
 app.use(express.json());
 app.use(cookieParser());
 
-// === CORS (una sola vez) ===
-// === CORS (una sola vez) ===
-// Lista blanca explícita: prod + dev
+// === CORS (ANTES de rutas) ===
 const ALLOWED_ORIGINS = [
-  'https://celcol-administradores.vercel.app', // Front en Vercel (PROD)
-  'http://localhost:3000',                     // Front local (DEV)
+  'https://celcol-administradores.vercel.app', // PROD
+  'http://localhost:3000',                     // DEV
 ];
 
 const corsOptions = {
   origin(origin, cb) {
-    // Sin Origin (curl/Postman): permitir
-    if (!origin) return cb(null, true);
-    // Origin permitido: reflejarlo
+    if (!origin) return cb(null, true); // curl/healthcheck
     if (ALLOWED_ORIGINS.includes(origin)) return cb(null, true);
-    // Caso contrario: bloquear
     return cb(new Error(`Origen no permitido por CORS: ${origin}`));
   },
   credentials: true,
   methods: ['GET','POST','PUT','PATCH','DELETE','OPTIONS','HEAD'],
   allowedHeaders: ['Content-Type','Authorization','Accept'],
-  optionsSuccessStatus: 204, // Preflight OK (Safari friendly)
+  optionsSuccessStatus: 204,
 };
 
 app.use(cors(corsOptions));
-// Preflight global
-app.options(/.*/, cors(corsOptions));
-
-
-// Si vas a estar detrás de proxy (https), útil:
-app.set('trust proxy', 1);
+app.options(/.*/, cors(corsOptions)); // preflight
 
 // === HEALTH ===
-app.get('/', (_req, res) => {
-  res.send('Celcol API: ok');
-});
-
-app.get('/health', (_req, res) => {
-  res.status(200).send('ok');
-});
-
-// Salud de storage local (por ahora en disco). Útil antes de migrar a bucket.
+app.get('/', (_req, res) => res.send('Celcol API: ok'));
+app.get('/health', (_req, res) => res.status(200).send('ok'));
 app.get('/health/storage', (_req, res) => {
   try {
     fs.accessSync(UPLOADS_DIR, fs.constants.W_OK);
@@ -134,7 +111,7 @@ app.get('/api/health/auth', (_req, res) => {
 });
 
 // Perfil (protegido)
-app.get('/me', requireAuth, (req, res) => {
+app.get('/api/me', requireAuth, (req, res) => {
   res.json({
     sub: req.user.sub,
     email: req.user.email,
@@ -143,20 +120,21 @@ app.get('/me', requireAuth, (req, res) => {
   });
 });
 
-// === RUTAS PROTEGIDAS ===
-app.use('/propietarios',      requireAuth, propietariosRoutes);
-app.use('/aviones',           requireAuth, avionRoutes);
-app.use('/componentes-avion', requireAuth, avionComponentesRoutes);
-app.use('/stock',             requireAuth, stockRoutes);
-app.use('/herramientas',      requireAuth, herramientasRoutes);
-app.use('/personal',          requireAuth, personalRoutes);
-app.use('/componentes',       requireAuth, componentesExtRoutes);
-app.use('/ordenes-trabajo',   requireAuth, ordenTrabajoRoutes);
-app.use('/avisos',            requireAuth, avisosRoutes);
-app.use('/archivados',        requireAuth, archivadosRoutes);
-app.use('/archivadas',        requireAuth, archivadosRoutes);
+// === RUTAS PROTEGIDAS (todas bajo /api) ===
+app.use('/api/propietarios',      requireAuth, propietariosRoutes);
+app.use('/api/aviones',           requireAuth, avionRoutes);
+app.use('/api/componentes-avion', requireAuth, avionComponentesRoutes);
+app.use('/api/stock',             requireAuth, stockRoutes);
+app.use('/api/herramientas',      requireAuth, herramientasRoutes);
+app.use('/api/personal',          requireAuth, personalRoutes);
+app.use('/api/componentes',       requireAuth, componentesExtRoutes);
+app.use('/api/ordenes-trabajo',   requireAuth, ordenTrabajoRoutes);
+app.use('/api/avisos',            requireAuth, avisosRoutes);
+app.use('/api/archivados',        requireAuth, archivadosRoutes);
+app.use('/api/archivadas',        requireAuth, archivadosRoutes);
 
-app.use('/archivos', archivosRoutes);
+// Rutas de archivos (públicas o privadas según tus handlers)
+app.use('/api/archivos', archivosRoutes);
 
 // === REVISIÓN INICIAL DIFERIDA ===
 (async () => {
@@ -193,7 +171,6 @@ const ALLOWED = (process.env.ALLOWED_MIME || '')
   .filter(Boolean);
 
 app.use((err, _req, res, next) => {
-  // 1) Archivo demasiado grande → 413
   if (err instanceof multer.MulterError && err.code === 'LIMIT_FILE_SIZE') {
     return res.status(413).json({
       error: `El archivo supera el máximo permitido (${MAX_MB} MB).`,
@@ -209,7 +186,6 @@ app.use((err, _req, res, next) => {
     });
   }
 
-  // 2) Tipo de archivo no permitido → 415
   const msg = String(err?.message || '');
   if (/(tipo de archivo no permitido|solo se permiten|svg no permitido)/i.test(msg)) {
     return res.status(415).json({
@@ -224,8 +200,6 @@ app.use((err, _req, res, next) => {
   return next(err);
 });
 
-
-// Cualquier otro
 app.use((err, _req, res, _next) => {
   console.error('❌ Unhandled error:', err?.message || err);
   res.status(500).json({ error: 'Internal server error' });
@@ -236,5 +210,3 @@ const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
   console.log(`✅ Backend escuchando en puerto ${PORT}`);
 });
-
-

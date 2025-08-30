@@ -2,33 +2,47 @@
 import cookie from 'cookie';
 import { verifyAccessToken } from '../src/auth/oidc.js';
 
-export function requireAuth(req, res, next) {
-  (async () => {
-    try {
-      const cookies = cookie.parse(req.headers.cookie || '');
-      let token = cookies.cc_access;
+const COOKIE_NAME_ACCESS = process.env.COOKIE_NAME_ACCESS || 'cc_access';
+const KC_CLIENT_ID = process.env.KC_CLIENT_ID;
 
-      if (!token && req.headers.authorization?.startsWith('Bearer ')) {
-        token = req.headers.authorization.split(' ')[1];
-      }
-      if (!token) return res.status(401).json({ error: 'missing token' });
-
-      const payload = await verifyAccessToken(token);
-      req.user = {
-        sub: payload.sub,
-        email: payload.email,
-        name: payload.name,
-        roles: payload.realm_access?.roles || [], // keycloak roles de realm
-      };
-      next();
-    } catch (e) {
-      console.error('Auth error:', e?.message || e);
-      res.status(401).json({ error: 'invalid token' });
-    }
-  })();
+function extractRoles(payload) {
+  const realm = payload?.realm_access?.roles || [];
+  const client = KC_CLIENT_ID ? (payload?.resource_access?.[KC_CLIENT_ID]?.roles || []) : [];
+  return Array.from(new Set([...realm, ...client]));
 }
 
-// uso: app.get('/ruta', requireAuth, requireRole('admin'), handler)
+export async function requireAuth(req, res, next) {
+  try {
+    const cookies = cookie.parse(req.headers.cookie || '');
+    let token = cookies[COOKIE_NAME_ACCESS];
+
+    if (!token && req.headers.authorization?.startsWith('Bearer ')) {
+      token = req.headers.authorization.split(' ')[1];
+    }
+    if (!token) return res.status(401).json({ error: 'missing token' });
+
+    const payload = await verifyAccessToken(token);
+
+    req.user = {
+      sub: payload.sub,
+      email: payload.email || payload.preferred_username,
+      name: payload.name || payload.given_name || payload.preferred_username,
+      roles: extractRoles(payload),
+      raw: payload, // opcional: útil para debug
+    };
+
+    return next();
+  } catch (e) {
+    const msg = e?.message || '';
+    if (/expired/i.test(msg) || msg === 'jwt expired') {
+      return res.status(401).json({ error: 'token_expired' });
+    }
+    console.error('Auth error:', msg);
+    return res.status(401).json({ error: 'invalid token' });
+  }
+}
+
+// uso: app.get('/ruta', requireAuth, requireRole('ADMIN'), handler)
 export function requireRole(role) {
   return (req, res, next) => {
     const roles = req.user?.roles || [];

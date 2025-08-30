@@ -76,10 +76,21 @@ async function getUserInfo(accessToken) {
 }
 
 // arma redirect_uri del callback en backend
+function getProto(req) {
+  return (req.headers['x-forwarded-proto'] || req.protocol || 'https');
+}
+
+function getHost(req) {
+  return process.env.BACKEND_PUBLIC_HOST || req.get('host');
+}
+
 function buildCallbackUrl(req) {
-  const base = `${req.protocol}://${req.get('host')}${req.baseUrl}`; // ej: http://localhost:3001/api/auth
+  const proto = getProto(req);
+  const host  = getHost(req);
+  const base  = `${proto}://${host}${req.baseUrl}`;
   return `${base}/callback`;
 }
+
 
 // ---------- LOGIN ----------
 router.get('/login', (req, res) => {
