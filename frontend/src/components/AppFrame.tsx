@@ -60,14 +60,17 @@ export default function AppFrame({ children }: Props) {
   };
 
   // Logout: backend redirige a KC (end_session) y vuelve a "/"
-  const handleLogout = async () => {
-    try {
-      await logout().catch(() => {});
-      window.location.href = '/api/auth/logout';
-    } catch (e) {
-      console.error('Logout error', e);
-    }
-  };
+// Logout: backend redirige a KC (end_session) y vuelve a "/"
+const handleLogout = () => {
+  try {
+    logout(); // ya redirige a /api/auth/logout desde el AuthProvider
+  } catch (e) {
+    console.error('Logout error', e);
+    // Fallback por si algo raro pasa
+    window.location.href = '/api/auth/logout';
+  }
+};
+
 
   return (
     <>
@@ -111,14 +114,15 @@ export default function AppFrame({ children }: Props) {
                   <span>Cambiar contraseña</span>
                 </button>
                 <div className="h-px bg-gray-200 my-1" />
-                <button
-                  role="menuitem"
-                  onClick={async () => { setOpen(false); await handleLogout(); }}
-                  className="w-full flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-gray-50 text-rose-600"
-                >
-                  <LogOut size={16} />
-                  <span>Cerrar sesión</span>
-                </button>
+<button
+  role="menuitem"
+  onClick={() => { setOpen(false); handleLogout(); }}
+  className="w-full flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-gray-50 text-rose-600"
+>
+  <LogOut size={16} />
+  <span>Cerrar sesión</span>
+</button>
+
               </div>
             )}
           </div>
