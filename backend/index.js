@@ -46,6 +46,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
+app.set('trust proxy', 1);
 
 // === CONFIG ARCHIVOS / URLS PÚBLICAS ===
 // PUBLIC_BASE se usa para construir Archivo.urlPublica (p. ej. http://localhost:3001 o https://api.tu-dominio.com)
@@ -61,26 +62,32 @@ app.use(express.json());
 app.use(cookieParser());
 
 // === CORS (una sola vez) ===
-const FRONT_ORIGIN = process.env.APP_URL || 'http://localhost:3000';
+// === CORS (una sola vez) ===
+// Lista blanca explícita: prod + dev
 const ALLOWED_ORIGINS = [
-  FRONT_ORIGIN,
-  process.env.API_URL, // opcional
+  'https://celcol-administradores.vercel.app', // Front en Vercel (PROD)
+  'http://localhost:3000',                     // Front local (DEV)
 ];
-
-
 
 const corsOptions = {
   origin(origin, cb) {
-    if (!origin) return cb(null, true); // Postman/cURL
+    // Sin Origin (curl/Postman): permitir
+    if (!origin) return cb(null, true);
+    // Origin permitido: reflejarlo
     if (ALLOWED_ORIGINS.includes(origin)) return cb(null, true);
-    return cb(new Error('Origen no permitido por CORS'));
+    // Caso contrario: bloquear
+    return cb(new Error(`Origen no permitido por CORS: ${origin}`));
   },
   credentials: true,
-  methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
+  methods: ['GET','POST','PUT','PATCH','DELETE','OPTIONS','HEAD'],
+  allowedHeaders: ['Content-Type','Authorization','Accept'],
+  optionsSuccessStatus: 204, // Preflight OK (Safari friendly)
 };
+
 app.use(cors(corsOptions));
-app.options(/.*/, cors(corsOptions)); // preflight
+// Preflight global
+app.options('*', cors(corsOptions));
+
 
 // Si vas a estar detrás de proxy (https), útil:
 app.set('trust proxy', 1);

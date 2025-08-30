@@ -24,16 +24,16 @@ const COOKIE_NAME_REFRESH = 'cc_refresh';
 const COOKIE_NAME_ID = 'cc_id'; // id_token para end_session
 
 function baseCookieOpts() {
-  const isProd = process.env.NODE_ENV === 'production';
   return {
     httpOnly: true,
-    secure: isProd,          // en Railway → true
-    sameSite: isProd ? 'none' : 'lax', // en prod debe ser 'none' para cross-site
+    secure: true,          // en prod: true
+    sameSite: 'none',      // cross-site requiere None
     path: '/',
-    // ⚠️ Dejá domain SIN setear (undefined). Si ponés uno incorrecto, la cookie no se guarda.
-    domain: undefined,
+    // ⚠️ No fuerces domain. Si lo ponés, debe ser EXACTAMENTE 'celcol-production.up.railway.app'
+    // domain: undefined,
   };
 }
+
 
 
 // Normaliza a una sola barra final (p.ej. "http://localhost:3000/")
