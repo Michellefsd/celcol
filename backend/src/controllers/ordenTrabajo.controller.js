@@ -248,7 +248,7 @@ export const updateFase3 = async (req, res) => {
       where: { id: { in: empleadosIds } },
       select: { id: true, nombre: true, apellido: true, esTecnico: true, esCertificador: true },
     });
-    const infoMap = new Map(empleadosInfo.map(e => [e.id, e]));
+    const infoMap = new Map(empleadosInfo.map((e) => [e.id, e]));
 
     for (const eId of tecnicosUnicos) {
       const e = infoMap.get(eId);
@@ -270,6 +270,38 @@ export const updateFase3 = async (req, res) => {
 
   // 3) Unicidad de herramientas
   const herramientasUnicas = [...new Set(herramientas)];
+
+  // 3.bis) VALIDAR VIGENCIA DE HERRAMIENTAS (solo futuras; hoy no vale)
+  if (herramientasUnicas.length) {
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+
+    // ⚠️ Cambiá 'fechaVencimiento' si tu campo se llama distinto
+    const vigentes = await prisma.herramienta.findMany({
+      where: {
+        id: { in: herramientasUnicas },
+        fechaVencimiento: { gt: hoy }, // estrictamente futura
+      },
+      select: { id: true, nombre: true, fechaVencimiento: true },
+    });
+
+    const idsVigentes = new Set(vigentes.map((h) => h.id));
+    const idsNoVigentes = herramientasUnicas.filter((idH) => !idsVigentes.has(idH));
+
+    if (idsNoVigentes.length) {
+      const infoNoVig = await prisma.herramienta.findMany({
+        where: { id: { in: idsNoVigentes } },
+        select: { nombre: true, fechaVencimiento: true },
+      });
+      const lista = infoNoVig.map((h) => {
+        const d = h.fechaVencimiento ? new Date(h.fechaVencimiento).toLocaleDateString('es-UY') : 'sin fecha';
+        return `"${h.nombre}" (vence: ${d})`;
+      });
+      return res.status(400).json({
+        error: `No se pueden asignar herramientas vencidas o sin vigencia: ${lista.join(', ')}.`,
+      });
+    }
+  }
 
   try {
     await prisma.$transaction(async (tx) => {
@@ -309,10 +341,11 @@ export const updateFase3 = async (req, res) => {
         },
       });
 
-      // D) Re-crear herramientas (únicas)
-      for (const hId of herramientasUnicas) {
-        await tx.ordenHerramienta.create({
-          data: { ordenId: id, herramientaId: hId },
+      // D) Re-crear herramientas (únicas) — SIN cantidades y sin duplicados
+      if (herramientasUnicas.length) {
+        await tx.ordenHerramienta.createMany({
+          data: herramientasUnicas.map((hId) => ({ ordenId: id, herramientaId: hId })),
+          skipDuplicates: true,
         });
       }
 
