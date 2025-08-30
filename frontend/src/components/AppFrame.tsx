@@ -6,26 +6,16 @@ import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import AvisosIcon from '@/components/AvisosIcon';
 import { User, KeyRound, LogOut } from 'lucide-react';
+import { api } from '@/services/api'; // 👈 usar siempre este helper
 
 type Props = { children: React.ReactNode };
 
-// ===== Helpers locales (no requieren nuevos imports) =====
-const trimEndSlash = (s?: string | null) => (s || '').replace(/\/+$/, '');
-const ensureLeadingSlash = (s?: string | null) => {
-  const v = s || '/api';
-  return v.startsWith('/') ? v : `/${v}`;
-};
-
-const API_URL = trimEndSlash(process.env.NEXT_PUBLIC_API_URL);
-const API_PREFIX = ensureLeadingSlash(process.env.NEXT_PUBLIC_API_PREFIX);
-const apiBase = API_URL ? `${API_URL}${API_PREFIX}` : '/api'; // fallback a /api en dev
-
-const KC_BASE = trimEndSlash(process.env.NEXT_PUBLIC_KC_BASE || process.env.NEXT_PUBLIC_KEYCLOAK_URL);
+// Fallbacks directos a Keycloak (solo si el backend falla)
+const KC_BASE = (process.env.NEXT_PUBLIC_KC_BASE || process.env.NEXT_PUBLIC_KEYCLOAK_URL || '').replace(/\/+$/, '');
 const KC_REALM = process.env.NEXT_PUBLIC_KC_REALM || process.env.NEXT_PUBLIC_KEYCLOAK_REALM || 'Celcol';
 const KC_CLIENT_ID = process.env.NEXT_PUBLIC_KEYCLOAK_CLIENT_ID || 'celcol-app';
-const APP_URL = trimEndSlash(process.env.NEXT_PUBLIC_APP_URL);
+const APP_URL = (process.env.NEXT_PUBLIC_APP_URL || '').replace(/\/+$/, '');
 
-// Fallbacks directos a KC
 const kcAccountSigningIn = KC_BASE ? `${KC_BASE}/realms/${KC_REALM}/account/#/security/signing-in` : '';
 const kcEndSession = (postLogout: string) =>
   KC_BASE
@@ -57,11 +47,10 @@ export default function AppFrame({ children }: Props) {
     };
   }, []);
 
-  // Keycloak: pedir email de cambio de contraseña con fallback a Account Console
+  // Cambiar contraseña → intenta backend; si falla, abre KC Account
   const goChangePassword = async () => {
     try {
-      const url = `${apiBase}/auth/password-email`;
-      const res = await fetch(url, {
+      const res = await fetch(api('/api/auth/password-email'), {
         method: 'POST',
         credentials: 'include',
         headers: { 'content-type': 'application/json' },
@@ -76,14 +65,15 @@ export default function AppFrame({ children }: Props) {
     }
   };
 
-  // Logout: primero vía provider/backend; si falla, ir directo a KC end_session
+  // Logout → usa provider (que debería redirigir a /api/auth/logout).
+  // Si algo falla, ir directo a KC end_session con post_logout a APP_URL/origin.
   const handleLogout = async () => {
     try {
-      await logout(); // tu AuthProvider debería redirigir a `${apiBase}/auth/logout`
+      await logout(); // tu AuthProvider mantiene el flujo existente
     } catch (e) {
       console.error('Logout error', e);
-      const postLogout = APP_URL || window.location.origin;
-      window.location.href = kcEndSession(postLogout);
+      const post = APP_URL || window.location.origin;
+      window.location.href = kcEndSession(post);
     }
   };
 
