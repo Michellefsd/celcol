@@ -9,8 +9,8 @@ type User = { sub: string; email?: string; name?: string; roles?: Rol[] };
 type AuthContextType = {
   user: User | null;
   loading: boolean;
-  login: () => void;           // redirección a KC
-  logout: () => void;          // logout con redirección
+  login: () => void;          // redirección a KC
+  logout: () => void;         // logout con redirección
   authFetch: (path: string, init?: RequestInit) => Promise<Response>;
 };
 
