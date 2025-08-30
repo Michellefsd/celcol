@@ -96,7 +96,7 @@ app.use('/uploads', express.static(UPLOADS_DIR, {
 }));
 
 // === AUTH ===
-app.use('/auth', authRoutes);
+app.use('/api/auth', authRoutes);
 
 // Debug de env de auth (sin secretos)
 app.get('/api/health/auth', (_req, res) => {
