@@ -4,106 +4,81 @@ import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { api, AUTH_BASE } from '@/services/api';
 
 type Rol = 'ADMIN' | 'TECNICO' | 'CERTIFICADOR' | 'LECTOR';
-type User = { id: number; email: string; rol: Rol };
+type User = { sub: string; email?: string; name?: string; roles?: Rol[] };
 
 type AuthContextType = {
   user: User | null;
-  accessToken: string | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
-  logout: () => Promise<void>;
-  authFetch: (input: RequestInfo, init?: RequestInit) => Promise<Response>;
+  login: () => void;           // redirección a KC
+  logout: () => void;          // logout con redirección
+  authFetch: (path: string, init?: RequestInit) => Promise<Response>;
 };
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [accessToken, setAccessToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Levanta sesión desde cookie httpOnly (refresh)
+  // Boot: intenta refrescar sesión por cookie httpOnly y luego pide /me
   useEffect(() => {
-    const bootstrap = async () => {
+    (async () => {
       try {
-        // ✅ backend: /api/auth/refresh
+        // /auth/refresh → 204 si ok (setea cookies)
         const r = await fetch(api(`${AUTH_BASE}/refresh`), {
           method: 'POST',
           credentials: 'include',
         });
-        if (!r.ok) throw new Error('no refresh');
 
-        const { accessToken: token } = await r.json();
-        setAccessToken(token);
-
-        // ✅ /me está fuera de /api/auth
-        const me = await fetch(api('/me'), {
-          headers: { Authorization: `Bearer ${token}` },
-          credentials: 'include',
-        });
-        if (me.ok) setUser(await me.json());
+        if (r.ok) {
+          // /me protegido por cookie cc_access (SIN Authorization header)
+          const me = await fetch(api('/me'), { credentials: 'include' });
+          if (me.ok) {
+            const data = await me.json();
+            setUser(data);
+          } else {
+            setUser(null);
+          }
+        } else {
+          setUser(null);
+        }
       } catch {
         setUser(null);
-        setAccessToken(null);
       } finally {
         setLoading(false);
       }
-    };
-    bootstrap();
+    })();
   }, []);
 
-  const login = async (email: string, password: string) => {
-    const r = await fetch(api(`${AUTH_BASE}/login`), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include', // cookie httpOnly
-      body: JSON.stringify({ email, password }),
-    });
-    if (!r.ok) {
-      const { error } = await r.json().catch(() => ({ error: 'Error de login' }));
-      throw new Error(error || 'Error de login');
-    }
-    const data = await r.json();
-    setAccessToken(data.accessToken);
-    setUser(data.user);
+  // Inicia flujo OIDC (GET → redirección a KC)
+  const login = () => {
+    window.location.href = api(`${AUTH_BASE}/login`);
   };
 
-  const logout = async () => {
-    await fetch(api(`${AUTH_BASE}/logout`), { method: 'POST', credentials: 'include' });
-    setUser(null);
-    setAccessToken(null);
+  // Logout del backend + end_session de KC
+  const logout = () => {
+    window.location.href = api(`${AUTH_BASE}/logout`);
   };
 
-  // fetch con Authorization + auto-refresh 1 vez si vence
-  const authFetch = async (input: RequestInfo, init: RequestInit = {}) => {
-    const doFetch = (token: string) => {
-      const headers = new Headers(init.headers || {});
-      headers.set('Authorization', `Bearer ${token}`);
-      return fetch(input, { ...init, headers, credentials: 'include' });
-    };
+  // fetch autenticado por COOKIE; si 401 intenta refresh UNA vez
+  const authFetch = async (path: string, init: RequestInit = {}) => {
+    const doFetch = () =>
+      fetch(api(path), { ...init, credentials: 'include' });
 
-    if (!accessToken) throw new Error('No autenticado');
-
-    let res = await doFetch(accessToken);
-
+    let res = await doFetch();
     if ([401, 403, 419].includes(res.status)) {
       const rr = await fetch(api(`${AUTH_BASE}/refresh`), {
         method: 'POST',
         credentials: 'include',
       });
-      if (rr.ok) {
-        const { accessToken: newToken } = await rr.json();
-        setAccessToken(newToken);
-        res = await doFetch(newToken);
-      }
+      if (rr.ok) res = await doFetch();
     }
-
     return res;
   };
 
   const value = useMemo(
-    () => ({ user, accessToken, loading, login, logout, authFetch }),
-    [user, accessToken, loading]
+    () => ({ user, loading, login, logout, authFetch }),
+    [user, loading]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

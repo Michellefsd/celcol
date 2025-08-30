@@ -161,6 +161,12 @@ router.get('/callback', async (req, res) => {
 });
 
 // ---------- REFRESH ----------
+
+router.get('/refresh', (req, res, next) => {
+  req.method = 'POST';
+  next();
+});
+
 router.post('/refresh', async (req, res) => {
   try {
     const cookies = cookie.parse(req.headers.cookie || '');

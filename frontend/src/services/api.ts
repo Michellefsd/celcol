@@ -1,5 +1,6 @@
 // src/services/api.ts
 
+// src/services/api.ts
 export const API_URL =
   process.env.NEXT_PUBLIC_API_URL || 'https://celcol-production.up.railway.app';
 
@@ -41,7 +42,8 @@ export function apiUrl(path: string) {
 }
 
 // ---- REFRESH TOLERANTE AL PATH ----
-const REFRESH_PATHS = [`${AUTH_BASE}/refresh`];
+const REFRESH_PATHS = [`${AUTH_BASE}/refresh`, '/auth/refresh', '/api/auth/refresh'];
+
 
 async function refreshAuth(): Promise<boolean> {
   try {
