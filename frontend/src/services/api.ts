@@ -1,10 +1,15 @@
 // src/services/api.ts
-/*
-export const API_URL =
-  process.env.NEXT_PUBLIC_API_URL || 'https://celcol-production.up.railway.app';
 
-export const AUTH_BASE =
-  process.env.NEXT_PUBLIC_AUTH_BASE || '/api/auth';
+// === Config ===
+// Dejá NEXT_PUBLIC_API_URL vacío para usar el proxy same-origin (/api -> rewrites a Railway).
+// NEXT_PUBLIC_AUTH_BASE debe ser /api/auth (coincide con tu next.config.ts).
+export const API_URL  = process.env.NEXT_PUBLIC_API_URL || '';      // '' => proxy same-origin
+export const AUTH_BASE = process.env.NEXT_PUBLIC_AUTH_BASE || '/api/auth';
+
+// Opcional: si usás una API key pública (no sensible)
+const PUBLIC_API_KEY = process.env.NEXT_PUBLIC_API_KEY || '';
+
+/* ---------------- Utils ---------------- */
 
 function isAbsoluteUrl(v: string) {
   return /^https?:\/\//i.test(v);
@@ -15,82 +20,112 @@ function ensurePath(input: unknown): string {
   if (input instanceof URL) return input.toString();
 
   if (input && typeof input === 'object') {
-    const obj = input as any;
-    if (typeof obj.storageKey === 'string') return obj.storageKey; // ← ✅ AÑADIDO
-    if (typeof obj.href === 'string') return obj.href;
-    if (typeof obj.url === 'string') return obj.url;
-    if (typeof obj.path === 'string') return obj.path;
-    if (typeof obj.key === 'string') return obj.key;
+    const obj = input as Record<string, unknown>;
+    if (typeof (obj as any).storageKey === 'string') return (obj as any).storageKey;
+    if (typeof (obj as any).href === 'string')       return (obj as any).href;
+    if (typeof (obj as any).url === 'string')        return (obj as any).url;
+    if (typeof (obj as any).path === 'string')       return (obj as any).path;
+    if (typeof (obj as any).key === 'string')        return (obj as any).key;
   }
 
-  console.error('api(): se esperaba string/URL y llegó ->', input);
-  throw new TypeError(`api() esperaba un string o URL; recibió ${typeof input}`);
+  throw new TypeError('api(): path inválido');
 }
 
-// Devuelve URL absoluta al backend
+// Construye la URL final para el navegador
 export function api(p: unknown) {
   const path = ensurePath(p);
   if (isAbsoluteUrl(path)) return path;
-  const base = API_URL.replace(/\/+$/, '');
+
   const rel = path.startsWith('/') ? path : `/${path}`;
-  return `${base}${rel}`;
+
+  if (API_URL) {
+    // Modo "API absoluta"
+    const base = API_URL.replace(/\/+$/, '');
+    return `${base}${rel}`;
+    // Ej: https://celcol-production.up.railway.app/ordenes-trabajo
+  }
+
+  // Modo "proxy same-origin" -> asegura prefijo /api
+  return rel.startsWith('/api/') ? rel : `/api${rel}`;
 }
 
 export function apiUrl(path: string) {
   return api(path);
 }
 
-// ---- REFRESH TOLERANTE AL PATH ----
-const REFRESH_PATHS = [`${AUTH_BASE}/refresh`, '/api/auth/refresh'];
+/* --------------- Refresh híbrido (cookie + bearer) --------------- */
 
+// Paths tolerantes de refresh
+const REFRESH_PATHS = [
+  `${AUTH_BASE}/refresh`,
+  '/api/auth/refresh',
+  '/auth/refresh',
+];
 
-async function refreshAuth(): Promise<boolean> {
-  try {
-    for (const p of REFRESH_PATHS) {
+// Token efímero en memoria (si el backend devuelve JSON con { accessToken })
+let volatileAccessToken: string | undefined;
+
+/** Intenta refrescar sesión. Devuelve si fue ok y, si aplica, el accessToken recibido. */
+async function refreshAuth(): Promise<{ ok: boolean; accessToken?: string }> {
+  for (const p of REFRESH_PATHS) {
+    try {
       const res = await fetch(api(p), {
         method: 'POST',
         credentials: 'include',
       });
-      if (res.ok) return true;
+      if (!res.ok) continue;
+
+      // Si el backend devuelve JSON con accessToken, úsalo (Safari-friendly)
+      const ct = res.headers.get('content-type') || '';
+      if (ct.includes('application/json')) {
+        const j = await res.json().catch(() => null as any);
+        if (j?.accessToken) {
+          volatileAccessToken = j.accessToken;
+          return { ok: true, accessToken: j.accessToken };
+        }
+      }
+      // 204 o 200 sin JSON: ok igualmente (cookies actualizadas)
+      return { ok: true };
+    } catch {
+      // intenta con el siguiente path
     }
-  } catch {}
-  return false;
+  }
+  return { ok: false };
 }
 
-// ---- FETCH PRINCIPAL: con cookies + auto-refresh + headers globales ----
+/* ------------------- Fetch principal ------------------- */
+
 export async function apiFetch<T = unknown>(
   path: string,
   init: RequestInit = {}
 ): Promise<T> {
   const url = api(path);
 
-  const doFetch = () => {
-    const isForm =
-      typeof FormData !== 'undefined' && init.body instanceof FormData;
+  const doFetch = (token?: string) => {
+    // Unificamos headers
+    const headers = new Headers(init.headers || {});
+    const isForm = typeof FormData !== 'undefined' && init.body instanceof FormData;
 
-    const needsJson =
-      !isForm &&
-      (init.body != null ||
-        (init.method && init.method.toUpperCase() !== 'GET'));
+    // Defaults razonables
+    if (!headers.has('Accept')) headers.set('Accept', 'application/json');
+    if (!isForm && init.body != null && !headers.has('Content-Type')) {
+      const method = (init.method || 'GET').toUpperCase();
+      if (method !== 'GET') headers.set('Content-Type', 'application/json');
+    }
+    if (PUBLIC_API_KEY && !headers.has('x-api-key')) {
+      headers.set('x-api-key', PUBLIC_API_KEY);
+    }
 
-    // 🔐 Leemos token del storage (ajustá si usás otro provider)
-    const token =
-      typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-
-    const headers: HeadersInit = {
-      Accept: 'application/json',
-      ...(needsJson ? { 'Content-Type': 'application/json' } : {}),
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...(process.env.NEXT_PUBLIC_API_KEY
-        ? { 'x-api-key': process.env.NEXT_PUBLIC_API_KEY }
-        : {}),
-      ...(init.headers || {}), // lo que venga en la llamada tiene prioridad
-    };
+    // Authorization (si tenemos un token efímero o se pasó explícito)
+    const bearer = token || volatileAccessToken;
+    if (bearer && !headers.has('Authorization')) {
+      headers.set('Authorization', `Bearer ${bearer}`);
+    }
 
     return fetch(url, {
-      credentials: 'include',
-      headers,
       ...init,
+      headers,
+      credentials: 'include', // clave: envía cookies en same-origin proxy
     });
   };
 
@@ -98,14 +133,16 @@ export async function apiFetch<T = unknown>(
 
   const shouldTryRefresh = (s: number) => s === 401 || s === 403 || s === 419;
   const isRefreshCall =
-    REFRESH_PATHS.some((p) => path.includes(p)) ||
-    path.includes('/api/auth/refresh');
+    REFRESH_PATHS.some((p) => url.includes(p)) ||
+    REFRESH_PATHS.some((p) => path.includes(p));
 
+  // Auto-refresh UNA vez si la llamada no es el propio refresh
   if (!isRefreshCall && shouldTryRefresh(res.status)) {
-    const ok = await refreshAuth();
-    if (ok) res = await doFetch();
+    const rr = await refreshAuth();
+    if (rr.ok) res = await doFetch(rr.accessToken);
   }
 
+  // Parseo tolerante
   const ct = res.headers.get('content-type') || '';
   let body: any = null;
   try {
@@ -130,7 +167,9 @@ export async function apiFetch<T = unknown>(
   return body as T;
 }
 
-// Alias semántico cuando esperás JSON
+/* -------------------- Helpers convenientes -------------------- */
+
+// Cuando esperás JSON
 export async function fetchJson<T = unknown>(
   path: string,
   init: RequestInit = {}
@@ -138,73 +177,22 @@ export async function fetchJson<T = unknown>(
   return apiFetch<T>(path, init);
 }
 
-// Útil para descargas de texto/CSV/etc
+// Para descargas de texto/CSV/etc.
 export async function fetchText(
   path: string,
   init: RequestInit = {}
 ): Promise<string> {
-  const text = await apiFetch<string>(path, {
+  const data = await apiFetch<string | unknown>(path, {
     ...init,
     headers: {
       Accept: 'text/plain, text/csv, application/json;q=0.1',
       ...(init.headers || {}),
     },
   });
-  return typeof text === 'string' ? text : String(text ?? '');
+  return typeof data === 'string' ? data : JSON.stringify(data ?? '');
 }
 
-// Ejemplo de helper: obtener avión por matrícula
+// Ejemplo de helper de negocio
 export async function getAvionPorMatricula(matricula: string) {
   return fetchJson(`/aviones/por-matricula/${encodeURIComponent(matricula)}`);
-}
-*/
-
-
-
-
-
-
-
-
-
-
-// src/services/api.ts
-export const API_URL = process.env.NEXT_PUBLIC_API_URL || ''; // ← vacío = usar proxy same-origin
-export const AUTH_BASE = process.env.NEXT_PUBLIC_AUTH_BASE || '/api/auth';
-
-function isAbsoluteUrl(v: string) {
-  return /^https?:\/\//i.test(v);
-}
-
-function ensurePath(input: unknown): string {
-  if (typeof input === 'string') return input;
-  if (input instanceof URL) return input.toString();
-  if (input && typeof input === 'object') {
-    const obj = input as any;
-    if (typeof obj.storageKey === 'string') return obj.storageKey;
-    if (typeof obj.href === 'string') return obj.href;
-    if (typeof obj.url === 'string') return obj.url;
-    if (typeof obj.path === 'string') return obj.path;
-    if (typeof obj.key === 'string') return obj.key;
-  }
-  throw new TypeError('api(): path inválido');
-}
-
-// Devuelve URL para el navegador
-export function api(p: unknown) {
-  const path = ensurePath(p);
-  if (isAbsoluteUrl(path)) return path;
-
-  const rel = path.startsWith('/') ? path : `/${path}`;
-
-  if (API_URL) {
-    // Modo API absoluta
-    return `${API_URL}${rel}`;
-  }
-  // Modo proxy same-origin: asegurar prefijo /api
-  return rel.startsWith('/api/') ? rel : `/api${rel}`;
-}
-
-export function apiUrl(path: string) {
-  return api(path);
 }
