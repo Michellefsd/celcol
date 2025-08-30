@@ -296,6 +296,17 @@ router.get('/logout', (req, res) => {
     cookie.serialize(COOKIE_NAME_ID, '', expired),
   ]);
 
+  // Diagnóstico de cookies (temporal)
+router.get('/_diag', (req, res) => {
+  const cookiesHdr = req.headers.cookie || '';
+  const parsed = cookie.parse(cookiesHdr);
+  res.json({
+    has_access: !!parsed.cc_access,
+    has_refresh: !!parsed.cc_refresh,
+    cookie_header_present: !!cookiesHdr,
+  });
+});
+
   // end_session → vuelve a la landing pública
   const postLogout = ensureTrailingSlash(APP_URL); // "http://localhost:3000/"
   const endSession = new URL(`${KC_BASE}/realms/${KC_REALM}/protocol/openid-connect/logout`);

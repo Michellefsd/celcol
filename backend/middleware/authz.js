@@ -16,8 +16,9 @@ export async function requireAuth(req, res, next) {
     const cookies = cookie.parse(req.headers.cookie || '');
     let token = cookies[COOKIE_NAME_ACCESS];
 
+    // Permitir Bearer como alternativa
     if (!token && req.headers.authorization?.startsWith('Bearer ')) {
-      token = req.headers.authorization.split(' ')[1];
+      token = req.headers.authorization.slice(7);
     }
     if (!token) return res.status(401).json({ error: 'missing token' });
 
@@ -28,21 +29,19 @@ export async function requireAuth(req, res, next) {
       email: payload.email || payload.preferred_username,
       name: payload.name || payload.given_name || payload.preferred_username,
       roles: extractRoles(payload),
-      raw: payload, // opcional: útil para debug
     };
 
     return next();
   } catch (e) {
     const msg = e?.message || '';
-    if (/expired/i.test(msg) || msg === 'jwt expired') {
+    if (/expired/i.test(msg) || msg === 'jwt expired' || /exp/i.test(msg)) {
       return res.status(401).json({ error: 'token_expired' });
     }
-    console.error('Auth error:', msg);
+    console.error('Auth error (requireAuth):', msg);
     return res.status(401).json({ error: 'invalid token' });
   }
 }
 
-// uso: app.get('/ruta', requireAuth, requireRole('ADMIN'), handler)
 export function requireRole(role) {
   return (req, res, next) => {
     const roles = req.user?.roles || [];
