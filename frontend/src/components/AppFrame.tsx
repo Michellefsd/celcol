@@ -251,14 +251,7 @@ const handleLogout = () => {
                 role="menu"
                 className="absolute right-0 mt-2 w-56 bg-white border border-gray-200 rounded-2xl shadow-lg p-2 z-50"
               >
-                <button
-                  role="menuitem"
-                  onClick={() => { setOpen(false); goChangePassword(); }}
-                  className="w-full flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-gray-50"
-                >
-                  <KeyRound size={16} />
-                  <span>Cambiar contraseña</span>
-                </button>
+                
                 <div className="h-px bg-gray-200 my-1" />
 <button
   role="menuitem"
