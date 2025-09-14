@@ -204,6 +204,7 @@ export default function AppFrame({ children }: Props) {
       }
     }
   };
+  
 
   // Logout: backend redirige a KC (end_session) y vuelve a "/"
 // Logout: backend redirige a KC (end_session) y vuelve a "/"
