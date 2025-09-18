@@ -57,7 +57,7 @@ app.use(cookieParser());
 
 // === CORS (ANTES de rutas) ===
 const ALLOWED_ORIGINS = [
-  'https://celcol-administradores.vercel.app', // PROD
+  'https://dev-celcol-dev.vercel.app', // PROD
   'http://localhost:3000',                     // DEV
 ];
 
