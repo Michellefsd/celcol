@@ -16,6 +16,25 @@ export default function Fase2OrdenTrabajoPage() {
   const [archivo, setArchivo] = useState<File | null>(null);
   const [mostrarSubirSolicitud, setMostrarSubirSolicitud] = useState(false);
 
+  //HELPER
+
+// — nombre según sea PERSONA o INSTITUCION
+function nombrePropietario(p?: { tipoPropietario?: string; nombre?: string; apellido?: string; nombreEmpresa?: string }) {
+  if (!p) return '';
+  return (p.tipoPropietario === 'PERSONA')
+    ? `${p.nombre ?? ''} ${p.apellido ?? ''}`.trim()
+    : (p.nombreEmpresa ?? '').trim();
+}
+
+// Sugerencia calculada (no pisa tu estado)
+const sugerenciaSolicitadoPor =
+  (orden?.componente?.propietario && nombrePropietario(orden.componente.propietario)) ||
+  (orden?.avion?.propietarios?.length
+    ? nombrePropietario(orden.avion.propietarios[0]?.propietario)
+    : '') || '';
+
+
+
 
 useEffect(() => {
   fetchJson<any>(`/ordenes-trabajo/${id}`)
@@ -252,16 +271,31 @@ return (
           />
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">Solicitado por</label>
-          <input
-            type="text"
-            className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-800
-                       focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
-            value={solicitadoPor}
-            onChange={(e) => setSolicitadoPor(e.target.value)}
-          />
-        </div>
+<div>
+  <label className="block text-sm font-medium text-slate-700 mb-1">Solicitado por</label>
+  <div className="flex gap-2">
+    <input
+      type="text"
+      className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-800
+                 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
+      value={solicitadoPor}
+      placeholder={sugerenciaSolicitadoPor || 'Ingresá nombre o empresa'}
+      onChange={(e) => setSolicitadoPor(e.target.value)}
+    />
+    {/* Opcional: botón para autocompletar con la sugerencia */}
+    {sugerenciaSolicitadoPor && !solicitadoPor && (
+      <button
+        type="button"
+        onClick={() => setSolicitadoPor(sugerenciaSolicitadoPor)}
+        className="shrink-0 rounded-lg border border-slate-300 px-3 py-2 text-slate-700 hover:bg-slate-50"
+        title="Usar propietario"
+      >
+        Usar
+      </button>
+    )}
+  </div>
+</div>
+
 
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-1">N.º de OT previa (otro taller)</label>
@@ -310,9 +344,9 @@ return (
 <SubirArchivo
   open={mostrarSubirSolicitud}
   onClose={() => setMostrarSubirSolicitud(false)}
-  url={`/ordenes-trabajo/${id}/solicitudFirma`}  // ✅ ruta correcta
+  url={`/ordenes-trabajo/${id}/solicitudFirma`}  
   label="Subir archivo de solicitud"
-  nombreCampo="solicitudFirma"                     // ✅ coincide con multer y controller
+  nombreCampo="solicitudFirma"                     
   onUploaded={async () => {
     const updated = await fetchJson<any>(`/ordenes-trabajo/${id}`);
     setOrden(updated);

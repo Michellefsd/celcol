@@ -29,6 +29,38 @@ function toIsoDateUTC(value: unknown): string {
   }
   return String(value ?? '—');
 }
+
+
+
+  //HELPERS TO DATE FORMATTING
+  function formatUY(value: unknown) {
+  if (value == null || value === '') return '—';
+
+  // 1) 'YYYY-MM-DD' → leer directo (sin Date()) para evitar TZ
+  if (isDateOnly(value)) {
+    const s = String(value);            // 'YYYY-MM-DD'
+    const [y, m, d] = s.split('-');
+    return `${d}/${m}/${y}`;
+  }
+
+  // 2) ISO con hora 'YYYY-MM-DDTHH:mm:ssZ' → tomar los primeros 10 chars
+  if (isIsoDateTime(value)) {
+    const s = String(value).slice(0, 10); // 'YYYY-MM-DD'
+    const [y, m, d] = s.split('-');
+    return `${d}/${m}/${y}`;
+  }
+
+  // 3) Date u otros → caemos a Date pero usando UTC para evitar corrimientos
+  const dt = new Date(value as any);
+  if (isNaN(+dt)) return String(value ?? '—');
+  const dd = String(dt.getUTCDate()).padStart(2, '0');
+  const mm = String(dt.getUTCMonth() + 1).padStart(2, '0');
+  const yyyy = dt.getUTCFullYear();
+  return `${dd}/${mm}/${yyyy}`;
+}
+
+
+
 function maybeFormatDate(value: unknown, key?: string) {
   const looksLikeDate =
     (typeof key === 'string' && DATE_KEYS_REGEX.test(key)) ||
@@ -36,7 +68,7 @@ function maybeFormatDate(value: unknown, key?: string) {
     isDateOnly(value) ||
     value instanceof Date;
 
-  if (looksLikeDate) return toIsoDateUTC(value);
+  if (looksLikeDate) return formatUY(value);
   if (value === '' || value == null) return '—';
   return String(value);
 }
@@ -199,8 +231,6 @@ try {
   alert(error?.message ?? 'Error');
 }
   };
-
-  
 
 
   const openModal = (item?: T) => {

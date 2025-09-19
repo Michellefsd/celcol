@@ -106,7 +106,7 @@ export default function AvionDetallePage() {
       else window.open(url, '_blank');
     } catch (e) {
       win?.close();
-      console.error('❌ No se pudo abrir certificado:', e);
+      console.error('❌ No se pudo abrir la documentación:', e);
     }
   };
 
@@ -130,7 +130,7 @@ export default function AvionDetallePage() {
       }
     } catch (e) {
       win?.close();
-      console.error('❌ No se pudo descargar certificado:', e);
+      console.error('❌ No se pudo descargar la documentación:', e);
     }
   };
 
@@ -164,7 +164,7 @@ export default function AvionDetallePage() {
                   <p><span className="text-slate-500">TSN:</span> <span className="text-slate-800 font-medium">{avion.TSN}</span></p>
                 )}
                 {avion.vencimientoMatricula && (
-                  <p><span className="text-slate-500">Vto. Matrícula:</span> <span className="text-slate-800 font-medium">{avion.vencimientoMatricula.slice(0,10)}</span></p>
+                  <p><span className="text-slate-500">Vto. Cert. Aeronavegabilidad:</span> <span className="text-slate-800 font-medium">{avion.vencimientoMatricula.slice(0,10)}</span></p>
                 )}
                 {avion.vencimientoSeguro && (
                   <p><span className="text-slate-500">Vto. Seguro:</span> <span className="text-slate-800 font-medium">{avion.vencimientoSeguro.slice(0,10)}</span></p>
@@ -182,7 +182,7 @@ export default function AvionDetallePage() {
                     onClick={verCertificado}
                     className="inline-flex items-center gap-2 text-cyan-600 hover:text-cyan-800 underline underline-offset-2"
                   >
-                    👁️ Ver certificado
+                    👁️ Ver documentación
                   </button>
 
                   {/* Descargar (attachment) */}
@@ -207,7 +207,7 @@ export default function AvionDetallePage() {
                   onClick={() => setMostrarSubirCertificado(true)}
                   className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-[#597BFF] to-[#4a6ee0] text-white font-semibold px-5 py-2.5 shadow-sm hover:from-[#4a6ee0] hover:to-[#3658d4] hover:shadow-lg hover:brightness-110 transform hover:scale-[1.03] transition-all duration-300"
                 >
-                  Subir certificado
+                  Subir documentación
                 </button>
               )}
             </div>
@@ -323,7 +323,7 @@ export default function AvionDetallePage() {
           open={mostrarSubirCertificado}
           onClose={() => setMostrarSubirCertificado(false)}
           url={api(`/aviones/${avion.id}/certificadoMatricula`)} // POST absoluto al backend
-          label="Subir certificado de matrícula"
+          label="Subir documentación"
           nombreCampo="certificadoMatricula"
           onUploaded={cargarAvion}
         />

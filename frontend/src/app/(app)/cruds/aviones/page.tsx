@@ -254,7 +254,7 @@ export default function AvionesPage() {
       { name: 'matricula', label: 'Matrícula', type: 'text', required: true },
       { name: 'numeroSerie', label: 'Número de Serie', type: 'text' },
       { name: 'TSN', label: 'TSN', type: 'number' },
-      { name: 'vencimientoMatricula', label: 'Venc. Matrícula', type: 'date' },
+      { name: 'vencimientoMatricula', label: 'Venc. Cert. Aeroavegabilidad', type: 'date' },
       { name: 'vencimientoSeguro', label: 'Venc. Seguro', type: 'date' },
     ],
     onAfterCreate: (avion) => abrirModalConPropietarios(avion.id),
