@@ -34,6 +34,14 @@ const sugerenciaSolicitadoPor =
     : '') || '';
 
 
+    function handleKeyDownSolicitadoPor(e: React.KeyboardEvent<HTMLInputElement>) {
+  if (e.key === 'Tab' && !solicitadoPor && sugerenciaSolicitadoPor) {
+    setSolicitadoPor(sugerenciaSolicitadoPor);
+    // no hacemos preventDefault: dejamos que Tab avance/retrase el foco
+  }
+}
+// FIN helper
+
 
 
 useEffect(() => {
@@ -270,9 +278,10 @@ return (
             onChange={(e) => setSolicitud(e.target.value)}
           />
         </div>
-
 <div>
-  <label className="block text-sm font-medium text-slate-700 mb-1">Solicitado por</label>
+  <label className="block text-sm font-medium text-slate-700 mb-1">
+    Solicitado por
+  </label>
   <div className="flex gap-2">
     <input
       type="text"
@@ -281,18 +290,8 @@ return (
       value={solicitadoPor}
       placeholder={sugerenciaSolicitadoPor || 'Ingresá nombre o empresa'}
       onChange={(e) => setSolicitadoPor(e.target.value)}
+      onKeyDown={handleKeyDownSolicitadoPor}
     />
-    {/* Opcional: botón para autocompletar con la sugerencia */}
-    {sugerenciaSolicitadoPor && !solicitadoPor && (
-      <button
-        type="button"
-        onClick={() => setSolicitadoPor(sugerenciaSolicitadoPor)}
-        className="shrink-0 rounded-lg border border-slate-300 px-3 py-2 text-slate-700 hover:bg-slate-50"
-        title="Usar propietario"
-      >
-        Usar
-      </button>
-    )}
   </div>
 </div>
 
