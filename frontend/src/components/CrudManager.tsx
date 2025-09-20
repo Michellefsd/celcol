@@ -59,7 +59,11 @@ function toIsoDateUTC(value: unknown): string {
   return `${dd}/${mm}/${yyyy}`;
 }
 
-
+const isEmptyForRequired = (v: unknown) =>
+  v === null ||
+  v === undefined ||
+  (typeof v === 'string' && v.trim() === '') ||
+  (typeof v === 'number' && Number.isNaN(v)); 
 
 function maybeFormatDate(value: unknown, key?: string) {
   const looksLikeDate =
@@ -189,12 +193,12 @@ const fetchData = async () => {
   };
 
   
-  const handleSubmit = async () => {
-    for (const field of formFields) {
-      if (field.required && !form[field.name as keyof T]) {
-        alert(`El campo "${field.label}" es obligatorio`);
-        return;
-      }
+const handleSubmit = async () => {
+  for (const field of formFields) {
+    if (field.required && isEmptyForRequired(form[field.name as keyof T])) {
+      alert(`El campo "${field.label}" es obligatorio`);
+      return;
+    }
     }
     if (onBeforeSubmit) {
       const errorMessage = onBeforeSubmit(form);
