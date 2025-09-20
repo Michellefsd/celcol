@@ -15,6 +15,25 @@ export default function Fase2OrdenTrabajoPage() {
   const [OTsolicitud, setOTsolicitud] = useState('');
   const [archivo, setArchivo] = useState<File | null>(null);
   const [mostrarSubirSolicitud, setMostrarSubirSolicitud] = useState(false);
+  const [fechaApertura, setFechaApertura] = useState('');
+  const [editFechaApertura, setEditFechaApertura] = useState(false);
+
+// Helper: de ISO a "YYYY-MM-DD" para <input type="date">
+function toDateInputValue(iso?: string) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '';
+  // a string YYYY-MM-DD (sin asumir TZ; simple y consistente)
+  return d.toISOString().slice(0, 10);
+}
+
+// Helper: mostrar en lectura con locale
+function formatFechaLectura(iso?: string) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  return isNaN(d.getTime()) ? '—' : d.toLocaleDateString('es-UY');
+}
+
 
  // --- helpers concretos a tu modelo
 function ownerFullName(p?: { nombre?: string; apellido?: string } | null) {
@@ -62,24 +81,27 @@ useEffect(() => {
     .then((data) => {
       if (data.estadoOrden === 'CERRADA') {
         router.replace(`/ordenes-trabajo/${id}/cerrada`);
-        return;
+        return; // 👈 no seteamos nada, salimos
       }
 
       if (data.estadoOrden === 'CANCELADA') {
-  router.replace(`/ordenes-trabajo/${id}/cancelada`);
-  return;
-}
-if (data.avion?.ComponenteAvion) {
-  data.avion.componentes = data.avion.ComponenteAvion;
-}
+        router.replace(`/ordenes-trabajo/${id}/cancelada`);
+        return; // 👈 idem
+      }
 
+      if (data.avion?.ComponenteAvion) {
+        data.avion.componentes = data.avion.ComponenteAvion;
+      }
+
+      // 👇 setters solo si seguimos en Fase 2
       setOrden(data);
       setSolicitud(data.solicitud ?? '');
       setSolicitadoPor(data.solicitadoPor ?? '');
       setOTsolicitud(data.OTsolicitud ?? '');
+      setFechaApertura(toDateInputValue(data.fechaApertura)); // 👈 acá va
     })
     .catch((err) => console.error('Error cargando orden de trabajo:', err));
-}, [id]);
+}, [id]); // si querés, también podrías incluir router en deps
 
 
   const handleGuardar = async (redirect: boolean = false): Promise<void> => {
@@ -87,6 +109,8 @@ if (data.avion?.ComponenteAvion) {
     formData.append('solicitud', solicitud);
     formData.append('solicitadoPor', solicitadoPor);
     formData.append('OTsolicitud', OTsolicitud);
+
+    if (fechaApertura) formData.append('fechaApertura', fechaApertura);
 
     if (archivo) {
         formData.append('solicitudFirma', archivo); 
@@ -159,6 +183,58 @@ return (
       <h1 className="text-2xl font-semibold text-slate-900">
         Fase 2: Detalles de la orden #{orden.id}
       </h1>
+      {/* Fecha de apertura (sutil editable) */}
+<div className="flex items-center gap-3">
+  <div className="min-w-44">
+    <label className="block text-sm font-medium text-slate-700 mb-1">
+      Fecha de apertura
+    </label>
+
+    {!editFechaApertura ? (
+      <div className="text-slate-800">
+        <span className="inline-block rounded-md border border-transparent px-0.5">
+          {formatFechaLectura(orden.fechaApertura)}
+        </span>
+      </div>
+    ) : (
+      <input
+        type="date"
+        className="rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-slate-800
+                   focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500
+                   text-sm"
+        value={fechaApertura}
+        onChange={(e) => setFechaApertura(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Escape') {
+            setFechaApertura(toDateInputValue(orden.fechaApertura));
+            setEditFechaApertura(false);
+          }
+        }}
+      />
+    )}
+  </div>
+
+  {!editFechaApertura ? (
+    <button
+      type="button"
+      onClick={() => setEditFechaApertura(true)}
+      className="text-sm text-cyan-700 hover:text-cyan-800 underline underline-offset-2"
+      aria-label="Editar fecha de apertura"
+    >
+      Editar
+    </button>
+  ) : (
+    <button
+      type="button"
+      onClick={() => setEditFechaApertura(false)}
+      className="text-sm text-slate-600 hover:text-slate-800 underline underline-offset-2"
+      aria-label="Listo"
+    >
+      Listo
+    </button>
+  )}
+</div>
+
 
       {/* Resumen del objeto (avión o componente) */}
       <section className="rounded-2xl border border-slate-200 bg-white shadow-sm p-4 md:p-6">

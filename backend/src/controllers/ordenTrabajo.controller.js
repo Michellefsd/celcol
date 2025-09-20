@@ -173,11 +173,19 @@ export const createOrden = async (req, res) => {
   }
 };
 
-// fase 2: Actualizar solicitud de firma y solicitado por
+// 4. Fase 2: Actualizar datos básicos de la orden (sin tocar relaciones)
 export const updateFase2 = async (req, res) => {
   const id = parseInt(req.params.id);
-  const { solicitud, solicitadoPor, OTsolicitud } = req.body;
+  const { solicitud, solicitadoPor, OTsolicitud, fechaApertura } = req.body;
   const archivo = req.files?.solicitudFirma?.[0]?.path;
+
+  // helper seguro para fecha
+  const parseFecha = (v) => {
+    if (!v) return null;
+    const d = new Date(v);
+    return isNaN(d.getTime()) ? null : d;
+  };
+  const fechaAperturaParsed = parseFecha(fechaApertura);
 
   try {
     const updated = await prisma.ordenTrabajo.update({
@@ -186,6 +194,7 @@ export const updateFase2 = async (req, res) => {
         solicitud,
         solicitadoPor,
         OTsolicitud,
+        ...(fechaAperturaParsed && { fechaApertura: fechaAperturaParsed }),
         ...(archivo && { solicitudFirma: archivo }),
       },
     });
@@ -195,6 +204,7 @@ export const updateFase2 = async (req, res) => {
     res.status(500).json({ error: 'Error al actualizar fase 2' });
   }
 };
+
 
 // ✅ Fase 2: Subir archivo de solicitud (RELACIÓN 'solicitudFirma' en tu schema)
 export const subirArchivoOrden = (req, res) =>
