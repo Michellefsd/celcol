@@ -112,6 +112,7 @@ export type CrudConfig<T extends { id: number }> = {
   onEditLabel?: (item: T) => string;
   onEditClick?: (item: T) => void;
   rowClassName?: (item: T) => string;
+  columnLabels?: Partial<Record<keyof T | string, string>>;
 };
 
 export default function CrudManager<T extends { id: number }>({
@@ -125,7 +126,7 @@ export default function CrudManager<T extends { id: number }>({
   onEditLabel,
   onEditClick,
   rowClassName,
-  
+  columnLabels,
 }: CrudConfig<T>) {
   const [data, setData] = useState<T[]>([]);
   const [editing, setEditing] = useState<T | null>(null);
