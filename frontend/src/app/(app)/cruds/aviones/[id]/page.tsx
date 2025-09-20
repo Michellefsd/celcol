@@ -53,7 +53,6 @@ interface Avion {
   vencimientoMatricula?: string | null;
   vencimientoSeguro?: string | null;
 
-  // 👇 ahora es relación Archivo, NO string
   certificadoMatricula?: ArchivoRef | null;
 
   propietarios: { propietario: Propietario }[];

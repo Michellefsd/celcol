@@ -95,11 +95,29 @@ export const crearStock = async (req, res) => {
   }
 };
 
+
 // ========== READ ALL ==========
 export const listarStock = async (_req, res) => {
   try {
     console.log('🔍 Listando todos los productos de stock...');
-    const items = await prisma.stock.findMany({ where: { archivado: false } });
+
+    const items = await prisma.stock.findMany({
+      where: { archivado: false },
+      orderBy: { id: 'desc' }, // opcional
+      include: {
+        imagen: {                // 👈 solo esta relación
+          select: {
+            id: true,
+            storageKey: true,
+            mime: true,
+            originalName: true,
+            sizeAlmacen: true,
+            urlPublica: true,
+          },
+        },
+      },
+    });
+
     console.log(`✅ Se encontraron ${items.length} productos.`);
     res.json(items);
   } catch (error) {
@@ -108,6 +126,7 @@ export const listarStock = async (_req, res) => {
   }
 };
 
+// ========== READ ONE ==========
 // GET /stock/:id?includeArchived=1
 export const obtenerStock = async (req, res) => {
   try {
@@ -280,7 +299,6 @@ export const archivarStock = async (req, res) => {
 
 
 
-
 // POST /stock/:id/imagen
 export const subirImagenStock = (req, res) =>
   subirArchivoGenerico({
@@ -293,6 +311,10 @@ export const subirImagenStock = (req, res) =>
     prefix: 'stock',          // prefijo en la key
     campoParam: 'id',         // saca el id de req.params.id
   });
+
+
+
+
 
 
 
@@ -312,9 +334,6 @@ function safeFilename(name) {
   // Evita quedar vacío
   return cleaned || `factura-${Date.now()}.bin`;
 }
-
-
-
 
 
 // Listar factura stock (GET /stock/:id/facturas)
@@ -407,6 +426,7 @@ export const listarPorStock = async (req, res) => {
     return res.status(500).json({ error: 'No se pudieron obtener las facturas' });
   }
 };
+
 
 // POST /stock/:id/facturas  (middleware: uploadUnico.single('archivo'))
 export const crear = async (req, res) => {
@@ -519,6 +539,7 @@ export const eliminar = async (req, res) => {
     return res.status(500).json({ error: 'No se pudo eliminar la factura' });
   }
 };
+
 
 // ACTUALIZAR Factura Stock
 export const actualizar = async (req, res) => {

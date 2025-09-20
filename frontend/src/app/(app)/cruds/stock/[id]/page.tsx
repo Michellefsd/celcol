@@ -281,8 +281,6 @@ export default function DetalleStockPage() {
     </button>
   )}
 </div>
-
-
             <h2 className="text-xl font-semibold text-slate-900">{item.nombre}</h2>
 
             <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-1 text-sm">

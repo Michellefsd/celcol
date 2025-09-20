@@ -16,25 +16,24 @@ export default function Fase2OrdenTrabajoPage() {
   const [archivo, setArchivo] = useState<File | null>(null);
   const [mostrarSubirSolicitud, setMostrarSubirSolicitud] = useState(false);
 
-  // --- Helpers
+ // --- helpers concretos a tu modelo
 function ownerFullName(p?: { nombre?: string; apellido?: string } | null) {
   if (!p) return '';
   return [p.nombre, p.apellido].filter(Boolean).join(' ').trim();
 }
 
-// Normaliza lista de propietarios desde la orden (avión o componente)
-function getOwnerList(orden?: any): any[] {
-  const arr = Array.isArray(orden?.avion?.propietario) ? orden.avion.propietario : [];
-  return arr.map((it: any) => (it?.propietario ? it.propietario : it));
-}
+// devuelve el propietario PERSONA sugerido:
+// 1) si hay componente con propietario -> ese
+// 2) si no, el primer propietario del avión (propietarios: { propietario }[])
+function pickOwnerFromOrden(orden: any): any | null {
+  if (orden?.componente?.propietario) return orden.componente.propietario;
 
+  const arr = Array.isArray(orden?.avion?.propietarios) ? orden.avion.propietarios : [];
+  if (arr.length === 0) return null;
 
-// Elige un propietario (prefiere principal/titular si existe)
-function pickOwnerFromOrden(orden?: any): any | null {
-  const list = getOwnerList(orden);
-  if (list.length === 0) return null;
-  const preferido = list.find((o: any) => o?.principal || o?.titular || o?.esPrincipal);
-  return preferido ?? list[0];
+  // cada item es { propietario: Propietario }
+  const first = arr[0]?.propietario ?? null;
+  return first ?? null;
 }
 
 // — Sugerencia calculada (solo PERSONA: nombre y apellido)
@@ -46,9 +45,16 @@ function handleKeyDownSolicitadoPor(e: React.KeyboardEvent<HTMLInputElement>) {
   if (e.key === 'Tab' && !solicitadoPor && sugerenciaSolicitadoPor) {
     setSolicitadoPor(sugerenciaSolicitadoPor);
     console.debug('▶ sugerencia aplicada por Tab:', sugerenciaSolicitadoPor);
-    // No bloqueamos Tab; que siga al siguiente campo
   }
 }
+useEffect(() => {
+  if (!solicitadoPor && orden) {
+    const p = pickOwnerFromOrden(orden);
+    const name = ownerFullName(p);
+    if (name) setSolicitadoPor(name);
+    console.debug('▶ owner detectado:', p);
+  }
+}, [orden]); // recalcula cuando llega la OT
 
 
 useEffect(() => {

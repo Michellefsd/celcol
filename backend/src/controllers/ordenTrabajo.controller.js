@@ -42,47 +42,53 @@ export const getOrdenById = async (req, res) => {
 
     const where = includeArchived ? { id } : { id, archivada: false };
 
-    const orden = await prisma.ordenTrabajo.findFirst({
-      where,
+const orden = await prisma.ordenTrabajo.findFirst({
+  where,
+  include: {
+    // 👇 Avión con propietarios (cada ítem trae { propietario: { ... } })
+    avion: {
       include: {
-        avion: { include: { ComponenteAvion: true } },
-        componente: { include: { propietario: true } },
-        empleadosAsignados: { include: { empleado: true } },
-        herramientas: { include: { herramienta: true } },
-        stockAsignado: { include: { stock: true } },
-        registrosTrabajo: {
-          orderBy: { fecha: 'asc' },
+        propietarios: {
           select: {
-            id: true,
-            empleadoId: true,
-            fecha: true,
-            horas: true,
-            trabajoRealizado: true,
-            rol: true,
-            empleado: { select: { id: true, nombre: true, apellido: true } },
+            propietario: {
+              select: {
+                id: true,
+                tipoPropietario: true,   // 'PERSONA' | 'INSTITUCION'
+                nombre: true,
+                apellido: true,
+                nombreEmpresa: true,
+              },
+            },
           },
         },
-        // 👇 relaciones Archivo (igual que herramientas; sin construir URLs)
-        solicitudFirma: {
-          select: {
-            id: true,
-            storageKey: true,
-            mime: true,
-            originalName: true,
-            sizeAlmacen: true,
-          },
-        },
-        archivoFactura: {
-          select: {
-            id: true,
-            storageKey: true,
-            mime: true,
-            originalName: true,
-            sizeAlmacen: true,
-          },
-        },
+        ComponenteAvion: true, // lo que ya tenías
       },
-    });
+    },
+
+    componente: { include: { propietario: true } },
+    empleadosAsignados: { include: { empleado: true } },
+    herramientas: { include: { herramienta: true } },
+    stockAsignado: { include: { stock: true } },
+    registrosTrabajo: {
+      orderBy: { fecha: 'asc' },
+      select: {
+        id: true,
+        empleadoId: true,
+        fecha: true,
+        horas: true,
+        trabajoRealizado: true,
+        rol: true,
+        empleado: { select: { id: true, nombre: true, apellido: true } },
+      },
+    },
+    solicitudFirma: {
+      select: { id: true, storageKey: true, mime: true, originalName: true, sizeAlmacen: true },
+    },
+    archivoFactura: {
+      select: { id: true, storageKey: true, mime: true, originalName: true, sizeAlmacen: true },
+    },
+  },
+});
 
     if (!orden) return res.status(404).json({ error: 'Orden no encontrada' });
     res.json(orden);
