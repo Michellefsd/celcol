@@ -1,6 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 import CrudManager, { Field } from '@/components/CrudManager';
 import { api, fetchJson } from '@/services/api';
 import IconButton from '@/components/IconButton';
@@ -63,6 +64,27 @@ async function obtenerUrlFirmada(key: string, disposition: 'inline' | 'attachmen
   return fetchJson<{ url: string }>(`/archivos/url-firmada?${q}`);
 }
 
+// 1) estado local para URLs de miniaturas
+const [thumbUrls, setThumbUrls] = useState<Record<string, string>>({});
+
+// 2) helper que presigna y actualiza estado (dispara re-render)
+async function getThumbUrl(storageKey: string) {
+  // si ya está en estado, devolvémosla
+  if (thumbUrls[storageKey]) return thumbUrls[storageKey];
+
+  try {
+    const { url } = await obtenerUrlFirmada(storageKey, 'inline'); // ← tu función
+    if (url) {
+      setThumbUrls(prev => ({ ...prev, [storageKey]: url })); // ← 🔁 re-render
+      return url;
+    }
+  } catch (e) {
+    console.error('No se pudo presignar miniatura', e);
+  }
+  return '';
+}
+
+
 
 export default function StockPage() {
   const router = useRouter();
@@ -90,48 +112,30 @@ export default function StockPage() {
   }}
   formFields={formFields}
   rowClassName={rowClassName}
-  renderCell={(key, item) => {
-    if (key !== 'imagen') return undefined;
+renderCell={(key, item) => {
+  if (key !== 'imagen') return undefined;
 
-    const ref = item.imagen;
-    const go = () => router.push(`/cruds/stock/${item.id}`);
+  const ref = item.imagen;
+  const go = () => router.push(`/cruds/stock/${item.id}`);
 
-    // 1) si ya tenemos url pública, usarla
-    if (ref?.urlPublica) {
-      return (
-        <button type="button" onClick={go} title="Ver detalle" className="inline-block">
-          <div className="w-12 h-12 rounded-md overflow-hidden bg-slate-100 border border-slate-200">
-            <img src={ref.urlPublica} alt="" className="w-full h-full object-cover" draggable={false} />
-          </div>
-        </button>
-      );
-    }
+  // 1) si ya hay url pública, úsala
+  if (ref?.urlPublica) {
+    return (
+      <button type="button" onClick={go} title="Ver detalle" className="inline-block">
+        <div className="w-12 h-12 rounded-md overflow-hidden bg-slate-100 border border-slate-200">
+          <img src={ref.urlPublica} alt="" className="w-full h-full object-cover" draggable={false} />
+        </div>
+      </button>
+    );
+  }
 
-    // 2) si no hay url, intentar presignar UNA vez por key
-    if (ref?.storageKey) {
-      const cached = presignCache.get(ref.storageKey);
-      if (cached) {
-        return (
-          <button type="button" onClick={go} title="Ver detalle" className="inline-block">
-            <div className="w-12 h-12 rounded-md overflow-hidden bg-slate-100 border border-slate-200">
-              <img src={cached} alt="" className="w-full h-full object-cover" draggable={false} />
-            </div>
-          </button>
-        );
-      }
+  // 2) si hay storageKey, mirar estado; si no está, disparar carga y mostrar placeholder
+  if (ref?.storageKey) {
+    const cached = thumbUrls[ref.storageKey];
 
-      // ⚠️ Render inicial: placeholder y disparamos la obtención asíncrona
-      // (Cuando llegue la URL, la fila se re-renderiza por React state del CrudManager; si no,
-      // podés forzar un setState arriba, pero en tablas grandes conviene que el backend mande urlPublica.)
-      obtenerUrlFirmada(ref.storageKey, 'inline').then(({ url }) => {
-        if (url) {
-          presignCache.set(ref.storageKey!, url);
-          // no tenemos setState acá; si querés re-render inmediato,
-          // podés llevar este caché a un useState/useReducer en la página
-          // o mejor: que el backend devuelva urlPublica en el listado.
-        }
-      }).catch(() => { /* noop */ });
-
+    if (!cached) {
+      // disparar en segundo plano (no bloquea render)
+      getThumbUrl(ref.storageKey);
       return (
         <div className="w-12 h-12 rounded-md overflow-hidden bg-slate-50 border border-slate-200 grid place-items-center text-slate-400 text-xs">
           🖼️
@@ -139,13 +143,25 @@ export default function StockPage() {
       );
     }
 
-    // 3) sin imagen
+    // ya tenemos URL firmada en estado
     return (
-      <div className="w-12 h-12 rounded-md overflow-hidden bg-slate-50 border border-slate-200 grid place-items-center text-slate-400 text-xs">
-        —
-      </div>
+      <button type="button" onClick={go} title="Ver detalle" className="inline-block">
+        <div className="w-12 h-12 rounded-md overflow-hidden bg-slate-100 border border-slate-200">
+          <img src={cached} alt="" className="w-full h-full object-cover" draggable={false} />
+        </div>
+      </button>
     );
-  }}
+  }
+
+  // 3) sin imagen
+  return (
+    <div className="w-12 h-12 rounded-md overflow-hidden bg-slate-50 border border-slate-200 grid place-items-center text-slate-400 text-xs">
+      —
+    </div>
+  );
+}}
+
+
   extraActions={(stock) => (
     <IconButton
       icon={IconVer}

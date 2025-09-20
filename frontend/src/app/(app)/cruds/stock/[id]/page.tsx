@@ -53,6 +53,8 @@ interface FacturaStock {
   legacy?: boolean;
 }
 
+
+
 export default function DetalleStockPage() {
   const params = useParams();
   const id = Array.isArray(params?.id) ? params.id[0] : params?.id;
