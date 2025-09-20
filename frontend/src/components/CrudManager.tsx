@@ -379,27 +379,30 @@ return (
 
       <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
         <table className="w-full text-sm">
-          <thead className="sticky top-0 z-10 bg-slate-50">
-            <tr>
-              {columns.map((col) => (
-                <th
-                  key={String(col)}
-                  className="px-3 py-2 text-left font-semibold text-slate-700 border-b border-slate-200 cursor-pointer hover:bg-slate-100"
-                  onClick={() => handleSort(col)}
-                >
-                  <div className="inline-flex items-center gap-1">
-                    <span>{String(col)}</span>
-                    {sortField === col && (
-                      <span className="text-slate-500">{sortDirection === 'asc' ? '▲' : '▼'}</span>
-                    )}
-                  </div>
-                </th>
-              ))}
-              <th className="px-3 py-2 text-left font-semibold text-slate-700 border-b border-slate-200">
-                Acciones
-              </th>
-            </tr>
-          </thead>
+       <thead className="sticky top-0 z-10 bg-slate-50">
+  <tr>
+    {columns.map((col) => (
+      <th
+        key={String(col)}
+        className="px-3 py-2 text-left font-semibold text-slate-700 border-b border-slate-200 cursor-pointer hover:bg-slate-100"
+        onClick={() => handleSort(col)}
+        aria-sort={sortField === col ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none'}
+      >
+        <div className="inline-flex items-center gap-1">
+          {/* usa el label si existe; si no, muestra la key */}
+          <span>{columnLabels?.[String(col)] ?? String(col)}</span>
+          {sortField === col && (
+            <span className="text-slate-500">{sortDirection === 'asc' ? '▲' : '▼'}</span>
+          )}
+        </div>
+      </th>
+    ))}
+    <th className="px-3 py-2 text-left font-semibold text-slate-700 border-b border-slate-200">
+      Acciones
+    </th>
+  </tr>
+</thead>
+
           <tbody className="divide-y divide-slate-200">
             {sortedData.map((item, idx) => (
               <tr
