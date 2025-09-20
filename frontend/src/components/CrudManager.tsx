@@ -113,6 +113,8 @@ export type CrudConfig<T extends { id: number }> = {
   onEditClick?: (item: T) => void;
   rowClassName?: (item: T) => string;
   columnLabels?: Partial<Record<keyof T | string, string>>;
+  renderCell?: (key: keyof T | string, item: T) => ReactNode;  // ← NUEVO
+
 };
 
 export default function CrudManager<T extends { id: number }>({
@@ -127,6 +129,7 @@ export default function CrudManager<T extends { id: number }>({
   onEditClick,
   rowClassName,
   columnLabels,
+  renderCell
 }: CrudConfig<T>) {
   const [data, setData] = useState<T[]>([]);
   const [editing, setEditing] = useState<T | null>(null);
@@ -403,39 +406,42 @@ return (
   </tr>
 </thead>
 
-          <tbody className="divide-y divide-slate-200">
-            {sortedData.map((item, idx) => (
-              <tr
-                key={item.id}
-                className={`${
-                  idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'
-                } hover:bg-slate-50 transition-colors ${rowClassName?.(item) || ''}`}
-              >
-                {columns.map((col) => (
-                  <td key={String(col)} className="px-3 py-2 text-slate-800">
-                    {renderValue(item, col)}
-                  </td>
-                ))}
-                <td className="px-3 py-2">
-                  <div className="flex flex-wrap gap-2">
-                    <IconButton
-                      icon={IconEditar}
-                      title="Editar"
-                      className="text-slate-700 hover:text-slate-900"
-                      onClick={() => (onEditClick ? onEditClick(item) : openModal(item))}
-                    />
-                    <IconButton
-                      icon={IconEliminar}
-                      title="Eliminar"
-                      className="text-rose-600 hover:text-rose-700"
-                      onClick={() => handleDelete(item.id)}
-                    />
-                    {extraActions && extraActions(item)}
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
+<tbody className="divide-y divide-slate-200">
+  {sortedData.map((item, idx) => (
+    <tr
+      key={item.id}
+      className={`${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'} hover:bg-slate-50 transition-colors ${rowClassName?.(item) || ''}`}
+    >
+      {columns.map((col) => {
+        const custom = renderCell?.(col as any, item);
+        return (
+          <td key={String(col)} className="px-3 py-2 text-slate-800">
+            {custom !== undefined ? custom : renderValue(item, col)}
+          </td>
+        );
+      })}
+
+      <td className="px-3 py-2">
+        <div className="flex flex-wrap gap-2">
+          <IconButton
+            icon={IconEditar}
+            title="Editar"
+            className="text-slate-700 hover:text-slate-900"
+            onClick={() => (onEditClick ? onEditClick(item) : openModal(item))}
+          />
+          <IconButton
+            icon={IconEliminar}
+            title="Eliminar"
+            className="text-rose-600 hover:text-rose-700"
+            onClick={() => handleDelete(item.id)}
+          />
+          {extraActions && extraActions(item)}
+        </div>
+      </td>
+    </tr>
+  ))}
+</tbody>
+
         </table>
       </div>
 

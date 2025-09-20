@@ -68,7 +68,7 @@ export default function DetalleStockPage() {
   const cargarProducto = async () => {
     if (!id) return;
     try {
-      const data = await fetchJson<StockItem>(`/stock/${id}`); // incluye imagen/archivo como ArchivoRef
+      const data = await fetchJson<StockItem>(`/stock/${id}`); 
       setItem(data);
     } catch (err) {
       console.error('❌ Error al cargar el producto de stock:', err);
