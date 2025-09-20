@@ -99,6 +99,10 @@ export default function AvionesPage() {
       'vencimientoSeguro',
       'propietarios'
     ],
+      columnLabels: { 
+    vencimientoMatricula: 'Venc. Cert. Aeronav.',
+    vencimientoSeguro: 'Venc. Seguro',
+  },
     formFields: [
       { name: 'marca', label: 'Marca', type: 'text', required: true },
       { name: 'modelo', label: 'Modelo', type: 'text', required: true },
