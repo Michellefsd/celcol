@@ -15,66 +15,38 @@ export default function Fase2OrdenTrabajoPage() {
   const [OTsolicitud, setOTsolicitud] = useState('');
   const [archivo, setArchivo] = useState<File | null>(null);
   const [mostrarSubirSolicitud, setMostrarSubirSolicitud] = useState(false);
-// — nombre según sea PERSONA o INSTITUCION
-function nombrePropietario(p?: {
-  tipoPropietario?: string;
-  nombre?: string;
-  apellido?: string;
-  nombreEmpresa?: string;
-}) {
+
+  // --- Helpers
+function ownerFullName(p?: { nombre?: string; apellido?: string } | null) {
   if (!p) return '';
-  return (p.tipoPropietario === 'PERSONA')
-    ? `${p.nombre ?? ''} ${p.apellido ?? ''}`.trim()
-    : (p.nombreEmpresa ?? '').trim();
+  return [p.nombre, p.apellido].filter(Boolean).join(' ').trim();
 }
 
-// — extrae un objeto propietario desde avion.propietarios con distintas formas
-function pickPropietarioFromAvion(avion?: {
-  propietarios?: any[];
-}): any | null {
-  if (!avion || !Array.isArray(avion.propietarios) || avion.propietarios.length === 0) return null;
-
-  // cada item puede ser { propietario: {...}, principal?: bool, titular?: bool } o directamente {...}
-  const mapToOwner = (item: any) => {
-    if (!item) return null;
-    // preferimos la forma { propietario: {...} }
-    if (item.propietario) return item.propietario;
-    // fallback: si el item ya parece un propietario directo
-    return item;
-  };
-
-  // intenta encontrar "principal" o "titular"
-  const principalItem = avion.propietarios.find((it: any) => it?.principal === true || it?.titular === true);
-  if (principalItem) return mapToOwner(principalItem);
-
-  // sino, el primero
-  return mapToOwner(avion.propietarios[0]);
+// Normaliza lista de propietarios desde la orden (avión o componente)
+function getOwnerList(orden?: any): any[] {
+  const arr = Array.isArray(orden?.avion?.propietario) ? orden.avion.propietario : [];
+  return arr.map((it: any) => (it?.propietario ? it.propietario : it));
 }
 
-// — determina el propietario sugerido para esta OT (componente > avión)
-function propietarioSugerido(orden: any): any | null {
-  // 1) componente externo con propietario incluido
-  if (orden?.componente?.propietario) return orden.componente.propietario;
 
-  // 2) avión con lista de propietarios
-  const pAvion = pickPropietarioFromAvion(orden?.avion);
-  if (pAvion) return pAvion;
-
-  return null;
+// Elige un propietario (prefiere principal/titular si existe)
+function pickOwnerFromOrden(orden?: any): any | null {
+  const list = getOwnerList(orden);
+  if (list.length === 0) return null;
+  const preferido = list.find((o: any) => o?.principal || o?.titular || o?.esPrincipal);
+  return preferido ?? list[0];
 }
 
-// — Sugerencia calculada
-const sugerenciaSolicitadoPor = nombrePropietario(propietarioSugerido(orden)) || '';
-
+// — Sugerencia calculada (solo PERSONA: nombre y apellido)
+const sugerenciaSolicitadoPor = ownerFullName(pickOwnerFromOrden(orden)) || '';
 console.debug('sugerenciaSolicitadoPor (placeholder):', sugerenciaSolicitadoPor);
 
+// Completa con Tab si el campo está vacío
 function handleKeyDownSolicitadoPor(e: React.KeyboardEvent<HTMLInputElement>) {
-  // Acepta la sugerencia solo si el campo está vacío y hay sugerencia
   if (e.key === 'Tab' && !solicitadoPor && sugerenciaSolicitadoPor) {
     setSolicitadoPor(sugerenciaSolicitadoPor);
-    console.debug('▶ sugerenciaSolicitadoPor:', sugerenciaSolicitadoPor);
-        console.debug('▶ sugerencia aplicada por Tab:', sugerenciaSolicitadoPor);
-    // No bloqueamos Tab: dejamos que siga al próximo campo
+    console.debug('▶ sugerencia aplicada por Tab:', sugerenciaSolicitadoPor);
+    // No bloqueamos Tab; que siga al siguiente campo
   }
 }
 

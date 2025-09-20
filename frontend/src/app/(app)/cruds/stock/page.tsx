@@ -55,7 +55,6 @@ const formFields: Field[] = [
   { name: 'fechaIngreso', label: 'Fecha de ingreso', type: 'date' },
 ];
 
-export const revalidate = 0; // opcional: evita prerender estático si hubiese conflicto
 
 export default function StockPage() {
   const router = useRouter();
