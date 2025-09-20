@@ -83,6 +83,7 @@ type Herramienta = {
   marca?: string;
   modelo?: string;
   numeroSerie?: string;
+  numeroParte?: string;
   fechaIngreso?: string;
   fechaVencimiento?: string;
   certificadoCalibracion?: string;
@@ -98,6 +99,7 @@ export default function HerramientasPage() {
     { name: 'marca', label: 'Marca', type: 'text' },
     { name: 'modelo', label: 'Modelo', type: 'text' },
     { name: 'numeroSerie', label: 'Número de serie', type: 'text' },
+    { name: 'numeroParte', label: 'Número de parte', type: 'text' },
     { name: 'fechaIngreso', label: 'Fecha de ingreso', type: 'date' },
     { name: 'fechaVencimiento', label: 'Fecha de vencimiento', type: 'date' },
   ];
@@ -108,7 +110,7 @@ export default function HerramientasPage() {
     const fv = new Date(h.fechaVencimiento);
     const diff = Math.ceil((fv.getTime() - hoy.getTime()) / (1000 * 60 * 60 * 24));
     if (isNaN(diff)) return '';
-    if (diff < 0) return 'bg-rose-50';        // vencida
+    if (diff < 0) return 'bg-rose-50';        // vencido
     if (diff <= 30) return 'bg-amber-50';     // por vencer
     return '';
   };
@@ -119,7 +121,7 @@ export default function HerramientasPage() {
         <CrudManager<Herramienta>
           title="Herramientas calibrables"
           endpoint={api('/herramientas')}
-          columns={['nombre','tipo','marca','modelo','numeroSerie','fechaIngreso','fechaVencimiento']}
+          columns={['nombre','tipo','marca','modelo','numeroSerie','numeroParte','fechaIngreso','fechaVencimiento']}
           formFields={formFields}
           onBeforeSubmit={() => null}
           onAfterCreate={() => setRefrescar(!refrescar)}

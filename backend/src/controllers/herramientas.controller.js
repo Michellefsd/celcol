@@ -10,24 +10,38 @@ const prisma = new PrismaClient();
 // LISTAR TODAS
 export const listarHerramientas = async (req, res) => {
   try {
+    const { q, orderBy = 'nombre', orderDir = 'asc' } = req.query; // q filtra por numeroParte o nombre
+
     const herramientas = await prisma.herramienta.findMany({
-      where: { archivado: false },
+      where: {
+        archivado: false,
+        ...(q
+          ? {
+              OR: [
+                { numeroParte: { contains: String(q), mode: 'insensitive' } },
+                { nombre: { contains: String(q), mode: 'insensitive' } },
+              ],
+            }
+          : {}),
+      },
+      orderBy: { [orderBy]: orderDir === 'desc' ? 'desc' : 'asc' },
     });
 
     const baseUrl = `${req.protocol}://${req.get('host')}`;
-    const herramientasConUrl = herramientas.map((herramienta) => ({
-      ...herramienta,
-      certificadoCalibracion: herramienta.certificadoCalibracion
-        ? `${baseUrl}/${herramienta.certificadoCalibracion.replace(/\\/g, '/')}`
+    const herramientasConUrl = herramientas.map((h) => ({
+      ...h, // <- incluye numeroParte
+      certificadoCalibracion: h.certificadoCalibracion
+        ? `${baseUrl}/${h.certificadoCalibracion.replace(/\\/g, '/')}`
         : null,
     }));
 
-    res.json(herramientasConUrl);
+    return res.json(herramientasConUrl);
   } catch (error) {
     console.error('Error al listar herramientas:', error);
-    res.status(500).json({ error: 'Error al obtener las herramientas' });
+    return res.status(500).json({ error: 'Error al obtener las herramientas' });
   }
 };
+
 
 // OBTENER POR ID — admite ?includeArchived=1 y devuelve relación Archivo (storageKey)
 export const obtenerHerramienta = async (req, res) => {
@@ -42,7 +56,6 @@ export const obtenerHerramienta = async (req, res) => {
 
     const where = includeArchived ? { id } : { id, archivado: false };
 
-    // 👇 Trae la relación del archivo en vez de construir URLs
     const herramienta = await prisma.herramienta.findFirst({
       where,
       include: {
@@ -62,11 +75,11 @@ export const obtenerHerramienta = async (req, res) => {
       return res.status(404).json({ error: 'Herramienta no encontrada' });
     }
 
-    // Nada de toAbs ni URL pública: el front pedirá /archivos/url-firmada?key=...
-    res.json(herramienta);
+    // numeroParte viene incluido por defecto en herramienta
+    return res.json(herramienta);
   } catch (error) {
     console.error('Error al obtener herramienta:', error);
-    res.status(500).json({ error: 'Error al obtener la herramienta' });
+    return res.status(500).json({ error: 'Error al obtener la herramienta' });
   }
 };
 
@@ -82,10 +95,18 @@ export const crearHerramienta = async (req, res) => {
       numeroSerie,
       fechaIngreso,
       fechaVencimiento,
+      numeroParte, // <- NUEVO
     } = req.body;
 
     if (!nombre) {
       return res.status(400).json({ error: 'El campo "nombre" es obligatorio' });
+    }
+
+    // Normalización de numeroParte: string → trim; vacío → null
+    let numeroParteNorm = null;
+    if (typeof numeroParte === 'string') {
+      const trimmed = numeroParte.trim();
+      if (trimmed.length > 0) numeroParteNorm = trimmed;
     }
 
     const data = {
@@ -94,6 +115,7 @@ export const crearHerramienta = async (req, res) => {
       marca: marca || null,
       modelo: modelo || null,
       numeroSerie: numeroSerie || null,
+      numeroParte: numeroParteNorm || null, // <- NUEVO (opcional)
       // NO enviar certificadoCalibracion ni certificadoCalibracionId aquí
     };
 
@@ -109,6 +131,14 @@ export const crearHerramienta = async (req, res) => {
     const nuevaHerramienta = await prisma.herramienta.create({ data });
     return res.status(201).json(nuevaHerramienta);
   } catch (error) {
+    // Manejo específico de UNIQUE (P2002) en numeroParte
+    if (error?.code === 'P2002') {
+      // Posibles targets: ["Herramienta_numeroParte_key"] o ["numeroParte"]
+      const target = Array.isArray(error?.meta?.target) ? error.meta.target.join(',') : String(error?.meta?.target || '');
+      if (target.includes('numeroParte')) {
+        return res.status(409).json({ error: 'El "numeroParte" ya existe en otra herramienta' });
+      }
+    }
     console.error('Error al crear herramienta:', error);
     return res.status(500).json({ error: 'Error al crear la herramienta' });
   }
@@ -118,6 +148,7 @@ export const crearHerramienta = async (req, res) => {
 // ACTUALIZAR HERRAMIENTA (sin manejo de archivos)
 export const actualizarHerramienta = async (req, res) => {
   const id = Number(req.params.id);
+
   try {
     const {
       nombre,
@@ -127,11 +158,22 @@ export const actualizarHerramienta = async (req, res) => {
       numeroSerie,
       fechaIngreso,
       fechaVencimiento,
+      numeroParte, // <- NUEVO
     } = req.body;
 
     if (!nombre) {
       return res.status(400).json({ error: 'El campo "nombre" es obligatorio' });
     }
+
+    // Normalización numeroParte: trim; '' o espacios -> null
+    let numeroParteNorm = null;
+    if (typeof numeroParte === 'string') {
+      const trimmed = numeroParte.trim();
+      if (trimmed.length > 0) numeroParteNorm = trimmed;
+    } else if (numeroParte === null) {
+      numeroParteNorm = null;
+    }
+    // Si numeroParte viene undefined, no tocamos el campo
 
     // Solo campos válidos del modelo
     const data = {
@@ -141,6 +183,11 @@ export const actualizarHerramienta = async (req, res) => {
       modelo: modelo || null,
       numeroSerie: numeroSerie || null,
     };
+
+    // Incluir numeroParte solo si vino en el body
+    if (numeroParte !== undefined) {
+      data.numeroParte = numeroParteNorm; // puede ser string o null
+    }
 
     // Fechas: incluir solo si vienen (evita undefined)
     if (fechaIngreso !== undefined) {
@@ -155,12 +202,24 @@ export const actualizarHerramienta = async (req, res) => {
       data,
     });
 
-    res.json(herramienta);
+    return res.json(herramienta);
   } catch (error) {
+    // No encontrado
+    if (error?.code === 'P2025') {
+      return res.status(404).json({ error: 'Herramienta no encontrada' });
+    }
+    // Único violado
+    if (error?.code === 'P2002') {
+      const target = Array.isArray(error?.meta?.target) ? error.meta.target.join(',') : String(error?.meta?.target || '');
+      if (target.includes('numeroParte')) {
+        return res.status(409).json({ error: 'El "numeroParte" ya existe en otra herramienta' });
+      }
+    }
     console.error('Error al actualizar herramienta:', error);
-    res.status(500).json({ error: 'Error al actualizar la herramienta' });
+    return res.status(500).json({ error: 'Error al actualizar la herramienta' });
   }
 };
+
 
 
 // ARCHIVAR HERRAMIENTA (bloquea si está en OT abierta)

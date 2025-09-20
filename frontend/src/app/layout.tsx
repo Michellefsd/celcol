@@ -1,11 +1,13 @@
-// frontend/src/app/layout.tsx
-import './globals.css';                 // ✅ ruta correcta (mismo dir)
+import './globals.css';
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 
 export const metadata: Metadata = {
   title: 'CELCOL',
   description: 'App',
+  icons: {
+    icon: '/favicon.ico', // <- usa el .ico de /public
+  },
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
