@@ -46,14 +46,37 @@ export const crearStock = async (req, res) => {
       unidadMedida, cantidad, stockMinimo, fechaIngreso
     } = req.body;
 
-    if (!nombre || !cantidad || !stockMinimo) {
-      console.warn('⚠️ Faltan campos obligatorios');
-      return res.status(400).json({ error: 'Faltan campos obligatorios: nombre, cantidad o stockMinimo' });
+    // --- Parseos seguros (permiten "0")
+    const cantidadNum = cantidad === '' || cantidad === null || cantidad === undefined
+      ? NaN
+      : Number.parseInt(cantidad, 10);
+
+    const stockMinimoNum = stockMinimo === '' || stockMinimo === null || stockMinimo === undefined
+      ? NaN
+      : Number.parseInt(stockMinimo, 10);
+
+    const precioVentaNum = precioVenta === '' || precioVenta === null || precioVenta === undefined
+      ? 0
+      : Number.parseFloat(precioVenta);
+
+    const costeNum = coste === '' || coste === null || coste === undefined
+      ? 0
+      : Number.parseFloat(coste);
+
+    // --- Validaciones (0 es válido)
+    if (!nombre || typeof nombre !== 'string' || nombre.trim() === '') {
+      return res.status(400).json({ error: 'Falta el nombre' });
+    }
+    if (!Number.isInteger(cantidadNum) || cantidadNum < 0) {
+      return res.status(400).json({ error: 'cantidad debe ser un entero ≥ 0' });
+    }
+    if (!Number.isInteger(stockMinimoNum) || stockMinimoNum < 0) {
+      return res.status(400).json({ error: 'stockMinimo debe ser un entero ≥ 0' });
     }
 
-    // Construimos SOLO con campos válidos del modelo Stock
+    // --- Construcción de data
     const data = {
-      nombre,
+      nombre: nombre.trim(),
       tipoProducto: tipoProducto || null,
       codigoBarras: codigoBarras || null,
       notasInternas: notasInternas || null,
@@ -62,25 +85,24 @@ export const crearStock = async (req, res) => {
       numeroSerie: numeroSerie || null,
       puedeSerVendido: puedeSerVendido === 'true' || puedeSerVendido === true,
       puedeSerComprado: puedeSerComprado === 'true' || puedeSerComprado === true,
-      precioVenta: parseFloat(precioVenta) || 0,
-      coste: parseFloat(coste) || 0,
+      precioVenta: Number.isFinite(precioVentaNum) ? precioVentaNum : 0,
+      coste: Number.isFinite(costeNum) ? costeNum : 0,
       unidadMedida: unidadMedida || null,
-      cantidad: parseInt(cantidad, 10),
-      stockMinimo: parseInt(stockMinimo, 10),
-      // archivado: false, // opcional, ya tenés default(false) si lo pusiste en el schema
-      // imagenId y archivoId NO se setean acá (no subimos archivos en create)
+      cantidad: cantidadNum,           // 👈 ahora puede ser 0
+      stockMinimo: stockMinimoNum,     // 👈 0 también permitido
+      // archivado: false,
     };
 
-    // Solo incluir fechaIngreso si viene definida (Prisma tiene @default(now()))
+    // fechaIngreso (opcional)
     if (fechaIngreso) {
       const f = new Date(fechaIngreso);
-      if (!isNaN(f)) data.fechaIngreso = f;
+      if (!Number.isNaN(f.getTime())) data.fechaIngreso = f;
     }
 
     const producto = await prisma.stock.create({ data });
     console.log('✅ Producto creado:', producto);
 
-    // Aviso si stock bajo al crear (upsert) o limpiar si no aplica
+    // Aviso de stock bajo (0 <= stockMinimo dispara aviso)
     if (producto.cantidad <= producto.stockMinimo) {
       await upsertAvisoStockBajo(prisma, producto.id, producto.nombre, producto.cantidad);
       console.log('📣 Aviso de stock bajo (creación)');
