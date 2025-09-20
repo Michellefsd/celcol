@@ -66,10 +66,14 @@ function propietarioSugerido(orden: any): any | null {
 // — Sugerencia calculada
 const sugerenciaSolicitadoPor = nombrePropietario(propietarioSugerido(orden)) || '';
 
+console.debug('sugerenciaSolicitadoPor (placeholder):', sugerenciaSolicitadoPor);
+
 function handleKeyDownSolicitadoPor(e: React.KeyboardEvent<HTMLInputElement>) {
   // Acepta la sugerencia solo si el campo está vacío y hay sugerencia
   if (e.key === 'Tab' && !solicitadoPor && sugerenciaSolicitadoPor) {
     setSolicitadoPor(sugerenciaSolicitadoPor);
+    console.debug('▶ sugerenciaSolicitadoPor:', sugerenciaSolicitadoPor);
+        console.debug('▶ sugerencia aplicada por Tab:', sugerenciaSolicitadoPor);
     // No bloqueamos Tab: dejamos que siga al próximo campo
   }
 }
