@@ -64,6 +64,9 @@ async function obtenerUrlFirmada(key: string, disposition: 'inline' | 'attachmen
   return fetchJson<{ url: string }>(`/archivos/url-firmada?${q}`);
 }
 
+export default function StockPage() {
+  const router = useRouter();
+
 // 1) estado local para URLs de miniaturas
 const [thumbUrls, setThumbUrls] = useState<Record<string, string>>({});
 
@@ -83,11 +86,6 @@ async function getThumbUrl(storageKey: string) {
   }
   return '';
 }
-
-
-
-export default function StockPage() {
-  const router = useRouter();
 
   const rowClassName = (item: StockItem) => {
     if (item.cantidad === 0) return 'bg-rose-50';        // agotado
