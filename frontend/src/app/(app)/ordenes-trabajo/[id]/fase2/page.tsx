@@ -15,33 +15,64 @@ export default function Fase2OrdenTrabajoPage() {
   const [OTsolicitud, setOTsolicitud] = useState('');
   const [archivo, setArchivo] = useState<File | null>(null);
   const [mostrarSubirSolicitud, setMostrarSubirSolicitud] = useState(false);
-
-  //HELPER
-
 // — nombre según sea PERSONA o INSTITUCION
-function nombrePropietario(p?: { tipoPropietario?: string; nombre?: string; apellido?: string; nombreEmpresa?: string }) {
+function nombrePropietario(p?: {
+  tipoPropietario?: string;
+  nombre?: string;
+  apellido?: string;
+  nombreEmpresa?: string;
+}) {
   if (!p) return '';
   return (p.tipoPropietario === 'PERSONA')
     ? `${p.nombre ?? ''} ${p.apellido ?? ''}`.trim()
     : (p.nombreEmpresa ?? '').trim();
 }
 
-// Sugerencia calculada (no pisa tu estado)
-const sugerenciaSolicitadoPor =
-  (orden?.componente?.propietario && nombrePropietario(orden.componente.propietario)) ||
-  (orden?.avion?.propietarios?.length
-    ? nombrePropietario(orden.avion.propietarios[0]?.propietario)
-    : '') || '';
+// — extrae un objeto propietario desde avion.propietarios con distintas formas
+function pickPropietarioFromAvion(avion?: {
+  propietarios?: any[];
+}): any | null {
+  if (!avion || !Array.isArray(avion.propietarios) || avion.propietarios.length === 0) return null;
 
+  // cada item puede ser { propietario: {...}, principal?: bool, titular?: bool } o directamente {...}
+  const mapToOwner = (item: any) => {
+    if (!item) return null;
+    // preferimos la forma { propietario: {...} }
+    if (item.propietario) return item.propietario;
+    // fallback: si el item ya parece un propietario directo
+    return item;
+  };
 
-    function handleKeyDownSolicitadoPor(e: React.KeyboardEvent<HTMLInputElement>) {
+  // intenta encontrar "principal" o "titular"
+  const principalItem = avion.propietarios.find((it: any) => it?.principal === true || it?.titular === true);
+  if (principalItem) return mapToOwner(principalItem);
+
+  // sino, el primero
+  return mapToOwner(avion.propietarios[0]);
+}
+
+// — determina el propietario sugerido para esta OT (componente > avión)
+function propietarioSugerido(orden: any): any | null {
+  // 1) componente externo con propietario incluido
+  if (orden?.componente?.propietario) return orden.componente.propietario;
+
+  // 2) avión con lista de propietarios
+  const pAvion = pickPropietarioFromAvion(orden?.avion);
+  if (pAvion) return pAvion;
+
+  return null;
+}
+
+// — Sugerencia calculada
+const sugerenciaSolicitadoPor = nombrePropietario(propietarioSugerido(orden)) || '';
+
+function handleKeyDownSolicitadoPor(e: React.KeyboardEvent<HTMLInputElement>) {
+  // Acepta la sugerencia solo si el campo está vacío y hay sugerencia
   if (e.key === 'Tab' && !solicitadoPor && sugerenciaSolicitadoPor) {
     setSolicitadoPor(sugerenciaSolicitadoPor);
-    // no hacemos preventDefault: dejamos que Tab avance/retrase el foco
+    // No bloqueamos Tab: dejamos que siga al próximo campo
   }
 }
-// FIN helper
-
 
 
 useEffect(() => {
