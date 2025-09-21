@@ -62,6 +62,7 @@ export default function EmpleadoRegistrosPage() {
   const [hasta, setHasta] = useState('');
   const [mostrarSubirCarne, setMostrarSubirCarne] = useState(false);
 
+
   const fetchEmpleado = async () => {
     if (!empleadoId) return;
     try {

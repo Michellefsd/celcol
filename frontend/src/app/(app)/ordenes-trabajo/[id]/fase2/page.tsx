@@ -1,7 +1,7 @@
 'use client';
 
 import { useParams, useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { api, fetchJson, apiFetch} from '@/services/api';
 import SubirArchivo from '@/components/Asignaciones/SubirArchivo';
 
@@ -15,8 +15,18 @@ export default function Fase2OrdenTrabajoPage() {
   const [OTsolicitud, setOTsolicitud] = useState('');
   const [archivo, setArchivo] = useState<File | null>(null);
   const [mostrarSubirSolicitud, setMostrarSubirSolicitud] = useState(false);
-  const [fechaApertura, setFechaApertura] = useState('');
   const [editFechaApertura, setEditFechaApertura] = useState(false);
+  const [fechaApertura, setFechaApertura] = useState('');
+  const dateInputRef = useRef<HTMLInputElement>(null);
+
+useEffect(() => {
+  if (editFechaApertura) {
+    // enfoca apenas entra en modo edición
+    setTimeout(() => dateInputRef.current?.focus(), 0);
+  }
+}, [editFechaApertura]);
+
+  
 
 // Helper: de ISO a "YYYY-MM-DD" para <input type="date">
 function toDateInputValue(iso?: string) {
@@ -191,13 +201,18 @@ return (
     </label>
 
     {!editFechaApertura ? (
-      <div className="text-slate-800">
+      // modo lectura: no cambia cursor, ni hover; doble click -> edición
+      <div
+        className="text-slate-800 cursor-default select-text"
+        onDoubleClick={() => setEditFechaApertura(true)}
+      >
         <span className="inline-block rounded-md border border-transparent px-0.5">
           {formatFechaLectura(orden.fechaApertura)}
         </span>
       </div>
     ) : (
       <input
+        ref={dateInputRef}
         type="date"
         className="rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-slate-800
                    focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500
@@ -206,35 +221,21 @@ return (
         onChange={(e) => setFechaApertura(e.target.value)}
         onKeyDown={(e) => {
           if (e.key === 'Escape') {
-            setFechaApertura(toDateInputValue(orden.fechaApertura));
+            setFechaApertura(toDateInputValue(orden.fechaApertura)); // volver al original
             setEditFechaApertura(false);
           }
+          if (e.key === 'Enter') {
+            setEditFechaApertura(false); // confirmar y salir (no guarda aún)
+          }
+        }}
+        onBlur={() => {
+          // salir discretamente al perder foco (mantiene lo tipeado; guardás con tu botón global)
+          setEditFechaApertura(false);
         }}
       />
     )}
   </div>
-
-  {!editFechaApertura ? (
-    <button
-      type="button"
-      onClick={() => setEditFechaApertura(true)}
-      className="text-sm text-cyan-700 hover:text-cyan-800 underline underline-offset-2"
-      aria-label="Editar fecha de apertura"
-    >
-      Editar
-    </button>
-  ) : (
-    <button
-      type="button"
-      onClick={() => setEditFechaApertura(false)}
-      className="text-sm text-slate-600 hover:text-slate-800 underline underline-offset-2"
-      aria-label="Listo"
-    >
-      Listo
-    </button>
-  )}
 </div>
-
 
       {/* Resumen del objeto (avión o componente) */}
       <section className="rounded-2xl border border-slate-200 bg-white shadow-sm p-4 md:p-6">
@@ -384,7 +385,6 @@ return (
   </div>
 </div>
 
-
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-1">N.º de OT previa (otro taller)</label>
           <input
@@ -426,7 +426,6 @@ return (
     </button>
   </div>
 )}
-
 
           </div>
 <SubirArchivo
