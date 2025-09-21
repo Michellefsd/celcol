@@ -67,8 +67,9 @@ const LIC_LABELS: Record<string, string> = {
 const isEmptyForRequired = (v: unknown) =>
   v === null ||
   v === undefined ||
+  (Array.isArray(v) && v.length === 0) ||   // 👈 agrega arrays vacíos
   (typeof v === 'string' && v.trim() === '') ||
-  (typeof v === 'number' && Number.isNaN(v)); 
+  (typeof v === 'number' && Number.isNaN(v));
 
 function maybeFormatDate(value: unknown, key?: string) {
   const looksLikeDate =
