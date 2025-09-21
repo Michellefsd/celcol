@@ -318,7 +318,7 @@ enum TipoPropietario {
 }
 
 enum TipoLicencia {
-  CELULA.        @map("AERONAVE")
+  CELULA        @map("AERONAVE")
   MOTOR
   AVIONICA
 }

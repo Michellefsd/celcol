@@ -1,8 +1,5 @@
 import { PrismaClient } from '@prisma/client';
-import fs from 'fs';
 import { subirArchivoGenerico } from '../utils/archivoupload.js';
-import { herramientaEnOtAbierta } from '../services/archiveGuards.js';
-import { crearAvisoPorVencimientoHerramienta } from '../utils/avisos.js';
 
 
 const prisma = new PrismaClient();
