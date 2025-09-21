@@ -71,6 +71,7 @@ const isEmptyForRequired = (v: unknown) =>
   (typeof v === 'string' && v.trim() === '') ||
   (typeof v === 'number' && Number.isNaN(v));
 
+
 function maybeFormatDate(value: unknown, key?: string) {
   const looksLikeDate =
     (typeof key === 'string' && DATE_KEYS_REGEX.test(key)) ||
@@ -514,24 +515,37 @@ return (
                 {field.required && <span className="text-rose-600 ml-1">*</span>}
               </label>
 
-          {field.type === 'select' ? (
+{field.type === 'select' ? (
   field.multiple ? (
-    <select
-      multiple
-      name={field.name}
-      value={Array.isArray(form[field.name as keyof T]) ? (form[field.name as keyof T] as any) : []}
-      onChange={handleChange}
-      className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-800
-                 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
-      aria-required={field.required ? 'true' : 'false'}
-    >
-      {field.options?.map((opt) => (
-        <option key={opt.value} value={opt.value}>
-          {opt.label}
-        </option>
-      ))}
-    </select>
+    // ✅ Render como checkboxes cuando es múltiple
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+      {(field.options ?? []).map((opt) => {
+        const arr = Array.isArray(form[field.name as keyof T])
+          ? (form[field.name as keyof T] as unknown as string[])
+          : [];
+        const checked = arr.includes(opt.value);
+        return (
+          <label key={opt.value} className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={checked}
+              onChange={(e) => {
+                const next = new Set(arr);
+                if (e.target.checked) next.add(opt.value);
+                else next.delete(opt.value);
+                setForm((prev) => ({
+                  ...prev,
+                  [field.name]: Array.from(next) as T[keyof T],
+                }));
+              }}
+            />
+            {opt.label}
+          </label>
+        );
+      })}
+    </div>
   ) : (
+    // ⬇️ select simple (una sola opción)
     <select
       name={field.name}
       value={form[field.name as keyof T]?.toString() ?? ''}
@@ -549,17 +563,17 @@ return (
     </select>
   )
 ) : (
-                <input
-                  name={field.name}
-                  type={field.type}
-                  value={field.type === 'checkbox' ? undefined : form[field.name as keyof T]?.toString() ?? ''}
-                  checked={field.type === 'checkbox' ? Boolean(form[field.name as keyof T]) : undefined}
-                  onChange={handleChange}
-                  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-800
-                             focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
-                  aria-required={field.required ? 'true' : 'false'}
-                />
-              )}
+  <input
+    name={field.name}
+    type={field.type}
+    value={field.type === 'checkbox' ? undefined : form[field.name as keyof T]?.toString() ?? ''}
+    checked={field.type === 'checkbox' ? Boolean(form[field.name as keyof T]) : undefined}
+    onChange={handleChange}
+    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-800
+               focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
+    aria-required={field.required ? 'true' : 'false'}
+  />
+)}
             </div>
           ))}
       </div>
