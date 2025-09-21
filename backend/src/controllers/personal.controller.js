@@ -6,7 +6,35 @@ import path from 'path';
 import fs from 'fs';
 
 const prisma = new PrismaClient();
-const ALLOWED_LIC = ['MOTOR', 'AERONAVE', 'AVIONICA'];
+const ALLOWED_LIC = ['MOTOR', 'CELULA', 'AVIONICA'];
+
+const aliasLic = {
+  'AERONAVE': 'CELULA', // requests viejos siguen funcionando
+  'CELULA': 'CELULA',
+  'AVIONICA': 'AVIONICA',
+  'MOTOR': 'MOTOR',
+};
+
+// --- utils locales (mínimas) ---
+function norm(str) {
+  return String(str)
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .trim()
+    .toUpperCase();
+}
+
+function normalizeTipoLicencia(input) {
+  let lic = input;
+  if (typeof lic === 'string') lic = [lic];
+  if (!Array.isArray(lic)) lic = [];
+
+  lic = lic
+    .map((v) => aliasLic[norm(v)] ?? norm(v)) // mapea "aeronave"/"célula" y quita acentos
+    .filter((v) => ALLOWED_LIC.includes(v));
+
+  return lic;
+}
 
 
 // CREATE
@@ -20,21 +48,14 @@ export const crearPersonal = async (req, res) => {
       esCertificador,
       esTecnico,
       direccion,
-      tipoLicencia,              
+      tipoLicencia,
       numeroLicencia,
       vencimientoLicencia,
       fechaAlta,
       horasTrabajadas
-      // ⚠️ NO incluir carneSalud acá
     } = req.body;
 
-    // normalizar tipoLicencia -> array de enums válidos
-    let lic = tipoLicencia;
-    if (typeof lic === 'string') lic = [lic];
-    if (!Array.isArray(lic)) lic = [];
-    lic = lic
-      .map(v => String(v).trim().toUpperCase())
-      .filter(v => ALLOWED_LIC.includes(v));
+    const lic = normalizeTipoLicencia(tipoLicencia);
 
     if (!nombre || !apellido || !telefono) {
       return res.status(400).json({ error: 'nombre, apellido y telefono son obligatorios' });
@@ -54,13 +75,12 @@ export const crearPersonal = async (req, res) => {
         esCertificador: esCertificador === true || esCertificador === 'true',
         esTecnico: esTecnico === true || esTecnico === 'true',
         direccion: direccion || null,
-        tipoLicencia: { set: lic },
+        tipoLicencia: { set: lic }, // múltiple
         numeroLicencia: numeroLicencia || null,
         vencimientoLicencia: vencimientoLicencia ? new Date(vencimientoLicencia) : null,
         fechaAlta: fechaAlta ? new Date(fechaAlta) : null,
         horasTrabajadas: horasTrabajadas ? Number(horasTrabajadas) : 0,
         archivado: false,
-        // ⚠️ No poner carneSalud ni carneSaludId aquí
       }
     });
 
