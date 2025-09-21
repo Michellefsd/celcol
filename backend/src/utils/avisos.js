@@ -12,10 +12,16 @@ export async function crearAvisoPorVencimientoHerramienta(herramienta, prisma) {
   const vencimiento = truncarHora(new Date(herramienta.fechaVencimiento));
   const diasRestantes = Math.ceil((vencimiento - hoy) / (1000 * 60 * 60 * 24));
 
+  // ✅ Mensaje según estado:
+  //  - vencida (hoy o pasado): "Herramienta vencida"
+  //  - a <=30 días: "La herramienta "X" está a N día(s) de vencerse."
   if (diasRestantes <= 30) {
-    const mensaje = `La herramienta "${herramienta.nombre}" está a ${diasRestantes} día(s) de vencerse.`;
+    const mensaje =
+      diasRestantes <= 0
+        ? 'Herramienta vencida'
+        : `La herramienta "${herramienta.nombre}" está a ${diasRestantes} día(s) de vencerse.`;
 
-    // Si agregás @@unique([tipo, herramientaId]) podés usar upsert directo.
+    // Si agregás @@unique([tipo, herramientaId]) en Aviso, podés upsertear directo.
     const existe = await prisma.aviso.findFirst({
       where: { herramientaId: herramienta.id, tipo: 'herramienta' },
     });
@@ -34,6 +40,7 @@ export async function crearAvisoPorVencimientoHerramienta(herramienta, prisma) {
     }
   }
 }
+
 
 /// Revisa todas las herramientas y genera avisos si están próximas a vencer
 export async function revisarTodasLasHerramientas(prisma) {
