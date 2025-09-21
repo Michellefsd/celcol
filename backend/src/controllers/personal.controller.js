@@ -163,24 +163,22 @@ export const actualizarPersonal = async (req, res) => {
       ...resto
     } = req.body;
 
-    // armamos el objeto data como en tu versión original
+    // objeto base
     const data = {
       ...resto,
       vencimientoLicencia: vencimientoLicencia ? new Date(vencimientoLicencia) : null,
       fechaAlta: fechaAlta ? new Date(fechaAlta) : null,
       horasTrabajadas: horasTrabajadas ? parseFloat(horasTrabajadas) : 0,
-      // ⚠️ sin carneSalud aquí
     };
 
-    // Normalización de tipoLicencia si viene en la request
+    // normalización de licencias si viene en la request
     if (typeof tipoLicencia !== 'undefined') {
-      let lic = tipoLicencia;
-      if (typeof lic === 'string') lic = [lic];
-      if (!Array.isArray(lic)) lic = [];
-      lic = lic
-        .map(v => String(v).trim().toUpperCase())
-        .filter(v => ALLOWED_LIC.includes(v)); // asumimos tu constante existente
-
+      const lic = normalizeTipoLicencia(tipoLicencia); // usa tu helper
+      if (lic.length === 0) {
+        return res.status(400).json({
+          error: `tipoLicencia inválido. Permitidos: ${ALLOWED_LIC.join(', ')}`
+        });
+      }
       data.tipoLicencia = { set: lic };
     }
 
@@ -191,6 +189,7 @@ export const actualizarPersonal = async (req, res) => {
     res.status(500).json({ error: 'Error al actualizar el personal' });
   }
 };
+
 
 // ARCHIVAR personal (sin force)
 export const archivarPersonal = async (req, res) => {

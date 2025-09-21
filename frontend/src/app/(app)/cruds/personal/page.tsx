@@ -57,7 +57,7 @@ export default function EmpleadosPage() {
             { name: 'tipoLicencia', label: 'Tipo de Licencia', type: 'select', multiple: true, options: [
               { value: 'MOTOR', label: 'Motor' },
               { value: 'AVIONICA', label: 'Aviónica' },
-              { value: 'AERONAVE', label: 'Célula' },
+              { value: 'CELULA', label: 'Célula' },
             ], required: true },
             { name: 'numeroLicencia', label: 'Número de Licencia', type: 'text' },
             { name: 'vencimientoLicencia', label: 'Vencimiento de Licencia', type: 'date' },

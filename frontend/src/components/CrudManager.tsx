@@ -30,7 +30,12 @@ function toIsoDateUTC(value: unknown): string {
   return String(value ?? '—');
 }
 
-
+  
+const LIC_LABELS: Record<string, string> = {
+  CELULA: 'Célula',
+  MOTOR: 'Motor',
+  AVIONICA: 'Aviónica',
+};
 
   //HELPERS TO DATE FORMATTING
   function formatUY(value: unknown) {
@@ -172,25 +177,45 @@ const fetchData = async () => {
     }
   };
 
-  const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, type, value } = e.target;
-    let newValue: unknown;
+const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const el = e.target;
+  let newValue: unknown;
+  let name = '';
 
-    if (type === 'checkbox' && e.target instanceof HTMLInputElement) {
-      newValue = e.target.checked;
-    } else if (type === 'number') {
-      newValue = value === '' ? null : parseFloat(value);
-    } else if (type === 'date') {
-      newValue = value === '' ? null : value;
-    } else {
-      newValue = value;
+  if (el instanceof HTMLSelectElement) {
+    name = el.name;
+    newValue = el.multiple
+      ? Array.from(el.selectedOptions, (o) => o.value)
+      : el.value;
+  } else if (el instanceof HTMLInputElement) {
+    name = el.name;
+    switch (el.type) {
+      case 'checkbox':
+        newValue = el.checked;
+        break;
+      case 'number':
+        newValue = el.value === '' ? null : parseFloat(el.value);
+        break;
+      case 'date':
+        newValue = el.value === '' ? null : el.value; // 'YYYY-MM-DD'
+        break;
+      default:
+        newValue = el.value;
     }
+  } else {
+    // fallback ultra conservador
+    // @ts-expect-error: generic target
+    name = el.name ?? '';
+    // @ts-expect-error: generic target
+    newValue = el.value ?? '';
+  }
 
-    setForm(prev => ({
-      ...prev,
-      [name]: newValue as T[keyof T],
-    }));
-  };
+  setForm((prev) => ({
+    ...prev,
+    [name]: newValue as T[keyof T],
+  }));
+};
+
 
   
 const handleSubmit = async () => {
@@ -265,12 +290,20 @@ try {
     return '';
   };
 
+
+
 const renderValue = (item: T, key: keyof T): string => {
   const value = item[key];
 
-  // Columna propietarios (array)
+  // Arrays de strings (ej. tipoLicencia)
+  if (Array.isArray(value) && value.every(v => typeof v === 'string')) {
+    const arr = value as string[];
+    const pretty = arr.map(v => LIC_LABELS[v] ?? v).join(', ');
+    return pretty || '—';
+  }
+
+  // Columna propietarios (array de objetos)
   if (Array.isArray(value)) {
-    // Si es el caso tipico [{ propietario: {...} }]
     const preview = formatPropietarios(value as any[]);
     if (preview !== '—') return preview;
     // fallback genérico para arrays
@@ -292,7 +325,7 @@ const renderValue = (item: T, key: keyof T): string => {
   // Boolean
   if (typeof value === 'boolean') return value ? 'Sí' : 'No';
 
-  // Fecha (detectada por key o por forma del valor)
+  // Fecha u otros tipos
   return maybeFormatDate(value, String(key));
 };
 
@@ -480,23 +513,41 @@ return (
                 {field.required && <span className="text-rose-600 ml-1">*</span>}
               </label>
 
-              {field.type === 'select' ? (
-                <select
-                  name={field.name}
-                  value={form[field.name as keyof T]?.toString() ?? ''}
-                  onChange={handleChange}
-                  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-800
-                             focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
-                  aria-required={field.required ? 'true' : 'false'}
-                >
-                  <option value="">Seleccionar...</option>
-                  {field.options?.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-              ) : (
+          {field.type === 'select' ? (
+  field.multiple ? (
+    <select
+      multiple
+      name={field.name}
+      value={Array.isArray(form[field.name as keyof T]) ? (form[field.name as keyof T] as any) : []}
+      onChange={handleChange}
+      className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-800
+                 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
+      aria-required={field.required ? 'true' : 'false'}
+    >
+      {field.options?.map((opt) => (
+        <option key={opt.value} value={opt.value}>
+          {opt.label}
+        </option>
+      ))}
+    </select>
+  ) : (
+    <select
+      name={field.name}
+      value={form[field.name as keyof T]?.toString() ?? ''}
+      onChange={handleChange}
+      className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-800
+                 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
+      aria-required={field.required ? 'true' : 'false'}
+    >
+      <option value="">Seleccionar...</option>
+      {field.options?.map((opt) => (
+        <option key={opt.value} value={opt.value}>
+          {opt.label}
+        </option>
+      ))}
+    </select>
+  )
+) : (
                 <input
                   name={field.name}
                   type={field.type}
