@@ -336,8 +336,6 @@ export const descargarOrdenPDF = async (req, res) => {
 
 
 
-
-
 // src/controllers/ordenTrabajo.descarga.controller.js (ESM)
 import { PrismaClient } from '@prisma/client';
 import path from 'path';
@@ -390,11 +388,7 @@ export const descargarOrdenPDF = async (req, res) => {
       include: {
         empleadosAsignados: { include: { empleado: true } },
         registrosTrabajo:   { orderBy: { fecha: 'asc' }, include: { empleado: true } },
-        avion: {
-          include: {
-            propietarios: { include: { propietario: true } }
-          }
-        },
+        avion: { include: { propietarios: { include: { propietario: true } } } },
         componente: { include: { propietario: true } }
       }
     });
@@ -412,7 +406,7 @@ export const descargarOrdenPDF = async (req, res) => {
 
     // datos de cabecera
     const matricula = (avSnap?.matricula) || (orden.avion?.matricula) || (compSnap?.matricula) || '';
-    const fechaSolicitud = fmtUY(orden.fechaApertura); // regla: usar apertura
+    const fechaSolicitud = fmtUY(orden.fechaApertura); // usar apertura
     const otNro = String(orden.numero ?? orden.id);
 
     const propName =
@@ -481,41 +475,54 @@ export const descargarOrdenPDF = async (req, res) => {
 <style>
   @page { size: A4; margin: 12mm; }
   * { box-sizing: border-box; }
-  body { font-family: Arial, Helvetica, sans-serif; font-size: 10pt; color: #000; }
-  .row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4mm; }
-  .box { border: 0.4pt solid #000; padding: 2.5mm; position: relative; }
-  .label { position:absolute; top: -3.8mm; left: 2mm; background:#fff; padding: 0 1mm; font-size: 8pt; font-weight: 700; }
-  .h1 { font-weight: 700; font-size: 14pt; margin: 2mm 0 3mm 0; }
-  .topline { border-top: 0.4pt solid #000; margin-top: 2mm; }
-  .meta { position: absolute; top: 0; right: 0; width: 55mm; height: 18mm; border: 0.4pt solid #000; padding: 2mm; font-size: 8.5pt; }
+  body { font-family: Arial, Helvetica, sans-serif; font-size: 9.5pt; color: #000; }
+
+  .row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 3mm; }
+  .box { border: 0.35pt solid #000; padding: 2mm; position: relative; }
+  .label { position:absolute; top: -3.2mm; left: 2mm; background:#fff; padding: 0 1mm; font-size: 8pt; font-weight: 700; }
+
+  /* Header */
+  .hdr { position:relative; height: 18mm; margin-bottom: 1mm; }
+  .logo { position:absolute; left:0; top:0; width:30mm; }
+  .meta { position: absolute; top: 0; right: 0; width: 55mm; height: 17mm; border: 0.35pt solid #000; padding: 2mm; font-size: 8.5pt; }
   .meta .ca { position: absolute; top: 2mm; right: 3mm; font-weight: 700; }
+
+  /* H1 "por encima" del logo */
+  .h1 { position:absolute; top: -1mm; left: 34mm; right: 58mm; z-index: 2;
+        font-weight: 700; font-size: 13.5pt; line-height: 1; margin: 0; }
+
+  .topline { border-top: 0.35pt solid #000; margin-top: 1mm; }
   .mono { white-space: pre-wrap; }
-  .mini { border: 0.4pt solid #000; padding: 1mm 2mm; font-size: 8pt; height: 6mm; }
-  .items { margin-top: 2mm; }
-  .item { display: grid; grid-template-columns: 13mm 1fr; gap: 2mm; height: 28mm; margin-bottom: 2mm; }
-  .item .num { border: 0.4pt solid #000; display:flex; align-items:center; justify-content:center; font-weight:700; }
-  .half { border: 0.4pt solid #000; position: relative; padding: 2.5mm 2.5mm 10mm 2.5mm; }
-  .half + .half { margin-top: 1.5mm; }
-  .mini-wrap { position:absolute; right: 2mm; bottom: -7mm; display:flex; gap: 2mm; }
-  .ab { display: grid; grid-template-columns: 13mm 1fr; gap: 2mm; height: 24mm; margin-bottom: 2mm; }
-  .right { float: right; }
-  .footer { margin-top: 2mm; display:flex; justify-content: space-between; font-size:9pt; }
-  .logo { position:absolute; left:0; top:0; }
-  .hdr { position:relative; height: 18mm; }
+
+  /* Items 1–4 */
+  .items { margin-top: 1.5mm; }
+  .item { display: grid; grid-template-columns: 12mm 1fr; gap: 2mm; height: 25mm; margin-bottom: 1.5mm; }
+  .item .num { border: 0.35pt solid #000; display:flex; align-items:center; justify-content:center; font-weight:700; }
+  .half { border: 0.35pt solid #000; position: relative; padding: 2mm 2mm 8mm 2mm; }
+  .half + .half { margin-top: 1mm; }
+
+  .mini-wrap { position:absolute; right: 2mm; bottom: -6.5mm; display:flex; gap: 2mm; }
+  .mini { border: 0.35pt solid #000; padding: 1mm 2mm; font-size: 7.2pt; height: 6mm; line-height: 1; }
+  .mini .val { display:block; font-size: 7pt; margin-top: 0.3mm; max-width: 28mm; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  /* Sección A/B */
+  .ab { display: grid; grid-template-columns: 12mm 1fr; gap: 2mm; height: 20mm; margin-bottom: 1.5mm; }
+
+  .footer { margin-top: 2mm; display:flex; justify-content: space-between; font-size:8.8pt; }
 </style>
 </head>
 <body>
 
 <div class="hdr">
-  ${logoData ? `<img class="logo" src="${logoData}" style="width:30mm; margin-top: -2mm">` : ''}
+  ${logoData ? `<img class="logo" src="${logoData}">` : ''}
   <div class="meta">
     <div>Capítulo: 9</div>
     <div>Fecha: ${escapeHTML(fmtUY(new Date()))}</div>
     <div class="ca">CA-29</div>
   </div>
+  <div class="h1">SOLICITUD - ORDEN DE TRABAJO&nbsp;&nbsp;DISCREPANCIAS</div>
 </div>
 
-<div class="h1">SOLICITUD - ORDEN DE TRABAJO&nbsp;&nbsp;DISCREPANCIAS</div>
 <div class="topline"></div>
 
 <!-- 1-3 -->
@@ -526,11 +533,11 @@ export const descargarOrdenPDF = async (req, res) => {
 </div>
 
 <!-- 4-5 -->
-<div class="row" style="margin-top: 3mm; grid-template-columns: 1fr 55mm 0; gap: 4mm;">
-  <div class="box" style="height: 24mm;"><div class="label">4 Solicitud (descripción del trabajo)</div>
-    <div class="mono" style="line-height: 1.25;">${escapeHTML(solicitudTexto)}</div></div>
-  <div class="box" style="height: 24mm;"><div class="label">5 Firma o email</div>
-    <div class="mono" style="line-height: 1.25;">${firmaTexto}</div></div>
+<div class="row" style="margin-top: 3mm; grid-template-columns: 1fr 55mm 0; gap: 3mm;">
+  <div class="box" style="height: 22mm;"><div class="label">4 Solicitud (descripción del trabajo)</div>
+    <div class="mono" style="line-height: 1.2;">${escapeHTML(solicitudTexto)}</div></div>
+  <div class="box" style="height: 22mm;"><div class="label">5 Firma o email</div>
+    <div class="mono" style="line-height: 1.2;">${firmaTexto}</div></div>
 </div>
 
 <div style="margin: 2mm 0 1mm 0; font-size: 9pt;">
@@ -547,19 +554,16 @@ export const descargarOrdenPDF = async (req, res) => {
           <div class="label">6 Reporte</div>
           <div class="mono" style="line-height:1.2;">${escapeHTML(f.reporte)}</div>
           <div class="mini-wrap">
-            <div class="mini">8 Técnico</div>
+            <div class="mini">8 Técnico<span class="val">${escapeHTML(f.tecnico)}</span></div>
           </div>
-          <div style="position:absolute; right: 4mm; bottom: -11mm; width: 30mm; text-align:right; font-size: 8pt;">${escapeHTML(f.tecnico)}</div>
         </div>
         <div class="half">
           <div class="label">7 Acción Tomada</div>
           <div class="mono" style="line-height:1.2;">${escapeHTML(f.accion)}</div>
           <div class="mini-wrap">
-            <div class="mini">9 Certific.</div>
-            <div class="mini">10 H.H</div>
+            <div class="mini">9 Certific.<span class="val">${escapeHTML(f.certificador)}</span></div>
+            <div class="mini">10 H.H<span class="val">${escapeHTML(String(f.hh ?? ''))}</span></div>
           </div>
-          <div style="position:absolute; right: 36mm; bottom: -11mm; width: 28mm; text-align:left; font-size: 8pt;">${escapeHTML(f.certificador)}</div>
-          <div style="position:absolute; right: 4mm; bottom: -11mm; width: 30mm; text-align:right; font-size: 8pt;">${escapeHTML(String(f.hh ?? ''))}</div>
         </div>
       </div>
     </div>
@@ -569,20 +573,20 @@ export const descargarOrdenPDF = async (req, res) => {
 <!-- A/B -->
 ${[['A', A], ['B', B]].map(([tag, r]) => `
   <div class="ab">
-    <div class="num" style="border:0.4pt solid #000; display:flex; align-items:center; justify-content:center; font-weight:700;">${tag}</div>
+    <div class="num" style="border:0.35pt solid #000; display:flex; align-items:center; justify-content:center; font-weight:700;">${tag}</div>
     <div>
       <div class="half">
         <div class="label">11 Discrepancias encontradas</div>
         <div class="mono" style="line-height:1.2;">${escapeHTML(r?.texto || '')}</div>
-        <div class="mini-wrap"><div class="mini">8 Técnico</div></div>
-        <div style="position:absolute; right: 4mm; bottom: -11mm; width: 30mm; text-align:right; font-size: 8pt;">${escapeHTML(r?.tecnico || '')}</div>
+        <div class="mini-wrap"><div class="mini">8 Técnico<span class="val">${escapeHTML(r?.tecnico || '')}</span></div></div>
       </div>
       <div class="half">
         <div class="label">12 Acción Tomada</div>
         <div class="mono" style="line-height:1.2;">${escapeHTML(r?.accion || '')}</div>
-        <div class="mini-wrap"><div class="mini">9 Certific.</div><div class="mini">10 H.H</div></div>
-        <div style="position:absolute; right: 36mm; bottom: -11mm; width: 28mm; text-align:left; font-size: 8pt;">${escapeHTML(r?.certificador || '')}</div>
-        <div style="position:absolute; right: 4mm; bottom: -11mm; width: 30mm; text-align:right; font-size: 8pt;">${escapeHTML(String(r?.hh ?? ''))}</div>
+        <div class="mini-wrap">
+          <div class="mini">9 Certific.<span class="val">${escapeHTML(r?.certificador || '')}</span></div>
+          <div class="mini">10 H.H<span class="val">${escapeHTML(String(r?.hh ?? ''))}</span></div>
+        </div>
       </div>
     </div>
   </div>
@@ -619,6 +623,7 @@ ${[['A', A], ['B', B]].map(([tag, r]) => `
       margin: { top: '0mm', bottom: '0mm', left: '0mm', right: '0mm' }
     });
 
+    await page.close();
     await browser.close();
 
     const filename = `OT-${orden.numero ?? orden.id}.pdf`;
