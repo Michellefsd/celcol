@@ -337,18 +337,19 @@ export const descargarOrdenPDF = async (req, res) => {
 
 
 
+
 // src/controllers/ordenTrabajo.descarga.controller.js (ESM)
 import { PrismaClient } from '@prisma/client';
-import PDFDocument from 'pdfkit';
 import path from 'path';
 import fs from 'fs';
+import puppeteer from 'puppeteer';
 
 const prisma = new PrismaClient();
 
 export const descargarOrdenPDF = async (req, res) => {
   const id = Number.parseInt(req.params.id, 10);
 
-  // ===== Helpers =====
+  // ----- helpers -----
   const fmtUY = (d) => {
     if (!d) return '';
     const dt = new Date(d);
@@ -367,6 +368,11 @@ export const descargarOrdenPDF = async (req, res) => {
     return val;
   };
 
+  const escapeHTML = (s) =>
+    String(s ?? '')
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+
   const nombrePropietario = (p) => {
     if (!p) return '-';
     const tipo = (p.tipoPropietario || '').toUpperCase();
@@ -374,24 +380,7 @@ export const descargarOrdenPDF = async (req, res) => {
     const full = [p.nombre, p.apellido].filter(Boolean).join(' ').trim();
     return full || '-';
   };
-
   const emailPropietario = (p) => (p?.email || p?.correo || p?.mail || '');
-
-  const propietariosTexto = (lista) => {
-    if (!Array.isArray(lista) || !lista.length) return '-';
-    return lista
-      .map((x) => {
-        if (typeof x === 'string') {
-          const maybe = normalizeSnap(x);
-          if (maybe) return nombrePropietario(maybe);
-          return x;
-        }
-        const p = x?.propietario ?? x;
-        return nombrePropietario(p);
-      })
-      .filter(Boolean)
-      .join(', ');
-  };
 
   try {
     if (!id) return res.status(400).json({ error: 'ID inválido' });
@@ -399,184 +388,66 @@ export const descargarOrdenPDF = async (req, res) => {
     const orden = await prisma.ordenTrabajo.findUnique({
       where: { id },
       include: {
-        stockAsignado:     { include: { stock: true } },
-        herramientas:      { include: { herramienta: true } },
-        empleadosAsignados:{ include: { empleado: true } },
-        registrosTrabajo:  { orderBy: { fecha: 'asc' }, include: { empleado: true } },
+        empleadosAsignados: { include: { empleado: true } },
+        registrosTrabajo:   { orderBy: { fecha: 'asc' }, include: { empleado: true } },
         avion: {
           include: {
-            ComponenteAvion: true,
             propietarios: { include: { propietario: true } }
           }
         },
         componente: { include: { propietario: true } }
       }
     });
-
     if (!orden) return res.status(404).json({ error: 'Orden no encontrada' });
-
     const estado = orden.estadoOrden || '';
     if (!['CERRADA', 'CANCELADA'].includes(estado)) {
-      return res.status(400).json({ error: 'La descarga solo está disponible para órdenes CERRADAS o CANCELADAS' });
+      return res.status(400).json({ error: 'Solo disponible para órdenes CERRADAS o CANCELADAS' });
     }
 
-    // Snapshots (si existen)
-    const avSnap           = normalizeSnap(orden.datosAvionSnapshot);
-    const compSnap         = normalizeSnap(orden.datosComponenteSnapshot);
-    const propSnap         = normalizeSnap(orden.datosPropietarioSnapshot);
-    const personalSnap     = normalizeSnap(orden.datosPersonalSnapshot);
-    const discrepSnap      = normalizeSnap(orden.discrepanciasSnapshot);
+    // snapshots
+    const avSnap   = normalizeSnap(orden.datosAvionSnapshot);
+    const compSnap = normalizeSnap(orden.datosComponenteSnapshot);
+    const propSnap = normalizeSnap(orden.datosPropietarioSnapshot);
+    const discrep  = normalizeSnap(orden.discrepanciasSnapshot) || {};
 
-    // ===== PDF setup =====
-    const doc = new PDFDocument({ size: 'A4', margin: 36 }); // ~12.7mm
-    const filename = `OT-${orden.numero ?? orden.id}.pdf`;
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
-    doc.pipe(res);
-
-    // Logo (opcional)
-    try {
-      const logoPath = path.join(process.cwd(), 'public', 'celcol-logo.jpeg');
-      if (fs.existsSync(logoPath)) doc.image(logoPath, 36, 24, { width: 90 });
-    } catch {}
-
-    // ===== Encabezado CA-29 (compacto) =====
-    const topY = 24;
-
-    // Caja derecha con metadatos (sin "Máster de Formatos...")
-    doc.font('Helvetica').fontSize(9);
-    const boxX = 420, boxY = topY, boxW = 150, boxH = 48;
-    doc.rect(boxX, boxY, boxW, boxH).stroke();
-    doc.text('Capítulo: 9', boxX + 6, boxY + 6);
-    doc.text(`Fecha: ${fmtUY(new Date())}`, boxX + 6, boxY + 18);
-    doc.font('Helvetica-Bold').text('CA-29', boxX + boxW - 40, boxY + 6);
-
-    // Título principal (debajo de la caja)
-    doc.font('Helvetica-Bold').fontSize(14)
-      .text('SOLICITUD - ORDEN DE TRABAJO   DISCREPANCIAS', 140, boxY + boxH + 8);
-
-    // Separador bajo encabezado
-    doc.moveTo(36, boxY + boxH + 28).lineTo(559, boxY + boxH + 28).stroke();
-
-    // ======= Helpers gráficos =======
-    const drawRect = (x, y, w, h) => doc.rect(x, y, w, h).stroke();
-    const label = (txt, x, y, w, bold = false) => {
-      doc.font(bold ? 'Helvetica-Bold' : 'Helvetica').fontSize(9).text(txt, x + 4, y + 2, { width: w - 8 });
-    };
-    const fillTxt = (txt, x, y, w, h) => {
-      doc.font('Helvetica').fontSize(10).text(txt || '', x + 4, y + 14, { width: w - 8, height: h - 18 });
-    };
-
-    // ======= Contenido CA-29 =======
-    let curY = boxY + boxH + 36; // comienzo del cuerpo
-    const X = 36, WIDTH = 523;
-
-    // 1–3 en una fila: Matrícula | Fecha solicitud (usa apertura) | OT Nro.
-    const col1 = 180, col2 = 160, col3 = WIDTH - col1 - col2;
-    const rowH = 42;
-
-    const matricula =
-      (normalizeSnap(orden.datosAvionSnapshot)?.matricula) ||
-      (orden.avion?.matricula) ||
-      (normalizeSnap(orden.datosComponenteSnapshot)?.matricula) || '';
-
-    // Fecha solicitud == fecha de apertura
-    const fechaSolicitud = fmtUY(orden.fechaApertura);
-
-    drawRect(X, curY, col1, rowH); label('1 Matrícula', X, curY, col1, true); fillTxt(matricula || '-', X, curY, col1, rowH);
-    drawRect(X + col1, curY, col2, rowH); label('2 Fecha solicitud', X + col1, curY, col2, true); fillTxt(fechaSolicitud || '-', X + col1, curY, col2, rowH);
-    drawRect(X + col1 + col2, curY, col3, rowH); label('3 O/T Nro.', X + col1 + col2, curY, col3, true); fillTxt(String(orden.numero ?? orden.id), X + col1 + col2, curY, col3, rowH);
-    curY += rowH + 6;
-
-    // 4 Solicitud + 5 Firma o email (nombre + email si existe)
-    const solicitudH = 78;
-    const firmaW = 200;
-    const solicitudW = WIDTH - firmaW - 6;
+    // datos de cabecera
+    const matricula = (avSnap?.matricula) || (orden.avion?.matricula) || (compSnap?.matricula) || '';
+    const fechaSolicitud = fmtUY(orden.fechaApertura); // regla: usar apertura
+    const otNro = String(orden.numero ?? orden.id);
 
     const propName =
       (propSnap ? nombrePropietario(propSnap) : '') ||
-      propietariosTexto(orden?.avion?.propietarios) ||
       (orden?.componente?.propietario ? nombrePropietario(orden.componente.propietario) : '') ||
+      (orden?.avion?.propietarios?.[0]?.propietario ? nombrePropietario(orden.avion.propietarios[0].propietario) : '') ||
       (orden.solicitadoPor || '');
-
     const propEmail =
       (propSnap ? emailPropietario(propSnap) : '') ||
       (orden?.componente?.propietario ? emailPropietario(orden.componente.propietario) : '') || '';
 
-    const firmaTexto = [propName, propEmail].filter(Boolean).join('\n');
-
+    const firmaTexto = [propName, propEmail].filter(Boolean).join('<br/>');
     const solicitudTexto = orden.solicitud || orden.descripcionTrabajo || orden.descripcion || '';
 
-    drawRect(X, curY, solicitudW, solicitudH); label('4 Solicitud (descripción del trabajo)', X, curY, solicitudW, true); fillTxt(solicitudTexto, X, curY, solicitudW, solicitudH);
-    drawRect(X + solicitudW + 6, curY, firmaW, solicitudH); label('5 Firma o email', X + solicitudW + 6, curY, firmaW, true); fillTxt(firmaTexto, X + solicitudW + 6, curY, firmaW, solicitudH);
-    curY += solicitudH + 4;
-
-    doc.font('Helvetica').fontSize(9)
-       .text('Autorizo a la OMA, la realización en la aeronave o componente de los trabajos detallados en la siguiente orden', X, curY);
-    curY += 12;
-
-    // ========= Tabla 1–4: diseño apilado por fila =========
-    // Dimensiones
-    const numW = 26;
-    const itemW = WIDTH - numW;
-    const itemH = 82; // altura de cada fila completa (reporte + acción)
-    const gapY = 6;
-
-    // Helpers de item
-    const drawMiniBox = (tx, x, y, w) => {
-      const h = 16;
-      drawRect(x, y - h, w, h);
-      doc.font('Helvetica').fontSize(9).text(tx, x + 4, y - h + 3, { width: w - 8 });
-    };
-
-    const itemRow = (n, reporte, accion, tecnico, certificador, hh, y0) => {
-      // Columna número
-      drawRect(X, y0, numW, itemH); doc.font('Helvetica-Bold').fontSize(12).text(String(n), X + 8, y0 + 28);
-
-      // Área derecha
-      const rx = X + numW;
-
-      // Mitad superior: (6) Reporte + mini-box "8 Técnico" abajo derecha
-      const halfH = Math.floor((itemH - 4) / 2);
-      drawRect(rx, y0, itemW, halfH);
-      label('6 Reporte', rx, y0, itemW, true);
-      fillTxt(reporte, rx, y0, itemW, halfH);
-      // mini-box Técnico (abajo derecha de la mitad superior)
-      drawMiniBox('8 Técnico', rx + itemW - 90, y0 + halfH);
-
-      // Mitad inferior: (7) Acción Tomada + mini-boxes "9 Certific." y "10 H.H"
-      const y1 = y0 + halfH + 4;
-      drawRect(rx, y1, itemW, halfH);
-      label('7 Acción Tomada', rx, y1, itemW, true);
-      fillTxt(accion, rx, y1, itemW, halfH);
-      // mini-boxes a la derecha
-      drawMiniBox('9 Certific.', rx + itemW - 170, y1 + halfH);
-      drawMiniBox('10 H.H',     rx + itemW - 90,  y1 + halfH);
-
-      // Contenido de mini-boxes
-      doc.font('Helvetica').fontSize(9)
-        .text(tecnico || '', rx + itemW - 90 + 4, y0 + halfH - 16 + 3, { width: 90 - 8 })
-        .text(certificador || '', rx + itemW - 170 + 4, y1 + halfH - 16 + 3, { width: 80 - 8 })
-        .text((hh ?? '') + '',   rx + itemW - 90 + 4,  y1 + halfH - 16 + 3, { width: 90 - 8, align: 'right' });
-    };
-
-    // Datos para las 4 filas
+    // personal
     const toNombre = (emp) => {
       const n = emp?.nombre ?? emp?.empleado?.nombre;
       const a = emp?.apellido ?? emp?.empleado?.apellido;
       return [n, a].filter(Boolean).join(' ').trim();
     };
-    const personalArray = Array.isArray(personalSnap) ? personalSnap : (orden.empleadosAsignados || []);
-    const tecnicos = personalArray.filter(e => (e?.rol || '').toUpperCase() === 'TECNICO').map(toNombre).filter(Boolean);
-    const certificadores = personalArray.filter(e => (e?.rol || '').toUpperCase() === 'CERTIFICADOR').map(toNombre).filter(Boolean);
+    const tecnicos = (orden.empleadosAsignados || [])
+      .filter(e => (e?.rol || '').toUpperCase() === 'TECNICO')
+      .map(toNombre);
+    const certificadores = (orden.empleadosAsignados || [])
+      .filter(e => (e?.rol || '').toUpperCase() === 'CERTIFICADOR')
+      .map(toNombre);
 
+    // filas 1-4
     const regs = Array.isArray(orden.registrosTrabajo) ? orden.registrosTrabajo : [];
     const filas = [];
     for (let i = 0; i < Math.min(4, regs.length); i++) {
       const r = regs[i];
       const nombre = [r?.empleado?.nombre, r?.empleado?.apellido].filter(Boolean).join(' ').trim();
       filas.push({
-        numero: i + 1,
+        num: i + 1,
         reporte: r?.trabajoRealizado || r?.detalle || r?.descripcion || '',
         accion: r?.accionTomada || orden?.accionTomada || '',
         tecnico: nombre || (tecnicos[0] || ''),
@@ -584,84 +455,178 @@ export const descargarOrdenPDF = async (req, res) => {
         hh: r?.horas ?? r?.cantidadHoras ?? ''
       });
     }
-    while (filas.length < 4) filas.push({ numero: filas.length + 1 });
+    while (filas.length < 4) filas.push({ num: filas.length + 1, reporte: '', accion: '', tecnico: '', certificador: '', hh: '' });
 
-    for (let i = 0; i < 4; i++) {
-      itemRow(
-        filas[i].numero,
-        filas[i].reporte || '',
-        filas[i].accion || '',
-        filas[i].tecnico || '',
-        filas[i].certificador || '',
-        filas[i].hh ?? '',
-        curY
-      );
-      curY += itemH + gapY;
-    }
+    // A/B
+    const A = discrep?.A || {};
+    const B = discrep?.B || {};
+    const fechaCierreTexto = estado === 'CERRADA' ? fmtUY(orden.fechaCierre) : fmtUY(orden.fechaCancelacion);
 
-    // ========= Sección inferior A / B =========
-    const A = discrepSnap?.A || {};
-    const B = discrepSnap?.B || {};
+    // logo embebido (base64) opcional
+    let logoData = '';
+    try {
+      const logoPath = path.join(process.cwd(), 'public', 'celcol-logo.jpeg');
+      if (fs.existsSync(logoPath)) {
+        const buf = fs.readFileSync(logoPath);
+        logoData = `data:image/jpeg;base64,${buf.toString('base64')}`;
+      }
+    } catch {}
 
-    const abRowH = 70;
-    const abNumW = 26;
-    const abW = WIDTH - abNumW;
+    // HTML
+    const html = `<!doctype html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<title>CA-29 OT ${escapeHTML(otNro)}</title>
+<style>
+  @page { size: A4; margin: 12mm; }
+  * { box-sizing: border-box; }
+  body { font-family: Arial, Helvetica, sans-serif; font-size: 10pt; color: #000; }
+  .row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4mm; }
+  .box { border: 0.4pt solid #000; padding: 2.5mm; position: relative; }
+  .label { position:absolute; top: -3.8mm; left: 2mm; background:#fff; padding: 0 1mm; font-size: 8pt; font-weight: 700; }
+  .h1 { font-weight: 700; font-size: 14pt; margin: 2mm 0 3mm 0; }
+  .topline { border-top: 0.4pt solid #000; margin-top: 2mm; }
+  .meta { position: absolute; top: 0; right: 0; width: 55mm; height: 18mm; border: 0.4pt solid #000; padding: 2mm; font-size: 8.5pt; }
+  .meta .ca { position: absolute; top: 2mm; right: 3mm; font-weight: 700; }
+  .mono { white-space: pre-wrap; }
+  .mini { border: 0.4pt solid #000; padding: 1mm 2mm; font-size: 8pt; height: 6mm; }
+  .items { margin-top: 2mm; }
+  .item { display: grid; grid-template-columns: 13mm 1fr; gap: 2mm; height: 28mm; margin-bottom: 2mm; }
+  .item .num { border: 0.4pt solid #000; display:flex; align-items:center; justify-content:center; font-weight:700; }
+  .half { border: 0.4pt solid #000; position: relative; padding: 2.5mm 2.5mm 10mm 2.5mm; }
+  .half + .half { margin-top: 1.5mm; }
+  .mini-wrap { position:absolute; right: 2mm; bottom: -7mm; display:flex; gap: 2mm; }
+  .ab { display: grid; grid-template-columns: 13mm 1fr; gap: 2mm; height: 24mm; margin-bottom: 2mm; }
+  .right { float: right; }
+  .footer { margin-top: 2mm; display:flex; justify-content: space-between; font-size:9pt; }
+  .logo { position:absolute; left:0; top:0; }
+  .hdr { position:relative; height: 18mm; }
+</style>
+</head>
+<body>
 
-    const abRow = (tag, texto, accion, tecnico, certificador, hh, y0) => {
-      // Letra
-      drawRect(X, y0, abNumW, abRowH); doc.font('Helvetica-Bold').fontSize(12).text(tag, X + 8, y0 + 24);
+<div class="hdr">
+  ${logoData ? `<img class="logo" src="${logoData}" style="width:30mm; margin-top: -2mm">` : ''}
+  <div class="meta">
+    <div>Capítulo: 9</div>
+    <div>Fecha: ${escapeHTML(fmtUY(new Date()))}</div>
+    <div class="ca">CA-29</div>
+  </div>
+</div>
 
-      const rx = X + abNumW;
-      const halfH = Math.floor((abRowH - 4) / 2);
+<div class="h1">SOLICITUD - ORDEN DE TRABAJO&nbsp;&nbsp;DISCREPANCIAS</div>
+<div class="topline"></div>
 
-      // (11) Discrepancias encontradas + mini "8 Técnico"
-      drawRect(rx, y0, abW, halfH);
-      label('11 Discrepancias encontradas', rx, y0, abW, true);
-      fillTxt(texto || '', rx, y0, abW, halfH);
-      drawMiniBox('8 Técnico', rx + abW - 90, y0 + halfH);
+<!-- 1-3 -->
+<div class="row" style="margin-top: 3mm;">
+  <div class="box"><div class="label">1 Matrícula</div><div class="mono">${escapeHTML(matricula || '-')}</div></div>
+  <div class="box"><div class="label">2 Fecha solicitud</div><div class="mono">${escapeHTML(fechaSolicitud || '-')}</div></div>
+  <div class="box"><div class="label">3 O/T Nro.</div><div class="mono">${escapeHTML(otNro)}</div></div>
+</div>
 
-      // (12) Acción Tomada + mini "9 Certific." y "10 H.H"
-      const y1 = y0 + halfH + 4;
-      drawRect(rx, y1, abW, halfH);
-      label('12 Acción Tomada', rx, y1, abW, true);
-      fillTxt(accion || '', rx, y1, abW, halfH);
-      drawMiniBox('9 Certific.', rx + abW - 170, y1 + halfH);
-      drawMiniBox('10 H.H',     rx + abW - 90,  y1 + halfH);
+<!-- 4-5 -->
+<div class="row" style="margin-top: 3mm; grid-template-columns: 1fr 55mm 0; gap: 4mm;">
+  <div class="box" style="height: 24mm;"><div class="label">4 Solicitud (descripción del trabajo)</div>
+    <div class="mono" style="line-height: 1.25;">${escapeHTML(solicitudTexto)}</div></div>
+  <div class="box" style="height: 24mm;"><div class="label">5 Firma o email</div>
+    <div class="mono" style="line-height: 1.25;">${firmaTexto}</div></div>
+</div>
 
-      // valores mini
-      doc.font('Helvetica').fontSize(9)
-        .text(tecnico || '', rx + abW - 90 + 4, y0 + halfH - 16 + 3, { width: 90 - 8 })
-        .text(certificador || '', rx + abW - 170 + 4, y1 + halfH - 16 + 3, { width: 80 - 8 })
-        .text((hh ?? '') + '',   rx + abW - 90 + 4,  y1 + halfH - 16 + 3, { width: 90 - 8, align: 'right' });
-    };
+<div style="margin: 2mm 0 1mm 0; font-size: 9pt;">
+  Autorizo a la OMA, la realización en la aeronave o componente de los trabajos detallados en la siguiente orden
+</div>
 
-    abRow('A', A?.texto, A?.accion, A?.tecnico, A?.certificador, A?.hh, curY);
-    curY += abRowH + 6;
-    abRow('B', B?.texto, B?.accion, B?.tecnico, B?.certificador, B?.hh, curY);
-    curY += abRowH + 10;
+<!-- 1-4 items -->
+<div class="items">
+  ${filas.map(f => `
+    <div class="item">
+      <div class="num">${f.num}</div>
+      <div>
+        <div class="half">
+          <div class="label">6 Reporte</div>
+          <div class="mono" style="line-height:1.2;">${escapeHTML(f.reporte)}</div>
+          <div class="mini-wrap">
+            <div class="mini">8 Técnico</div>
+          </div>
+          <div style="position:absolute; right: 4mm; bottom: -11mm; width: 30mm; text-align:right; font-size: 8pt;">${escapeHTML(f.tecnico)}</div>
+        </div>
+        <div class="half">
+          <div class="label">7 Acción Tomada</div>
+          <div class="mono" style="line-height:1.2;">${escapeHTML(f.accion)}</div>
+          <div class="mini-wrap">
+            <div class="mini">9 Certific.</div>
+            <div class="mini">10 H.H</div>
+          </div>
+          <div style="position:absolute; right: 36mm; bottom: -11mm; width: 28mm; text-align:left; font-size: 8pt;">${escapeHTML(f.certificador)}</div>
+          <div style="position:absolute; right: 4mm; bottom: -11mm; width: 30mm; text-align:right; font-size: 8pt;">${escapeHTML(String(f.hh ?? ''))}</div>
+        </div>
+      </div>
+    </div>
+  `).join('')}
+</div>
 
-    // ========= 13 Fecha de cierre/cancelación (a la derecha) =========
-    const fechaCierreTexto = estado === 'CERRADA'
-      ? fmtUY(orden.fechaCierre)
-      : fmtUY(orden.fechaCancelacion);
+<!-- A/B -->
+${[['A', A], ['B', B]].map(([tag, r]) => `
+  <div class="ab">
+    <div class="num" style="border:0.4pt solid #000; display:flex; align-items:center; justify-content:center; font-weight:700;">${tag}</div>
+    <div>
+      <div class="half">
+        <div class="label">11 Discrepancias encontradas</div>
+        <div class="mono" style="line-height:1.2;">${escapeHTML(r?.texto || '')}</div>
+        <div class="mini-wrap"><div class="mini">8 Técnico</div></div>
+        <div style="position:absolute; right: 4mm; bottom: -11mm; width: 30mm; text-align:right; font-size: 8pt;">${escapeHTML(r?.tecnico || '')}</div>
+      </div>
+      <div class="half">
+        <div class="label">12 Acción Tomada</div>
+        <div class="mono" style="line-height:1.2;">${escapeHTML(r?.accion || '')}</div>
+        <div class="mini-wrap"><div class="mini">9 Certific.</div><div class="mini">10 H.H</div></div>
+        <div style="position:absolute; right: 36mm; bottom: -11mm; width: 28mm; text-align:left; font-size: 8pt;">${escapeHTML(r?.certificador || '')}</div>
+        <div style="position:absolute; right: 4mm; bottom: -11mm; width: 30mm; text-align:right; font-size: 8pt;">${escapeHTML(String(r?.hh ?? ''))}</div>
+      </div>
+    </div>
+  </div>
+`).join('')}
 
-    const cierreW = 220, cierreH = 36;
-    const cierreX = X + WIDTH - cierreW; // a la derecha
-    drawRect(cierreX, curY, cierreW, cierreH);
-    label('13 Fecha de cierre', cierreX, curY, cierreW, true);
-    fillTxt(fechaCierreTexto || '', cierreX, curY, cierreW, cierreH);
-    curY += cierreH + 8;
+<!-- 13 Fecha de cierre (derecha) -->
+<div class="row" style="grid-template-columns: 1fr 55mm 0; margin-top: 2mm;">
+  <div></div>
+  <div class="box" style="height: 11mm;">
+    <div class="label">13 Fecha de cierre</div>
+    <div class="mono">${escapeHTML(fechaCierreTexto || '')}</div>
+  </div>
+</div>
 
-    // Pie de página (dentro de A4)
-    const footY = Math.min(800, curY + 6);
-    doc.font('Helvetica').fontSize(9)
-      .text('Manual de la Organización de Mantenimiento – MOM', X, footY)
-      .text('Aprobado por: CELCOL AVIATION', X + 300, footY);
+<div class="footer">
+  <div>Manual de la Organización de Mantenimiento – MOM</div>
+  <div>Aprobado por: CELCOL AVIATION</div>
+</div>
 
-    // Cierre PDF
-    doc.end();
+</body>
+</html>`;
+
+    // ---- Puppeteer render ----
+    const browser = await puppeteer.launch({
+      headless: 'new',
+      args: ['--no-sandbox', '--disable-setuid-sandbox']
+    });
+    const page = await browser.newPage();
+    await page.setContent(html, { waitUntil: 'networkidle0' });
+
+    const pdf = await page.pdf({
+      format: 'A4',
+      printBackground: true,
+      margin: { top: '0mm', bottom: '0mm', left: '0mm', right: '0mm' }
+    });
+
+    await browser.close();
+
+    const filename = `OT-${orden.numero ?? orden.id}.pdf`;
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+    return res.send(pdf);
   } catch (error) {
-    console.error('Error al generar PDF de OT:', error);
-    if (!res.headersSent) res.status(500).json({ error: 'Error al generar el PDF' });
+    console.error('Error al generar PDF de OT (Puppeteer):', error);
+    if (!res.headersSent) return res.status(500).json({ error: 'Error al generar el PDF' });
   }
 };
