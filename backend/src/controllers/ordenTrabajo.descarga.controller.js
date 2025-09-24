@@ -181,45 +181,67 @@ export const descargarOrdenPDF = async (req, res) => {
   .topline { border-top: 0.35pt solid #000; margin-top: 3mm; }
   .mono { white-space: pre-wrap; }
 
-  /* Items 1–4 (uniformes, más compactos) */
+  /* Ítems 1–4 (uniformes y compactos) */
   .items { margin-top: 5mm; }
   .item { display: grid; grid-template-columns: 12mm 1fr; gap: 2mm; height: 26mm; margin-bottom: 2mm; }
   .item .num { border: 0.35pt solid #000; display:flex; align-items:center; justify-content:center; font-weight:700; }
   .half { border-left: 0.35pt solid #000; border-right: 0.35pt solid #000; position: relative; padding: 3mm 2mm 8.5mm 2mm; }
   .half:first-child { border-top: 0.35pt solid #000; }
   .half:last-child  { border-bottom: 0.35pt solid #000; margin-top: 1mm; }
-  /* misma altura/espaciado en todas las filas (quitamos ajustes por fila) */
 
-  /* Mini-cajas DENTRO del casillero */
-  .mini-wrap { position:absolute; right: 2mm; bottom: 2mm; display:flex; gap: 2mm; } /* bottom dentro del half */
+  /* Mini-cajas: SIEMPRE dentro del half */
+  .mini-wrap { position:absolute; right: 2mm; bottom: 2mm; display:flex; gap: 2mm; }
   .mini { border: 0.35pt solid #000; padding: 1mm 2.6mm; font-size: 7.4pt; height: 7.2mm; line-height: 1; display:inline-block; }
   .mini .val { display:block; font-size: 7.2pt; margin-top: 0.4mm; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .mini-tech { min-width: 34mm; }
   .mini-cert { min-width: 30mm; }
   .mini-hh   { min-width: 22mm; text-align: right; }
 
-  /* Si está vacío, bordes más finos */
+  /* Borde fino cuando no hay texto */
   .half.empty { border-left-width: 0.25pt; border-right-width: 0.25pt; }
   .half.empty:first-child { border-top-width: 0.25pt; }
   .half.empty:last-child  { border-bottom-width: 0.25pt; }
   .mini.empty { border-width: 0.25pt; opacity: 0.9; }
 
-  /* Sección A/B (ajustada, minis dentro, línea divisoria correcta) */
+  /* ======= AJUSTES FINOS POR FILA ======= */
+  /* 1: subir 9/10 */
+  .items .item:nth-of-type(1) .half:last-child .mini-wrap { bottom: 5mm; }
+
+  /* 2: bajar 6 ; subir 9/10 */
+  .items .item:nth-of-type(2) .half:first-child { padding-top: 4.8mm; }
+  .items .item:nth-of-type(2) .half:last-child  .mini-wrap { bottom: 5mm; }
+
+  /* 3: bajar 6 ; subir 9/10 */
+  .items .item:nth-of-type(3) .half:first-child { padding-top: 4.8mm; }
+  .items .item:nth-of-type(3) .half:last-child  .mini-wrap { bottom: 5mm; }
+
+  /* 4: bajar 6 ; subir 9/10 */
+  .items .item:nth-of-type(4) .half:first-child { padding-top: 4.8mm; }
+  .items .item:nth-of-type(4) .half:last-child  .mini-wrap { bottom: 5mm; }
+
+  /* ======= SECCIÓN A / B ======= */
   .ab { display: grid; grid-template-columns: 12mm 1fr; gap: 2mm; height: 23mm; margin-bottom: 2mm; }
   .ab .half { border-left: 0.35pt solid #000; border-right: 0.35pt solid #000; position: relative; padding: 3mm 2mm 8.5mm 2mm; }
   .ab .half:first-child { border-top: 0.35pt solid #000; }
   .ab .half:last-child  { border-bottom: 0.35pt solid #000; margin-top: 1mm; }
-  /* minis un poco más arriba para no chocar con la fecha de cierre */
   .ab .mini-wrap { bottom: 2mm; }
+
+  /* A: 11 más bajo ; 9/10 más altos */
+  .ab:nth-of-type(1) .half:first-child { padding-top: 4.8mm; }
+  .ab:nth-of-type(1) .half:last-child  .mini-wrap { bottom: 5mm; }
+
+  /* B: 11 más bajo */
+  .ab:nth-of-type(2) .half:first-child { padding-top: 4.8mm; }
+
+  /* Fecha de cierre con más aire para evitar solapes con B */
+  .close-row { grid-template-columns: 1fr 55mm 0; margin-top: 6mm; }
 
   .sig { height: 100%; display: flex; flex-direction: column; }
   .sig .line { margin-top: auto; border-top: 0.35pt solid #000; text-align: center; font-size: 7.5pt; padding-top: 1mm; }
 
-  /* Fecha de cierre con margen extra para evitar superposición */
-  .close-row { grid-template-columns: 1fr 55mm 0; margin-top: 5mm; } 
-
   .footer { margin-top: 6mm; display:flex; justify-content: space-between; font-size:8.8pt; }
 </style>
+
 </head>
 <body>
 
