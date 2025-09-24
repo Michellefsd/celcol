@@ -181,15 +181,15 @@ export const descargarOrdenPDF = async (req, res) => {
   .topline { border-top: 0.35pt solid #000; margin-top: 3mm; }
   .mono { white-space: pre-wrap; }
 
-  /* Ítems 1–4 */
+  /* Ítems 1–4 (más compactos y sin hueco a la derecha) */
   .items { margin-top: 5mm; }
-  .item { display: grid; grid-template-columns: 12mm 1fr; gap: 2mm; height: 26mm; margin-bottom: 2mm; }
+  .item { display: grid; grid-template-columns: 12mm 1fr; gap: 2mm; height: 26mm; margin-bottom: 0.8mm; } /* antes 2mm */
   .item .num { border: 0.35pt solid #000; display:flex; align-items:center; justify-content:center; font-weight:700; }
   .half { border-left: 0.35pt solid #000; border-right: 0.35pt solid #000; position: relative; padding: 3mm 2mm 8.5mm 2mm; }
   .half:first-child { border-top: 0.35pt solid #000; }
-  .half:last-child  { border-bottom: 0.35pt solid #000; margin-top: 1mm; }
+  .half:last-child  { border-bottom: 0.35pt solid #000; margin-top: 0.8mm; } /* antes 1mm */
 
-  /* Mini-cajas dentro del half */
+  /* Mini-cajas siempre dentro del half */
   .mini-wrap { position:absolute; right: 2mm; bottom: 2mm; display:flex; gap: 2mm; }
   .mini { border: 0.35pt solid #000; padding: 1mm 2.6mm; font-size: 7.4pt; height: 7.2mm; line-height: 1; display:inline-block; }
   .mini .val { display:block; font-size: 7.2pt; margin-top: 0.4mm; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -197,50 +197,50 @@ export const descargarOrdenPDF = async (req, res) => {
   .mini-cert { min-width: 30mm; }
   .mini-hh   { min-width: 22mm; text-align: right; }
 
-  /* Borde fino cuando no hay texto */
+  /* Bordes finos cuando no hay texto */
   .half.empty { border-left-width: 0.25pt; border-right-width: 0.25pt; }
   .half.empty:first-child { border-top-width: 0.25pt; }
   .half.empty:last-child  { border-bottom-width: 0.25pt; }
   .mini.empty { border-width: 0.25pt; opacity: 0.9; }
 
-  /* ======= AJUSTES FINOS POR FILA ======= */
-  /* 2: bajar 6; subir 9/10 (+2mm) y bajar label 6 en 0.5mm */
-  .items .item:nth-of-type(2) .half:first-child { padding-top: 7.8mm; }              /* 6 ⇩ más */
-  .items .item:nth-of-type(2) .half:first-child .label { top: -0.9mm; }              /* label 6 ⇩ 0.5mm */
-  .items .item:nth-of-type(2) .half:last-child  .mini-wrap { bottom: 8.8mm; }        /* 9/10 ⇧ +2mm */
+  /* ======= AJUSTES POR FILA ======= */
+  /* 2, 3 y 4: 6 más abajo y más pegado a su respuesta (como "7") */
+  .items .item:nth-of-type(n+2) .half:first-child { padding-top: 9.3mm; }              /* 6 ⇩ adicional */
+  .items .item:nth-of-type(n+2) .half:first-child .label { top: -0.6mm; }              /* título 6 baja → queda cercano */
+  .items .item:nth-of-type(n+2) .half:first-child .mono  { margin-top: -1.0mm; }       /* respuesta 6 sube un poco hacia el título */
 
-  /* 3: bajar 6; subir 9/10 (+2mm) */
-  .items .item:nth-of-type(3) .half:first-child { padding-top: 7.8mm; }              /* 6 ⇩ más */
-  .items .item:nth-of-type(3) .half:last-child  .mini-wrap { bottom: 8.8mm; }        /* 9/10 ⇧ +2mm */
+  /* 2: ajuste fino extra pedido (título 6 ⇩ 0,5mm) */
+  .items .item:nth-of-type(2) .half:first-child .label { top: -0.1mm; }
 
-  /* 4: bajar 6; subir 9/10 (+2mm) */
-  .items .item:nth-of-type(4) .half:first-child { padding-top: 7.8mm; }              /* 6 ⇩ más */
-  .items .item:nth-of-type(4) .half:last-child  .mini-wrap { bottom: 8.8mm; }        /* 9/10 ⇧ +2mm */
+  /* 2,3,4: 9/10 más arriba (+2mm) */
+  .items .item:nth-of-type(2) .half:last-child .mini-wrap,
+  .items .item:nth-of-type(3) .half:last-child .mini-wrap,
+  .items .item:nth-of-type(4) .half:last-child .mini-wrap { bottom: 10.8mm; }
 
-  /* Afinar “doble línea” entre 2–3 y 3–4: quito borde superior del siguiente bloque */
-  .items .item + .item .half:first-child { border-top-width: 0; }
+  /* Eliminar "doble línea" entre 2–3 y 3–4 (afinado) */
+  .items .item + .item .half:first-child { border-top-width: 0; margin-top: 0; }
 
   /* ======= SECCIÓN A / B ======= */
-  .ab { display: grid; grid-template-columns: 12mm 1fr; gap: 2mm; height: 23mm; margin-bottom: 2mm; }
+  .ab { display: grid; grid-template-columns: 12mm 1fr; gap: 2mm; height: 23mm; margin: 0.8mm 0; } /* antes 2mm */
   .ab .half { border-left: 0.35pt solid #000; border-right: 0.35pt solid #000; position: relative; padding: 3mm 2mm 8.5mm 2mm; }
   .ab .half:first-child { border-top: 0.35pt solid #000; }
-  .ab .half:last-child  { border-bottom: 0.35pt solid #000; margin-top: 1mm; }
+  .ab .half:last-child  { border-bottom: 0.35pt solid #000; margin-top: 0.8mm; }
   .ab .mini-wrap { bottom: 2mm; }
 
-  /* A: 11 más abajo; 9/10 más arriba (+2mm) */
-  .ab:nth-of-type(1) .half:first-child { padding-top: 9mm; }           /* 11 ⇩ más */
-  .ab:nth-of-type(1) .half:last-child  .mini-wrap { bottom: 8.5mm; }   /* 9/10 ⇧ +2mm */
+  /* A: 11 un poco más abajo; 9/10 +2mm arriba */
+  .ab:nth-of-type(1) .half:first-child { padding-top: 10mm; }           /* 11 ⇩ */
+  .ab:nth-of-type(1) .half:last-child  .mini-wrap { bottom: 10.5mm; }   /* 9/10 ⇧ */
 
-  /* B: 11 más abajo */
-  .ab:nth-of-type(2) .half:first-child { padding-top: 9mm; }           /* 11 ⇩ más */
+  /* B: (si querés más abajo, ya venía ajustado; lo dejo igual para no comer espacio) */
 
-  /* Afinar 4–A: evito doble línea entre el último item y A */
-  .items .item:last-of-type .half:last-child { border-bottom-width: 0; }
+  /* Afinar 4–A: sin doble línea y con menos hueco */
+  .items .item:last-of-type .half:last-child { border-bottom-width: 0; margin-bottom: 0; }
   .ab:first-of-type .half:first-child { border-top-width: 0; }
 
-  /* Fecha de cierre (aire) */
+  /* Fecha de cierre (aire suficiente) */
   .close-row { grid-template-columns: 1fr 55mm 0; margin-top: 6mm; }
 
+  /* Firma */
   .sig { height: 100%; display: flex; flex-direction: column; }
   .sig .line { margin-top: auto; border-top: 0.35pt solid #000; text-align: center; font-size: 7.5pt; padding-top: 1mm; }
 
