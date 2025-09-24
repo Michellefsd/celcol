@@ -181,7 +181,7 @@ export const descargarOrdenPDF = async (req, res) => {
   .topline { border-top: 0.35pt solid #000; margin-top: 3mm; }
   .mono { white-space: pre-wrap; }
 
-  /* Ítems 1–4 (uniformes y compactos) */
+  /* Ítems 1–4 */
   .items { margin-top: 5mm; }
   .item { display: grid; grid-template-columns: 12mm 1fr; gap: 2mm; height: 26mm; margin-bottom: 2mm; }
   .item .num { border: 0.35pt solid #000; display:flex; align-items:center; justify-content:center; font-weight:700; }
@@ -189,7 +189,7 @@ export const descargarOrdenPDF = async (req, res) => {
   .half:first-child { border-top: 0.35pt solid #000; }
   .half:last-child  { border-bottom: 0.35pt solid #000; margin-top: 1mm; }
 
-  /* Mini-cajas: SIEMPRE dentro del half */
+  /* Mini-cajas dentro del half */
   .mini-wrap { position:absolute; right: 2mm; bottom: 2mm; display:flex; gap: 2mm; }
   .mini { border: 0.35pt solid #000; padding: 1mm 2.6mm; font-size: 7.4pt; height: 7.2mm; line-height: 1; display:inline-block; }
   .mini .val { display:block; font-size: 7.2pt; margin-top: 0.4mm; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -204,20 +204,21 @@ export const descargarOrdenPDF = async (req, res) => {
   .mini.empty { border-width: 0.25pt; opacity: 0.9; }
 
   /* ======= AJUSTES FINOS POR FILA ======= */
-  /* 1: dejar como estaba (solo un leve lift de 9/10 si lo querías) */
-  .items .item:nth-of-type(1) .half:last-child .mini-wrap { bottom: 5mm; }
+  /* 2: bajar 6; subir 9/10 (+2mm) y bajar label 6 en 0.5mm */
+  .items .item:nth-of-type(2) .half:first-child { padding-top: 7.8mm; }              /* 6 ⇩ más */
+  .items .item:nth-of-type(2) .half:first-child .label { top: -0.9mm; }              /* label 6 ⇩ 0.5mm */
+  .items .item:nth-of-type(2) .half:last-child  .mini-wrap { bottom: 8.8mm; }        /* 9/10 ⇧ +2mm */
 
-  /* 2: 6 más abajo ; 9/10 más arriba */
-  .items .item:nth-of-type(2) .half:first-child { padding-top: 6.8mm; }       /* 6 ⇩ */
-  .items .item:nth-of-type(2) .half:last-child  .mini-wrap { bottom: 6.8mm; } /* 9/10 ⇧ */
+  /* 3: bajar 6; subir 9/10 (+2mm) */
+  .items .item:nth-of-type(3) .half:first-child { padding-top: 7.8mm; }              /* 6 ⇩ más */
+  .items .item:nth-of-type(3) .half:last-child  .mini-wrap { bottom: 8.8mm; }        /* 9/10 ⇧ +2mm */
 
-  /* 3: 6 más abajo ; 9/10 más arriba */
-  .items .item:nth-of-type(3) .half:first-child { padding-top: 6.8mm; }
-  .items .item:nth-of-type(3) .half:last-child  .mini-wrap { bottom: 6.8mm; }
+  /* 4: bajar 6; subir 9/10 (+2mm) */
+  .items .item:nth-of-type(4) .half:first-child { padding-top: 7.8mm; }              /* 6 ⇩ más */
+  .items .item:nth-of-type(4) .half:last-child  .mini-wrap { bottom: 8.8mm; }        /* 9/10 ⇧ +2mm */
 
-  /* 4: 6 más abajo ; 9/10 más arriba */
-  .items .item:nth-of-type(4) .half:first-child { padding-top: 6.8mm; }
-  .items .item:nth-of-type(4) .half:last-child  .mini-wrap { bottom: 6.8mm; }
+  /* Afinar “doble línea” entre 2–3 y 3–4: quito borde superior del siguiente bloque */
+  .items .item + .item .half:first-child { border-top-width: 0; }
 
   /* ======= SECCIÓN A / B ======= */
   .ab { display: grid; grid-template-columns: 12mm 1fr; gap: 2mm; height: 23mm; margin-bottom: 2mm; }
@@ -226,14 +227,18 @@ export const descargarOrdenPDF = async (req, res) => {
   .ab .half:last-child  { border-bottom: 0.35pt solid #000; margin-top: 1mm; }
   .ab .mini-wrap { bottom: 2mm; }
 
-  /* A: 11 más abajo ; 9/10 un poco más arriba */
-  .ab:nth-of-type(1) .half:first-child { padding-top: 7mm; }     /* 11 ⇩ */
-  .ab:nth-of-type(1) .half:last-child  .mini-wrap { bottom: 6.5mm; } /* 9/10 ⇧ */
+  /* A: 11 más abajo; 9/10 más arriba (+2mm) */
+  .ab:nth-of-type(1) .half:first-child { padding-top: 9mm; }           /* 11 ⇩ más */
+  .ab:nth-of-type(1) .half:last-child  .mini-wrap { bottom: 8.5mm; }   /* 9/10 ⇧ +2mm */
 
   /* B: 11 más abajo */
-  .ab:nth-of-type(2) .half:first-child { padding-top: 7mm; }     /* 11 ⇩ */
+  .ab:nth-of-type(2) .half:first-child { padding-top: 9mm; }           /* 11 ⇩ más */
 
-  /* Fecha de cierre con aire extra */
+  /* Afinar 4–A: evito doble línea entre el último item y A */
+  .items .item:last-of-type .half:last-child { border-bottom-width: 0; }
+  .ab:first-of-type .half:first-child { border-top-width: 0; }
+
+  /* Fecha de cierre (aire) */
   .close-row { grid-template-columns: 1fr 55mm 0; margin-top: 6mm; }
 
   .sig { height: 100%; display: flex; flex-direction: column; }
