@@ -181,61 +181,90 @@ export const descargarOrdenPDF = async (req, res) => {
   .topline { border-top: 0.35pt solid #000; margin-top: 3mm; }
   .mono { white-space: pre-wrap; }
 
-  /* Ítems 1–4 (más compactos y sin hueco a la derecha) */
-  .items { margin-top: 5mm; }
-  .item { display: grid; grid-template-columns: 12mm 1fr; gap: 2mm; height: 26mm; margin-bottom: 0.8mm; } /* antes 2mm */
-  .item .num { border: 0.35pt solid #000; display:flex; align-items:center; justify-content:center; font-weight:700; }
-  .half { border-left: 0.35pt solid #000; border-right: 0.35pt solid #000; position: relative; padding: 3mm 2mm 8.5mm 2mm; }
-  .half:first-child { border-top: 0.35pt solid #000; }
-  .half:last-child  { border-bottom: 0.35pt solid #000; margin-top: 0.8mm; } /* antes 1mm */
+/* ======= ESTRUCTURA UNIFICADA PARA TODAS LAS FILAS ======= */
+.items { margin-top: 5mm; }
+.item { 
+  display: grid; 
+  grid-template-columns: 12mm 1fr; 
+  gap: 2mm; 
+  height: 26mm; 
+  margin-bottom: 2mm; 
+}
+.item .num { 
+  border: 0.35pt solid #000; 
+  display:flex; 
+  align-items:center; 
+  justify-content:center; 
+  font-weight:700; 
+}
 
-  /* Mini-cajas siempre dentro del half */
-  .mini-wrap { position:absolute; right: 2mm; bottom: 2mm; display:flex; gap: 2mm; }
-  .mini { border: 0.35pt solid #000; padding: 1mm 2.6mm; font-size: 7.4pt; height: 7.2mm; line-height: 1; display:inline-block; }
-  .mini .val { display:block; font-size: 7.2pt; margin-top: 0.4mm; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .mini-tech { min-width: 34mm; }
-  .mini-cert { min-width: 30mm; }
-  .mini-hh   { min-width: 22mm; text-align: right; }
+.half-container {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+  height: 100%;
+}
 
-  /* Bordes finos cuando no hay texto */
-  .half.empty { border-left-width: 0.25pt; border-right-width: 0.25pt; }
-  .half.empty:first-child { border-top-width: 0.25pt; }
-  .half.empty:last-child  { border-bottom-width: 0.25pt; }
-  .mini.empty { border-width: 0.25pt; opacity: 0.9; }
+.half { 
+  border: 0.35pt solid #000;
+  position: relative; 
+  padding: 3mm 2mm 8.5mm 2mm;
+}
+.half:first-child { 
+  border-right: none; 
+}
 
-  /* ======= AJUSTES POR FILA ======= */
-  /* 2, 3 y 4: 6 más abajo y más pegado a su respuesta (como "7") */
-  .items .item:nth-of-type(n+2) .half:first-child { padding-top: 9.3mm; }              /* 6 ⇩ adicional */
-  .items .item:nth-of-type(n+2) .half:first-child .label { top: -0.6mm; }              /* título 6 baja → queda cercano */
-  .items .item:nth-of-type(n+2) .half:first-child .mono  { margin-top: -1.0mm; }       /* respuesta 6 sube un poco hacia el título */
+.half .label { 
+  position:absolute; 
+  top: -3mm; 
+  left: 2mm; 
+  background:#fff; 
+  padding: 0 1mm; 
+  font-size: 8pt; 
+  font-weight: 700; 
+}
 
-  /* 2: ajuste fino extra pedido (título 6 ⇩ 0,5mm) */
-  .items .item:nth-of-type(2) .half:first-child .label { top: -0.1mm; }
+.mini-wrap { 
+  position:absolute; 
+  right: 2mm; 
+  bottom: 2mm; 
+  display:flex; 
+  gap: 2mm; 
+}
+.mini { 
+  border: 0.35pt solid #000; 
+  padding: 1mm 2.6mm; 
+  font-size: 7.4pt; 
+  height: 7.2mm; 
+  line-height: 1; 
+  display:inline-block; 
+}
+.mini .val { 
+  display:block; 
+  font-size: 7.2pt; 
+  margin-top: 0.4mm; 
+  white-space: nowrap; 
+  overflow: hidden; 
+  text-overflow: ellipsis; 
+}
+.mini-tech { min-width: 34mm; }
+.mini-cert { min-width: 30mm; }
+.mini-hh   { min-width: 22mm; text-align: right; }
 
-  /* 2,3,4: 9/10 más arriba (+2mm) */
-  .items .item:nth-of-type(2) .half:last-child .mini-wrap,
-  .items .item:nth-of-type(3) .half:last-child .mini-wrap,
-  .items .item:nth-of-type(4) .half:last-child .mini-wrap { bottom: 10.8mm; }
+.half.empty { border-width: 0.25pt; opacity: 0.9; }
+.mini.empty { border-width: 0.25pt; opacity: 0.9; }
 
-  /* Eliminar "doble línea" entre 2–3 y 3–4 (afinado) */
-  .items .item + .item .half:first-child { border-top-width: 0; margin-top: 0; }
-
-  /* ======= SECCIÓN A / B ======= */
-  .ab { display: grid; grid-template-columns: 12mm 1fr; gap: 2mm; height: 23mm; margin: 0.8mm 0; } /* antes 2mm */
-  .ab .half { border-left: 0.35pt solid #000; border-right: 0.35pt solid #000; position: relative; padding: 3mm 2mm 8.5mm 2mm; }
-  .ab .half:first-child { border-top: 0.35pt solid #000; }
-  .ab .half:last-child  { border-bottom: 0.35pt solid #000; margin-top: 0.8mm; }
-  .ab .mini-wrap { bottom: 2mm; }
-
-  /* A: 11 un poco más abajo; 9/10 +2mm arriba */
-  .ab:nth-of-type(1) .half:first-child { padding-top: 10mm; }           /* 11 ⇩ */
-  .ab:nth-of-type(1) .half:last-child  .mini-wrap { bottom: 10.5mm; }   /* 9/10 ⇧ */
-
-  /* B: (si querés más abajo, ya venía ajustado; lo dejo igual para no comer espacio) */
-
-  /* Afinar 4–A: sin doble línea y con menos hueco */
-  .items .item:last-of-type .half:last-child { border-bottom-width: 0; margin-bottom: 0; }
-  .ab:first-of-type .half:first-child { border-top-width: 0; }
+/* ======= SECCIÓN A / B ======= */
+.ab { 
+  display: grid; 
+  grid-template-columns: 12mm 1fr; 
+  gap: 2mm; 
+  height: 23mm; 
+  margin: 2mm 0; 
+}
+.ab .half-container {
+  height: 100%;
+}
 
   /* Fecha de cierre (aire suficiente) */
   .close-row { grid-template-columns: 1fr 55mm 0; margin-top: 6mm; }
@@ -299,7 +328,7 @@ export const descargarOrdenPDF = async (req, res) => {
     return `
     <div class="item">
       <div class="num">${f.num}</div>
-      <div>
+      <div class="half-container">
         <div class="half ${empty6 ? 'empty' : ''}">
           <div class="label">6 Reporte</div>
           <div class="mono" style="line-height:1.2;">${f.reporte}</div>
@@ -312,7 +341,7 @@ export const descargarOrdenPDF = async (req, res) => {
           <div class="mono" style="line-height:1.2;">${f.accion}</div>
           <div class="mini-wrap">
             <div class="mini mini-cert ${empty9 ? 'empty' : ''}">9 Certific.<span class="val">${f.certificador}</span></div>
-            <div class="mini mini-hh   ${empty10 ? 'empty' : ''}">10 H.H<span class="val">${f.hh}</span></div>
+            <div class="mini mini-hh ${empty10 ? 'empty' : ''}">10 H.H<span class="val">${f.hh}</span></div>
           </div>
         </div>
       </div>
@@ -329,19 +358,21 @@ ${[['A', A], ['B', B]].map(([tag, r], idx) => {
   const empty10 = isEmpty(r?.hh);
   return `
   <div class="ab">
-    <div class="num" style="border:0.35pt solid #000; display:flex; align-items:center; justify-content:center; font-weight:700;">${tag}</div>
-    <div>
+    <div class="num">${tag}</div>
+    <div class="half-container">
       <div class="half ${empty11 ? 'empty' : ''}">
         <div class="label">11 Discrepancias encontradas</div>
         <div class="mono" style="line-height:1.2;">${r?.texto || ''}</div>
-        <div class="mini-wrap"><div class="mini mini-tech ${empty8 ? 'empty' : ''}">8 Técnico<span class="val">${r?.tecnico || ''}</span></div></div>
+        <div class="mini-wrap">
+          <div class="mini mini-tech ${empty8 ? 'empty' : ''}">8 Técnico<span class="val">${r?.tecnico || ''}</span></div>
+        </div>
       </div>
       <div class="half ${empty12 ? 'empty' : ''}">
         <div class="label">12 Acción Tomada</div>
         <div class="mono" style="line-height:1.2;">${r?.accion || ''}</div>
         <div class="mini-wrap">
           <div class="mini mini-cert ${empty9 ? 'empty' : ''}">9 Certific.<span class="val">${r?.certificador || ''}</span></div>
-          <div class="mini mini-hh   ${empty10 ? 'empty' : ''}">10 H.H<span class="val">${r?.hh || ''}</span></div>
+          <div class="mini mini-hh ${empty10 ? 'empty' : ''}">10 H.H<span class="val">${r?.hh || ''}</span></div>
         </div>
       </div>
     </div>
