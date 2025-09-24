@@ -725,7 +725,7 @@ function buildPropietarioSnapshot(p) {
 }
 // ==== fin helpers ====
 
-// ✅ Detalle completo para vista de Orden Cerrada
+// ✅ Reemplaza COMPLETO este controlador:
 export const detalleOrdenCerrada = async (req, res) => {
   const id = Number.parseInt(req.params.id, 10);
   if (!Number.isFinite(id)) return res.status(400).json({ error: 'ID inválido' });
@@ -739,21 +739,27 @@ export const detalleOrdenCerrada = async (req, res) => {
         fechaApertura: true,
         fechaCierre: true,
         fechaCancelacion: true,
+
+        // Campos correctos en tu schema
         solicitud: true,
-        OT: true,
+        OTsolicitud: true,          // ← en tu modelo NO existe "OT", es OTsolicitud
+        solicitadoPor: true,
+        inspeccionRecibida: true,
+        danosPrevios: true,
+        accionTomada: true,
+        observaciones: true,
 
-        // Snapshots sellados al cerrar/cancelar
-        datosAvionSnapshot: true,
-        datosComponenteSnapshot: true,
-        datosPropietarioSnapshot: true,
-
-        // Archivos / factura si aplica
-        archivoSolicitud: true,
-        archivoFactura: true,
+        // Relaciones de archivos correctas
+        solicitudFirma: {           // ← no "archivoSolicitud"
+          select: { id: true, storageKey: true, mime: true, originalName: true, sizeAlmacen: true }
+        },
+        archivoFactura: {
+          select: { id: true, storageKey: true, mime: true, originalName: true, sizeAlmacen: true }
+        },
         numeroFactura: true,
         estadoFactura: true,
 
-        // Personal asignado con rol
+        // Personal asignado (tal como ya usas en otros endpoints)
         empleadosAsignados: {
           select: {
             id: true,
@@ -763,7 +769,7 @@ export const detalleOrdenCerrada = async (req, res) => {
           orderBy: { id: 'asc' }
         },
 
-        // Registros de trabajo de la OT
+        // Registros de la OT
         registrosTrabajo: {
           where: { ordenId: id },
           orderBy: [{ empleadoId: 'asc' }, { fecha: 'asc' }],
@@ -771,40 +777,49 @@ export const detalleOrdenCerrada = async (req, res) => {
             id: true,
             empleadoId: true,
             fecha: true,
-            horas: true,   // puede venir como string si migraste/legacy
-            rol: true,     // 'TECNICO' | 'CERTIFICADOR'
+            horas: true,              // puede venir string/decimal
+            rol: true,
             trabajoRealizado: true,
+            // si querés nombres en el DTO:
+            empleado: { select: { id: true, nombre: true, apellido: true } },
           },
         },
 
-        // (Opcionales) Stock/herramientas para mostrar en cerrada
-        ordenStock: {
+        // Nombres correctos en tu schema:
+        // - stockAsignado (no ordenStock)
+        // - herramientas (no ordenHerramienta)
+        stockAsignado: {
           select: {
             id: true,
             stockId: true,
-            cantidad: true,
-            stock: { select: { nombre: true, codigo: true, unidad: true } },
-          },
+            cantidadUtilizada: true,
+            stock: { select: { nombre: true, codigo: true, unidad: true, marca: true, modelo: true } }
+          }
         },
-        ordenHerramienta: {
+        herramientas: {
           select: {
             id: true,
             herramientaId: true,
-            herramienta: { select: { nombre: true, codigo: true } },
-          },
+            herramienta: { select: { nombre: true, codigo: true, marca: true, modelo: true } }
+          }
         },
+
+        // Snapshots sellados al cerrar/cancelar
+        datosAvionSnapshot: true,
+        datosComponenteSnapshot: true,
+        datosPropietarioSnapshot: true,
       },
     });
 
     if (!orden) return res.status(404).json({ error: 'Orden no encontrada' });
 
-    // Normalización de horas a número para evitar "NaN h" en front
+    // Normalizar horas a número
     const registrosNormalizados = (orden.registrosTrabajo || []).map(r => ({
       ...r,
       horas: r.horas == null ? 0 : (typeof r.horas === 'string' ? Number(r.horas) : r.horas),
     }));
 
-    // Ordenar empleados por rol y nombre (opcional, para UI prolija)
+    // Ordenar empleados por rol y nombre (estético)
     const empleadosOrdenados = [...(orden.empleadosAsignados || [])].sort((a, b) => {
       if (a.rol !== b.rol) return a.rol.localeCompare(b.rol);
       const an = `${a.empleado?.nombre ?? ''} ${a.empleado?.apellido ?? ''}`.trim();
@@ -812,17 +827,21 @@ export const detalleOrdenCerrada = async (req, res) => {
       return an.localeCompare(bn);
     });
 
-    return res.json({
+    // Armar DTO final (expongo "OT" para tu front si lo usa)
+    const dto = {
       ...orden,
+      OT: orden.OTsolicitud ?? null,                     // alias amigable
+      archivoSolicitud: orden.solicitudFirma ?? null,    // alias compat con tu front
       empleadosAsignados: empleadosOrdenados,
       registrosTrabajo: registrosNormalizados,
-    });
+    };
+
+    return res.json(dto);
   } catch (e) {
     console.error('detalleOrdenCerrada error:', e);
     return res.status(500).json({ error: 'Error en detalle cerrada' });
   }
 };
-
 
 // Cancelar orden
 export const cancelarOrden = async (req, res) => {
@@ -914,7 +933,7 @@ export const cancelarOrden = async (req, res) => {
     return res.status(500).json({ error: 'Error al cancelar orden' });
   }
 };
-4
+
 // Cerrar orden de trabajo
 export const cerrarOrden = async (req, res) => {
   const id = Number.parseInt(req.params.id, 10);
