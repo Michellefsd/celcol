@@ -37,15 +37,17 @@ interface HerramientaAsignada {
   };
 }
 interface RegistroTrabajo {
-  empleado: {
-    id?: number;            // opcional por si lo traés (mejora el match)
+  empleado?: {
+    id?: number;
     nombre: string;
     apellido: string;
   };
-  horasTrabajadas: number;  // mantenemos tu nombre actual
+  empleadoId?: number;                       
+  horas?: number | string | null;            // ← campo real
+  horasTrabajadas?: number | string | null;  // ← compat viejo (fallback)
   fecha: string;
-  trabajoRealizado?: string | null; // ⬅️ NUEVO
-  rol?: 'TECNICO' | 'CERTIFICADOR'; // opcional (ya existe en Prisma)
+  trabajoRealizado?: string | null;
+  rol: 'TECNICO' | 'CERTIFICADOR';          
 }
 
 interface Avion {
@@ -159,8 +161,9 @@ interface OrdenTrabajo {
   const [numeroFactura, setNumeroFactura] = useState('');
 
   useEffect(() => {
-    const qs = includeArchived ? '?includeArchived=1' : '';          // 👈 nuevo
-    fetchJson<OrdenTrabajo>(`/ordenes-trabajo/${id}${qs}`)            // 👈 ajustado
+const qs = includeArchived ? '?includeArchived=1' : '';
+fetchJson<OrdenTrabajo>(`/ordenes-trabajo/${id}/detalle-cerrada${qs}`)
+
       .then((data) => {
         setOrden(data);
         setEstadoFactura(data.estadoFactura ?? 'PENDIENTE');
@@ -170,19 +173,21 @@ interface OrdenTrabajo {
   }, [id, includeArchived]);
 
 
-
 const handleGuardarFactura = async () => {
   try {
     await fetchJson(`/ordenes-trabajo/${id}/factura`, {
-      method: 'PUT',                                           
-      body: JSON.stringify({ estadoFactura, numeroFactura }),  
+      method: 'PUT',
+      body: JSON.stringify({ estadoFactura, numeroFactura }),
     });
     alert('Factura actualizada');
-    router.refresh();
+    const qs = includeArchived ? '?includeArchived=1' : '';
+    const updated = await fetchJson<OrdenTrabajo>(`/ordenes-trabajo/${id}/detalle-cerrada${qs}`);
+    setOrden(updated);
   } catch (e: any) {
     alert(e?.body?.error || e?.message || 'Error al guardar');
   }
 };
+
 
   if (!orden) return <p>Cargando...</p>;
 const esComponente = Boolean(orden.datosComponenteSnapshot || orden.componente);
@@ -514,10 +519,15 @@ return (
         const norm = (s: string) =>
           (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
 
-        const registrosEmpleado = registrosTrabajo.filter((r) =>
-          norm(r.empleado.nombre) === norm(asignacion.empleado.nombre) &&
-          norm(r.empleado.apellido) === norm(asignacion.empleado.apellido)
-        );
+const registrosEmpleado = registrosTrabajo.filter((r) => {
+  const roleOk = (r.rol ?? asignacion.rol) === asignacion.rol; // ← clave para no duplicar
+  // match por persona (si viene empleado en el registro, usamos nombre+apellido)
+  const samePerson = r.empleado
+    ? norm(r.empleado.nombre) === norm(asignacion.empleado.nombre) &&
+      norm(r.empleado.apellido) === norm(asignacion.empleado.apellido)
+    : true; // si no viene, dejamos pasar (normalmente viene)
+  return roleOk && samePerson;
+});
 
         const fmtFecha = (d: string) => new Date(d).toLocaleDateString('es-UY');
 
@@ -535,8 +545,11 @@ return (
                 {registrosEmpleado.map((r, i) => (
                   <li key={`${r.fecha}-${i}`}>
                     <span className="text-slate-500">{fmtFecha(r.fecha)}:</span>{' '}
-                    <span>{Number(r.horasTrabajadas).toFixed(2)} h — </span>
-                    <span>{r.trabajoRealizado?.trim() || 'Sin detalle'}</span>
+                    {(() => {
+  const h = r.horas ?? r.horasTrabajadas ?? 0;
+  const n = typeof h === 'string' ? Number(h) : h;
+  return (Number.isFinite(n) ? n.toFixed(2) : '0.00') + ' h';
+})()} — <span>{r.trabajoRealizado?.trim() || 'Sin detalle'}</span>
                   </li>
                 ))}
               </ul>
@@ -585,17 +598,19 @@ return (
 
   {/* Modal de subida */}
   <SubirArchivo
-    open={mostrarSubirFactura}
-    onClose={() => setMostrarSubirFactura(false)}
-    url={`/ordenes-trabajo/${id}/subir-factura`}   // POST de subida
-    label="Subir archivo de factura"
-    nombreCampo="archivoFactura"
-    onUploaded={async () => {
-      setMostrarSubirFactura(false);
-      const updated = await fetchJson<any>(`/ordenes-trabajo/${id}`);
-      setOrden(updated);
-    }}
-  />
+  open={mostrarSubirFactura}
+  onClose={() => setMostrarSubirFactura(false)}
+  url={`/ordenes-trabajo/${id}/factura`}   // ✔ coincide con tu route POST /:id/factura
+  label="Subir archivo de factura"
+  nombreCampo="archivoFactura"
+  onUploaded={async () => {
+    setMostrarSubirFactura(false);
+    const qs = includeArchived ? '?includeArchived=1' : '';
+    const updated = await fetchJson<OrdenTrabajo>(`/ordenes-trabajo/${id}/detalle-cerrada${qs}`);
+    setOrden(updated);
+  }}
+/>
+
 
   {/* Ver / Descargar factura */}
   {orden.archivoFactura?.storageKey && (
@@ -616,19 +631,6 @@ return (
       </button>
     </div>
   )}
-
- <SubirArchivo
-  open={mostrarSubirFactura}
-  onClose={() => setMostrarSubirFactura(false)}
-  url={`/ordenes-trabajo/${id}/subir-factura`}   
-  label="Subir archivo de factura"
-  nombreCampo="archivoFactura"                   
-  onUploaded={async () => {
-    setMostrarSubirFactura(false);
-    const updated = await fetchJson<OrdenTrabajo>(`/ordenes-trabajo/${id}`);
-    setOrden(updated);
-  }}
-/>
 
       </section>
     </main>

@@ -15,6 +15,7 @@ import {
   cerrarOrden,
   cancelarOrden,
   archivarOrden,
+  detalleOrdenCerrada
 } from '../controllers/ordenTrabajo.controller.js';
 import { descargarOrdenPDF } from '../controllers/ordenTrabajo.descarga.controller.js';
 import { uploadOrdenTrabajo } from '../../middleware/upload.middleware.js';
@@ -55,13 +56,16 @@ router.delete('/:id/registro-trabajo/:registroId', eliminarRegistroTrabajo);
 // 9. Cerrar orden
 router.put('/:id/cerrar', cerrarOrden);
 
-// 10. Cancelar orden
+// 10. Detalle de orden cerrada
+router.get('/:id/detalle-cerrada', detalleOrdenCerrada);
+
+// 11. Cancelar orden
 router.put('/:id/cancelar', cancelarOrden);
 
-// 11. Archivar orden
+// 12. Archivar orden
 router.put('/:id/archivar', archivarOrden);
 
-// 12. Descargar PDF de la orden
+// 13. Descargar PDF de la orden
 router.get('/:id/pdf', descargarOrdenPDF);
 
 export default router;

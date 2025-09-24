@@ -46,7 +46,6 @@ export const descargarOrdenPDF = async (req, res) => {
   const splitBullets = (txt) => {
     if (!txt) return [];
     const s = String(txt).replace(/\r/g, '\n');
-    // separa por líneas que empiecen con *, •, -, o por saltos dobles
     return s
       .split(/\n+|(?:^\s*[*•-]\s*)/gm)
       .map(x => String(x).trim())
@@ -91,8 +90,6 @@ export const descargarOrdenPDF = async (req, res) => {
       (propSnap ? emailPropietario(propSnap) : '') ||
       (orden?.componente?.propietario ? emailPropietario(orden.componente.propietario) : '') || '';
 
-    const firmaTexto = [escapeHTML(propName), escapeHTML(propEmail)].filter(Boolean).join('<br/>');
-
     // texto base (solicitud y observaciones)
     const solicitudBruta = orden.OTsolicitud || orden.solicitud || orden.descripcionTrabajo || orden.descripcion || '';
     const solicitudBullets = splitBullets(solicitudBruta);
@@ -118,19 +115,26 @@ export const descargarOrdenPDF = async (req, res) => {
     for (let i = 0; i < Math.min(4, regs.length); i++) {
       const r = regs[i];
       const nombre = [r?.empleado?.nombre, r?.empleado?.apellido].filter(Boolean).join(' ').trim();
+      const rep = r?.trabajoRealizado || r?.detalle || r?.descripcion || '';
+      const hh  = String(r?.horas ?? r?.cantidadHoras ?? '');
+      // Acción tomada = trabajo realizado por técnico
       filas.push({
         num: i + 1,
-        reporte: escapeHTML(r?.trabajoRealizado || r?.detalle || r?.descripcion || ''),
-        accion: escapeHTML(r?.accionTomada || orden?.accionTomada || ''),
+        reporte: escapeHTML(rep),
+        accion:  escapeHTML(rep),
         tecnico: escapeHTML(nombre || (tecnicos[0] || '')),
         certificador: escapeHTML(certificadores[0] || ''),
-        hh: escapeHTML(String(r?.horas ?? r?.cantidadHoras ?? ''))
+        hh: escapeHTML(hh)
       });
     }
     // Completar con viñetas de solicitud (una por fila) si faltan filas o reportes vacíos
     for (let i = 0; i < 4; i++) {
       if (!filas[i]) filas[i] = { num: i + 1, reporte: '', accion: '', tecnico: '', certificador: '', hh: '' };
-      if (!filas[i].reporte && solicitudBullets[i]) filas[i].reporte = escapeHTML(solicitudBullets[i]);
+      if (!filas[i].reporte && solicitudBullets[i]) {
+        const b = escapeHTML(solicitudBullets[i]);
+        filas[i].reporte = b;
+        filas[i].accion  = b; // acción tomada = lo solicitado/realizado
+      }
     }
 
     // A/B: discrepancias = observaciones si no hay snapshot
@@ -177,32 +181,44 @@ export const descargarOrdenPDF = async (req, res) => {
   .topline { border-top: 0.35pt solid #000; margin-top: 3mm; }
   .mono { white-space: pre-wrap; }
 
-  /* Items 1–4 (más altos y con anti "doble línea") */
-  .items { margin-top: 5mm; } /* baja el bloque para que se vea el texto previo completo */
+  /* Items 1–4 (más altos y sin doble línea) */
+  .items { margin-top: 6mm; }
   .item { display: grid; grid-template-columns: 12mm 1fr; gap: 2mm; height: 28mm; margin-bottom: 2.2mm; }
   .item .num { border: 0.35pt solid #000; display:flex; align-items:center; justify-content:center; font-weight:700; }
-  .half { border-left: 0.35pt solid #000; border-right: 0.35pt solid #000; position: relative; padding: 3mm 2mm 10mm 2mm; }
+  .half { border-left: 0.35pt solid #000; border-right: 0.35pt solid #000; position: relative; padding: 3.2mm 2mm 10mm 2mm; }
   .half:first-child { border-top: 0.35pt solid #000; }
-  .half:last-child { border-bottom: 0.35pt solid #000; margin-top: 1mm; }
-  /* Evita doble línea entre items: el primer half del siguiente item no dibuja top */
+  .half:last-child  { border-bottom: 0.35pt solid #000; margin-top: 1mm; }
+  /* Bajar un poco el primer half de filas > 1 (tu punto 2) */
+  .items .item:not(:first-child) .half:first-child { padding-top: 4mm; }
+  /* Evitar doble línea entre items: el primer half del siguiente item no dibuja top extra */
   .items .item + .item .half:first-child { border-top-width: 0; }
 
   /* Mini-cajas más grandes y texto más arriba para no superponer bordes */
-  .mini-wrap { position:absolute; right: 2mm; bottom: -9mm; display:flex; gap: 2mm; }
+  .mini-wrap { position:absolute; right: 2mm; bottom: -8.5mm; display:flex; gap: 2mm; }
   .mini { border: 0.35pt solid #000; padding: 1.2mm 3mm; font-size: 7.6pt; height: 8.5mm; line-height: 1; display:inline-block; }
   .mini .val { display:block; font-size: 7.3pt; margin-top: 0.6mm; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .mini-tech { min-width: 36mm; }
   .mini-cert { min-width: 32mm; }
   .mini-hh   { min-width: 24mm; text-align: right; }
 
-  /* Sección A/B (ligeramente más alta y sin doble línea entre A y B) */
-  .ab { display: grid; grid-template-columns: 12mm 1fr; gap: 2mm; height: 24mm; margin-bottom: 2.2mm; }
-  .ab .half { border-left: 0.35pt solid #000; border-right: 0.35pt solid #000; position: relative; padding: 3mm 2mm 10mm 2mm; }
+  /* Sección A/B ajustada: bajar minis y B:11 más abajo; línea divisoria correcta */
+  .ab { display: grid; grid-template-columns: 12mm 1fr; gap: 2mm; height: 25mm; margin-bottom: 2.4mm; }
+  .ab .half { border-left: 0.35pt solid #000; border-right: 0.35pt solid #000; position: relative; padding: 3.2mm 2mm 10mm 2mm; }
   .ab .half:first-child { border-top: 0.35pt solid #000; }
-  .ab .half:last-child { border-bottom: 0.35pt solid #000; margin-top: 1mm; }
-  .ab + .ab .half:first-child { border-top-width: 0; } /* evita doble línea entre A y B */
+  .ab .half:last-child  { border-bottom: 0.35pt solid #000; margin-top: 1mm; }
+  /* No quitar la línea superior de B; en cambio quito el borde inferior de A para que no duplique */
+  .ab:first-of-type .half:last-child { border-bottom-width: 0; }
+  /* Bajar las mini-cajas de A (punto 3) y de B también un poco */
+  .ab:nth-of-type(1) .mini-wrap { bottom: -9.2mm; }
+  .ab:nth-of-type(2) .mini-wrap { bottom: -9.2mm; }
+  /* Bajar texto 11 de B (punto 4) */
+  .ab:nth-of-type(2) .half:first-child { padding-top: 4mm; }
 
-  .footer { margin-top: 4mm; display:flex; justify-content: space-between; font-size:8.8pt; }
+  /* Caja firma con línea al pie */
+  .sig { height: 100%; display: flex; flex-direction: column; }
+  .sig .line { margin-top: auto; border-top: 0.35pt solid #000; text-align: center; font-size: 7.5pt; padding-top: 1mm; }
+
+  .footer { margin-top: 6mm; display:flex; justify-content: space-between; font-size:8.8pt; }
 </style>
 </head>
 <body>
@@ -230,11 +246,17 @@ export const descargarOrdenPDF = async (req, res) => {
 <div class="row" style="margin-top: 3mm; grid-template-columns: 1fr 55mm 0; gap: 3mm;">
   <div class="box" style="height: 22mm;"><div class="label">4 Solicitud (descripción del trabajo)</div>
     <div class="mono" style="line-height: 1.2;">${escapeHTML(solicitudBruta)}</div></div>
-  <div class="box" style="height: 22mm;"><div class="label">5 Firma o email</div>
-    <div class="mono" style="line-height: 1.2;">${firmaTexto}</div></div>
+  <div class="box" style="height: 26mm;"><!-- +altura para firma -->
+    <div class="label">5 Firma o email</div>
+    <div class="sig">
+      <div><b>Solicitó:</b> ${escapeHTML(propName || '-')}</div>
+      <div>${escapeHTML(propEmail || '')}</div>
+      <div class="line">Firma</div>
+    </div>
+  </div>
 </div>
 
-<!-- Texto intermedio (con más margen abajo) -->
+<!-- Texto intermedio (con más margen abajo, ya no se corta) -->
 <div style="margin: 4mm 0 3mm 0; font-size: 9pt; line-height:1.15;">
   Autorizo a la OMA, la realización en la aeronave o componente de los trabajos detallados en la siguiente orden
 </div>
@@ -287,12 +309,12 @@ ${[['A', A], ['B', B]].map(([tag, r]) => `
   </div>
 `).join('')}
 
-<!-- 13 Fecha de cierre (derecha) -->
-<div class="row" style="grid-template-columns: 1fr 55mm 0; margin-top: 2mm;">
+<!-- 13 Fecha de cierre (derecha, con margen para evitar superposición) -->
+<div class="row" style="grid-template-columns: 1fr 55mm 0; margin-top: 4mm;">
   <div></div>
-  <div class="box" style="height: 11mm;">
+  <div class="box" style="height: 12mm;">
     <div class="label">13 Fecha de cierre</div>
-    <div class="mono">${escapeHTML(fechaCierreTexto || '')}</div>
+    <div class="mono" style="font-weight:700;">${escapeHTML(fechaCierreTexto || '')}</div>
   </div>
 </div>
 

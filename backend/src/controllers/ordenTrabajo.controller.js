@@ -4,6 +4,7 @@ import { subirArchivoGenerico } from '../utils/archivoupload.js';
 
 const prisma = new PrismaClient();
 
+
 // 1. Listar todas las órdenes
 export const getAllOrdenes = async (req, res) => {
   try {
@@ -724,6 +725,103 @@ function buildPropietarioSnapshot(p) {
 }
 // ==== fin helpers ====
 
+// ✅ Detalle completo para vista de Orden Cerrada
+export const detalleOrdenCerrada = async (req, res) => {
+  const id = Number.parseInt(req.params.id, 10);
+  if (!Number.isFinite(id)) return res.status(400).json({ error: 'ID inválido' });
+
+  try {
+    const orden = await prisma.ordenTrabajo.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        estadoOrden: true,
+        fechaApertura: true,
+        fechaCierre: true,
+        fechaCancelacion: true,
+        solicitud: true,
+        OT: true,
+
+        // Snapshots sellados al cerrar/cancelar
+        datosAvionSnapshot: true,
+        datosComponenteSnapshot: true,
+        datosPropietarioSnapshot: true,
+
+        // Archivos / factura si aplica
+        archivoSolicitud: true,
+        archivoFactura: true,
+        numeroFactura: true,
+        estadoFactura: true,
+
+        // Personal asignado con rol
+        empleadosAsignados: {
+          select: {
+            id: true,
+            rol: true, // 'TECNICO' | 'CERTIFICADOR'
+            empleado: { select: { id: true, nombre: true, apellido: true, email: true } },
+          },
+          orderBy: { id: 'asc' }
+        },
+
+        // Registros de trabajo de la OT
+        registrosTrabajo: {
+          where: { ordenId: id },
+          orderBy: [{ empleadoId: 'asc' }, { fecha: 'asc' }],
+          select: {
+            id: true,
+            empleadoId: true,
+            fecha: true,
+            horas: true,   // puede venir como string si migraste/legacy
+            rol: true,     // 'TECNICO' | 'CERTIFICADOR'
+            trabajoRealizado: true,
+          },
+        },
+
+        // (Opcionales) Stock/herramientas para mostrar en cerrada
+        ordenStock: {
+          select: {
+            id: true,
+            stockId: true,
+            cantidad: true,
+            stock: { select: { nombre: true, codigo: true, unidad: true } },
+          },
+        },
+        ordenHerramienta: {
+          select: {
+            id: true,
+            herramientaId: true,
+            herramienta: { select: { nombre: true, codigo: true } },
+          },
+        },
+      },
+    });
+
+    if (!orden) return res.status(404).json({ error: 'Orden no encontrada' });
+
+    // Normalización de horas a número para evitar "NaN h" en front
+    const registrosNormalizados = (orden.registrosTrabajo || []).map(r => ({
+      ...r,
+      horas: r.horas == null ? 0 : (typeof r.horas === 'string' ? Number(r.horas) : r.horas),
+    }));
+
+    // Ordenar empleados por rol y nombre (opcional, para UI prolija)
+    const empleadosOrdenados = [...(orden.empleadosAsignados || [])].sort((a, b) => {
+      if (a.rol !== b.rol) return a.rol.localeCompare(b.rol);
+      const an = `${a.empleado?.nombre ?? ''} ${a.empleado?.apellido ?? ''}`.trim();
+      const bn = `${b.empleado?.nombre ?? ''} ${b.empleado?.apellido ?? ''}`.trim();
+      return an.localeCompare(bn);
+    });
+
+    return res.json({
+      ...orden,
+      empleadosAsignados: empleadosOrdenados,
+      registrosTrabajo: registrosNormalizados,
+    });
+  } catch (e) {
+    console.error('detalleOrdenCerrada error:', e);
+    return res.status(500).json({ error: 'Error en detalle cerrada' });
+  }
+};
 
 
 // Cancelar orden
@@ -816,9 +914,7 @@ export const cancelarOrden = async (req, res) => {
     return res.status(500).json({ error: 'Error al cancelar orden' });
   }
 };
-
-
-
+4
 // Cerrar orden de trabajo
 export const cerrarOrden = async (req, res) => {
   const id = Number.parseInt(req.params.id, 10);
@@ -955,7 +1051,7 @@ export const cerrarOrden = async (req, res) => {
 };
 
 // Helper global para dibujar la línea divisoria en el PDF
-export function drawLine(doc) {
+/*export function drawLine(doc) {
   doc
     .moveTo(doc.x, doc.y + 2)
     .lineTo(550, doc.y + 2)
@@ -964,6 +1060,7 @@ export function drawLine(doc) {
     .fillColor('#000')
     .moveDown(0.6);
 }
+    */
 
 export const eliminarRegistroTrabajo = async (req, res) => {
   const id = Number(req.params.registroId);
