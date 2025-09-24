@@ -204,20 +204,20 @@ export const descargarOrdenPDF = async (req, res) => {
   .mini.empty { border-width: 0.25pt; opacity: 0.9; }
 
   /* ======= AJUSTES FINOS POR FILA ======= */
-  /* 1: subir 9/10 */
+  /* 1: dejar como estaba (solo un leve lift de 9/10 si lo querías) */
   .items .item:nth-of-type(1) .half:last-child .mini-wrap { bottom: 5mm; }
 
-  /* 2: bajar 6 ; subir 9/10 */
-  .items .item:nth-of-type(2) .half:first-child { padding-top: 4.8mm; }
-  .items .item:nth-of-type(2) .half:last-child  .mini-wrap { bottom: 5mm; }
+  /* 2: 6 más abajo ; 9/10 más arriba */
+  .items .item:nth-of-type(2) .half:first-child { padding-top: 6.8mm; }       /* 6 ⇩ */
+  .items .item:nth-of-type(2) .half:last-child  .mini-wrap { bottom: 6.8mm; } /* 9/10 ⇧ */
 
-  /* 3: bajar 6 ; subir 9/10 */
-  .items .item:nth-of-type(3) .half:first-child { padding-top: 4.8mm; }
-  .items .item:nth-of-type(3) .half:last-child  .mini-wrap { bottom: 5mm; }
+  /* 3: 6 más abajo ; 9/10 más arriba */
+  .items .item:nth-of-type(3) .half:first-child { padding-top: 6.8mm; }
+  .items .item:nth-of-type(3) .half:last-child  .mini-wrap { bottom: 6.8mm; }
 
-  /* 4: bajar 6 ; subir 9/10 */
-  .items .item:nth-of-type(4) .half:first-child { padding-top: 4.8mm; }
-  .items .item:nth-of-type(4) .half:last-child  .mini-wrap { bottom: 5mm; }
+  /* 4: 6 más abajo ; 9/10 más arriba */
+  .items .item:nth-of-type(4) .half:first-child { padding-top: 6.8mm; }
+  .items .item:nth-of-type(4) .half:last-child  .mini-wrap { bottom: 6.8mm; }
 
   /* ======= SECCIÓN A / B ======= */
   .ab { display: grid; grid-template-columns: 12mm 1fr; gap: 2mm; height: 23mm; margin-bottom: 2mm; }
@@ -226,14 +226,14 @@ export const descargarOrdenPDF = async (req, res) => {
   .ab .half:last-child  { border-bottom: 0.35pt solid #000; margin-top: 1mm; }
   .ab .mini-wrap { bottom: 2mm; }
 
-  /* A: 11 más bajo ; 9/10 más altos */
-  .ab:nth-of-type(1) .half:first-child { padding-top: 4.8mm; }
-  .ab:nth-of-type(1) .half:last-child  .mini-wrap { bottom: 5mm; }
+  /* A: 11 más abajo ; 9/10 un poco más arriba */
+  .ab:nth-of-type(1) .half:first-child { padding-top: 7mm; }     /* 11 ⇩ */
+  .ab:nth-of-type(1) .half:last-child  .mini-wrap { bottom: 6.5mm; } /* 9/10 ⇧ */
 
-  /* B: 11 más bajo */
-  .ab:nth-of-type(2) .half:first-child { padding-top: 4.8mm; }
+  /* B: 11 más abajo */
+  .ab:nth-of-type(2) .half:first-child { padding-top: 7mm; }     /* 11 ⇩ */
 
-  /* Fecha de cierre con más aire para evitar solapes con B */
+  /* Fecha de cierre con aire extra */
   .close-row { grid-template-columns: 1fr 55mm 0; margin-top: 6mm; }
 
   .sig { height: 100%; display: flex; flex-direction: column; }
