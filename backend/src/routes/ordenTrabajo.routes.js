@@ -15,6 +15,8 @@ import {
   cerrarOrden,
   cancelarOrden,
   archivarOrden,
+  desarchivarOrden,
+descargarConformidadPDF
 } from '../controllers/ordenTrabajo.controller.js';
 import { descargarOrdenPDF } from '../controllers/ordenTrabajo.descarga.controller.js';
 import { uploadOrdenTrabajo } from '../../middleware/upload.middleware.js';
@@ -63,5 +65,11 @@ router.put('/:id/archivar', archivarOrden);
 
 // 12. Descargar PDF de la orden
 router.get('/:id/pdf', descargarOrdenPDF);
+
+// 13. Descargar PDF de conformidad
+router.get('/:id/conformidad', descargarConformidadPDF);
+
+// 14. Desarchivar orden
+router.put('/:id/desarchivar', desarchivarOrden); 
 
 export default router;

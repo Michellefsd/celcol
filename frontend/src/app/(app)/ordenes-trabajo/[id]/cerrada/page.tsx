@@ -4,6 +4,7 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { api, fetchJson } from '@/services/api';
 import SubirArchivo from '@/components/Asignaciones/SubirArchivo';
+import BaseButton from '@/components/BaseButton';
 
 interface Empleado { nombre: string; apellido: string; }
 
@@ -594,6 +595,20 @@ const registrosEmpleado = registrosTrabajo.filter((r) => {
       {orden.archivoFactura?.storageKey ? 'Reemplazar' : 'Subir archivo de factura'}
     </button>
   </div>
+
+<div>
+  <BaseButton 
+    variant="primary" 
+    onClick={() => {
+                      const url = api(`/ordenes-trabajo/${id}/conformidad-pdf`);
+                      const win = window.open('about:blank', '_blank');
+                      if (win) setTimeout(() => (win.location.href = url), 60);
+                      else window.open(url, '_blank');
+                    }
+              }> Nuevo trabajo 
+  </BaseButton>
+</div>
+
 
   {/* Modal de subida */}
 <SubirArchivo
