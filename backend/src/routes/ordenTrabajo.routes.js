@@ -17,6 +17,7 @@ import {
   archivarOrden,
 } from '../controllers/ordenTrabajo.controller.js';
 import { descargarOrdenPDF } from '../controllers/ordenTrabajo.descarga.controller.js';
+import { descargarConformidadPDF } from '../controllers/ccm.controller.js'
 import { uploadOrdenTrabajo } from '../../middleware/upload.middleware.js';
 
 const router = Router();
@@ -63,5 +64,8 @@ router.put('/:id/archivar', archivarOrden);
 
 // 12. Descargar PDF de la orden
 router.get('/:id/pdf', descargarOrdenPDF);
+
+// 13. Descargar PDF de conformidad CCM
+router.get('/:id/conformidad-pdf', descargarConformidadPDF);
 
 export default router;
