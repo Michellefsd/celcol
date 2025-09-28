@@ -12,7 +12,7 @@ interface RegistroDeTrabajo {
   horas: number;
   ordenId: number;
   solicitud: string;
-  rol: 'TECNICO' | 'CERTIFICADOR' | 'NO_ESPECIFICADO';
+  rol: 'TECNICO' | 'CERTIFICADOR';
   trabajoRealizado?: string | null;
 }
 
@@ -33,7 +33,7 @@ interface EmpleadoDetalle {
   esCertificador: boolean;
   esTecnico: boolean;
   direccion: string;
-  tipoLicencia: string;
+  tipoLicencia: string[];
   numeroLicencia: string;
   vencimientoLicencia: string;
   fechaAlta: string;
@@ -41,6 +41,15 @@ interface EmpleadoDetalle {
   // 👇 relación Archivo en vez de string
   carneSalud?: ArchivoRef | null;
 }
+
+const LIC_LABELS: Record<string, string> = {
+  CELULA: 'Célula',
+  MOTOR: 'Motor',
+  AVIONICA: 'Aviónica',
+};
+const formatLicencias = (arr?: string[]) =>
+  Array.isArray(arr) && arr.length ? arr.map(v => LIC_LABELS[v] ?? v).join(', ') : '—';
+
 
 export default function EmpleadoRegistrosPage() {
   const params = useParams();
@@ -52,6 +61,7 @@ export default function EmpleadoRegistrosPage() {
   const [desde, setDesde] = useState('');
   const [hasta, setHasta] = useState('');
   const [mostrarSubirCarne, setMostrarSubirCarne] = useState(false);
+
 
   const fetchEmpleado = async () => {
     if (!empleadoId) return;
@@ -203,7 +213,7 @@ export default function EmpleadoRegistrosPage() {
             <p><span className="text-slate-500">Teléfono:</span> {empleado.telefono}</p>
             <p><span className="text-slate-500">Email:</span> {empleado.email}</p>
             <p><span className="text-slate-500">Dirección:</span> {empleado.direccion}</p>
-            <p><span className="text-slate-500">Licencia:</span> {empleado.tipoLicencia} - {empleado.numeroLicencia}</p>
+            <p><span className="text-slate-500">Licencias:</span> {formatLicencias(empleado.tipoLicencia)}{empleado.numeroLicencia ? ` — Nº ${empleado.numeroLicencia}` : ''}</p>
             <p><span className="text-slate-500">Fecha de alta:</span> {empleado.fechaAlta?.slice(0, 10)}</p>
             <p><span className="text-slate-500">Vencimiento:</span> {empleado.vencimientoLicencia?.slice(0, 10)}</p>
           </div>

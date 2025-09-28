@@ -53,6 +53,8 @@ interface FacturaStock {
   legacy?: boolean;
 }
 
+
+
 export default function DetalleStockPage() {
   const params = useParams();
   const id = Array.isArray(params?.id) ? params.id[0] : params?.id;
@@ -68,7 +70,7 @@ export default function DetalleStockPage() {
   const cargarProducto = async () => {
     if (!id) return;
     try {
-      const data = await fetchJson<StockItem>(`/stock/${id}`); // incluye imagen/archivo como ArchivoRef
+      const data = await fetchJson<StockItem>(`/stock/${id}`); 
       setItem(data);
     } catch (err) {
       console.error('❌ Error al cargar el producto de stock:', err);
@@ -279,8 +281,6 @@ export default function DetalleStockPage() {
     </button>
   )}
 </div>
-
-
             <h2 className="text-xl font-semibold text-slate-900">{item.nombre}</h2>
 
             <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-1 text-sm">

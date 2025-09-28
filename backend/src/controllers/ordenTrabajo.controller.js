@@ -42,47 +42,53 @@ export const getOrdenById = async (req, res) => {
 
     const where = includeArchived ? { id } : { id, archivada: false };
 
-    const orden = await prisma.ordenTrabajo.findFirst({
-      where,
+const orden = await prisma.ordenTrabajo.findFirst({
+  where,
+  include: {
+    // 👇 Avión con propietarios (cada ítem trae { propietario: { ... } })
+    avion: {
       include: {
-        avion: { include: { ComponenteAvion: true } },
-        componente: { include: { propietario: true } },
-        empleadosAsignados: { include: { empleado: true } },
-        herramientas: { include: { herramienta: true } },
-        stockAsignado: { include: { stock: true } },
-        registrosTrabajo: {
-          orderBy: { fecha: 'asc' },
+        propietarios: {
           select: {
-            id: true,
-            empleadoId: true,
-            fecha: true,
-            horas: true,
-            trabajoRealizado: true,
-            rol: true,
-            empleado: { select: { id: true, nombre: true, apellido: true } },
+            propietario: {
+              select: {
+                id: true,
+                tipoPropietario: true,   // 'PERSONA' | 'INSTITUCION'
+                nombre: true,
+                apellido: true,
+                nombreEmpresa: true,
+              },
+            },
           },
         },
-        // 👇 relaciones Archivo (igual que herramientas; sin construir URLs)
-        solicitudFirma: {
-          select: {
-            id: true,
-            storageKey: true,
-            mime: true,
-            originalName: true,
-            sizeAlmacen: true,
-          },
-        },
-        archivoFactura: {
-          select: {
-            id: true,
-            storageKey: true,
-            mime: true,
-            originalName: true,
-            sizeAlmacen: true,
-          },
-        },
+        ComponenteAvion: true, // lo que ya tenías
       },
-    });
+    },
+
+    componente: { include: { propietario: true } },
+    empleadosAsignados: { include: { empleado: true } },
+    herramientas: { include: { herramienta: true } },
+    stockAsignado: { include: { stock: true } },
+    registrosTrabajo: {
+      orderBy: { fecha: 'asc' },
+      select: {
+        id: true,
+        empleadoId: true,
+        fecha: true,
+        horas: true,
+        trabajoRealizado: true,
+        rol: true,
+        empleado: { select: { id: true, nombre: true, apellido: true } },
+      },
+    },
+    solicitudFirma: {
+      select: { id: true, storageKey: true, mime: true, originalName: true, sizeAlmacen: true },
+    },
+    archivoFactura: {
+      select: { id: true, storageKey: true, mime: true, originalName: true, sizeAlmacen: true },
+    },
+  },
+});
 
     if (!orden) return res.status(404).json({ error: 'Orden no encontrada' });
     res.json(orden);
@@ -167,11 +173,19 @@ export const createOrden = async (req, res) => {
   }
 };
 
-// fase 2: Actualizar solicitud de firma y solicitado por
+// 4. Fase 2: Actualizar datos básicos de la orden (sin tocar relaciones)
 export const updateFase2 = async (req, res) => {
   const id = parseInt(req.params.id);
-  const { solicitud, solicitadoPor, OTsolicitud } = req.body;
+  const { solicitud, solicitadoPor, OTsolicitud, fechaApertura } = req.body;
   const archivo = req.files?.solicitudFirma?.[0]?.path;
+
+  // helper seguro para fecha
+  const parseFecha = (v) => {
+    if (!v) return null;
+    const d = new Date(v);
+    return isNaN(d.getTime()) ? null : d;
+  };
+  const fechaAperturaParsed = parseFecha(fechaApertura);
 
   try {
     const updated = await prisma.ordenTrabajo.update({
@@ -180,6 +194,7 @@ export const updateFase2 = async (req, res) => {
         solicitud,
         solicitadoPor,
         OTsolicitud,
+        ...(fechaAperturaParsed && { fechaApertura: fechaAperturaParsed }),
         ...(archivo && { solicitudFirma: archivo }),
       },
     });
@@ -189,6 +204,7 @@ export const updateFase2 = async (req, res) => {
     res.status(500).json({ error: 'Error al actualizar fase 2' });
   }
 };
+
 
 // ✅ Fase 2: Subir archivo de solicitud (RELACIÓN 'solicitudFirma' en tu schema)
 export const subirArchivoOrden = (req, res) =>
@@ -938,16 +954,6 @@ export const cerrarOrden = async (req, res) => {
   }
 };
 
-// Helper global para dibujar la línea divisoria en el PDF
-export function drawLine(doc) {
-  doc
-    .moveTo(doc.x, doc.y + 2)
-    .lineTo(550, doc.y + 2)
-    .strokeColor('#e5e7eb')
-    .stroke()
-    .fillColor('#000')
-    .moveDown(0.6);
-}
 
 export const eliminarRegistroTrabajo = async (req, res) => {
   const id = Number(req.params.registroId);

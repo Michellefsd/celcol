@@ -29,6 +29,49 @@ function toIsoDateUTC(value: unknown): string {
   }
   return String(value ?? '—');
 }
+
+  
+const LIC_LABELS: Record<string, string> = {
+  CELULA: 'Célula',
+  MOTOR: 'Motor',
+  AVIONICA: 'Aviónica',
+};
+
+  //HELPERS TO DATE FORMATTING
+  function formatUY(value: unknown) {
+  if (value == null || value === '') return '—';
+
+  // 1) 'YYYY-MM-DD' → leer directo (sin Date()) para evitar TZ
+  if (isDateOnly(value)) {
+    const s = String(value);            // 'YYYY-MM-DD'
+    const [y, m, d] = s.split('-');
+    return `${d}/${m}/${y}`;
+  }
+
+  // 2) ISO con hora 'YYYY-MM-DDTHH:mm:ssZ' → tomar los primeros 10 chars
+  if (isIsoDateTime(value)) {
+    const s = String(value).slice(0, 10); // 'YYYY-MM-DD'
+    const [y, m, d] = s.split('-');
+    return `${d}/${m}/${y}`;
+  }
+
+  // 3) Date u otros → caemos a Date pero usando UTC para evitar corrimientos
+  const dt = new Date(value as any);
+  if (isNaN(+dt)) return String(value ?? '—');
+  const dd = String(dt.getUTCDate()).padStart(2, '0');
+  const mm = String(dt.getUTCMonth() + 1).padStart(2, '0');
+  const yyyy = dt.getUTCFullYear();
+  return `${dd}/${mm}/${yyyy}`;
+}
+
+const isEmptyForRequired = (v: unknown) =>
+  v === null ||
+  v === undefined ||
+  (Array.isArray(v) && v.length === 0) ||   // 👈 agrega arrays vacíos
+  (typeof v === 'string' && v.trim() === '') ||
+  (typeof v === 'number' && Number.isNaN(v));
+
+
 function maybeFormatDate(value: unknown, key?: string) {
   const looksLikeDate =
     (typeof key === 'string' && DATE_KEYS_REGEX.test(key)) ||
@@ -36,7 +79,7 @@ function maybeFormatDate(value: unknown, key?: string) {
     isDateOnly(value) ||
     value instanceof Date;
 
-  if (looksLikeDate) return toIsoDateUTC(value);
+  if (looksLikeDate) return formatUY(value);
   if (value === '' || value == null) return '—';
   return String(value);
 }
@@ -80,6 +123,9 @@ export type CrudConfig<T extends { id: number }> = {
   onEditLabel?: (item: T) => string;
   onEditClick?: (item: T) => void;
   rowClassName?: (item: T) => string;
+  columnLabels?: Partial<Record<keyof T | string, string>>;
+  renderCell?: (key: keyof T | string, item: T) => ReactNode;  // ← NUEVO
+
 };
 
 export default function CrudManager<T extends { id: number }>({
@@ -93,7 +139,8 @@ export default function CrudManager<T extends { id: number }>({
   onEditLabel,
   onEditClick,
   rowClassName,
-  
+  columnLabels,
+  renderCell
 }: CrudConfig<T>) {
   const [data, setData] = useState<T[]>([]);
   const [editing, setEditing] = useState<T | null>(null);
@@ -132,33 +179,53 @@ const fetchData = async () => {
     }
   };
 
-  const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, type, value } = e.target;
-    let newValue: unknown;
+const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const el = e.target;
+  let newValue: unknown;
+  let name = '';
 
-    if (type === 'checkbox' && e.target instanceof HTMLInputElement) {
-      newValue = e.target.checked;
-    } else if (type === 'number') {
-      newValue = value === '' ? null : parseFloat(value);
-    } else if (type === 'date') {
-      newValue = value === '' ? null : value;
-    } else {
-      newValue = value;
+  if (el instanceof HTMLSelectElement) {
+    name = el.name;
+    newValue = el.multiple
+      ? Array.from(el.selectedOptions, (o) => o.value)
+      : el.value;
+  } else if (el instanceof HTMLInputElement) {
+    name = el.name;
+    switch (el.type) {
+      case 'checkbox':
+        newValue = el.checked;
+        break;
+      case 'number':
+        newValue = el.value === '' ? null : parseFloat(el.value);
+        break;
+      case 'date':
+        newValue = el.value === '' ? null : el.value; // 'YYYY-MM-DD'
+        break;
+      default:
+        newValue = el.value;
     }
+  } else {
+    // fallback ultra conservador
+    // @ts-expect-error: generic target
+    name = el.name ?? '';
+    // @ts-expect-error: generic target
+    newValue = el.value ?? '';
+  }
 
-    setForm(prev => ({
-      ...prev,
-      [name]: newValue as T[keyof T],
-    }));
-  };
+  setForm((prev) => ({
+    ...prev,
+    [name]: newValue as T[keyof T],
+  }));
+};
+
 
   
-  const handleSubmit = async () => {
-    for (const field of formFields) {
-      if (field.required && !form[field.name as keyof T]) {
-        alert(`El campo "${field.label}" es obligatorio`);
-        return;
-      }
+const handleSubmit = async () => {
+  for (const field of formFields) {
+    if (field.required && isEmptyForRequired(form[field.name as keyof T])) {
+      alert(`El campo "${field.label}" es obligatorio`);
+      return;
+    }
     }
     if (onBeforeSubmit) {
       const errorMessage = onBeforeSubmit(form);
@@ -200,8 +267,6 @@ try {
 }
   };
 
-  
-
 
   const openModal = (item?: T) => {
     const defaultForm: Partial<T> = item ?? {};
@@ -227,12 +292,20 @@ try {
     return '';
   };
 
+
+
 const renderValue = (item: T, key: keyof T): string => {
   const value = item[key];
 
-  // Columna propietarios (array)
+  // Arrays de strings (ej. tipoLicencia)
+  if (Array.isArray(value) && value.every(v => typeof v === 'string')) {
+    const arr = value as string[];
+    const pretty = arr.map(v => LIC_LABELS[v] ?? v).join(', ');
+    return pretty || '—';
+  }
+
+  // Columna propietarios (array de objetos)
   if (Array.isArray(value)) {
-    // Si es el caso tipico [{ propietario: {...} }]
     const preview = formatPropietarios(value as any[]);
     if (preview !== '—') return preview;
     // fallback genérico para arrays
@@ -254,7 +327,7 @@ const renderValue = (item: T, key: keyof T): string => {
   // Boolean
   if (typeof value === 'boolean') return value ? 'Sí' : 'No';
 
-  // Fecha (detectada por key o por forma del valor)
+  // Fecha u otros tipos
   return maybeFormatDate(value, String(key));
 };
 
@@ -348,60 +421,66 @@ return (
 
       <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
         <table className="w-full text-sm">
-          <thead className="sticky top-0 z-10 bg-slate-50">
-            <tr>
-              {columns.map((col) => (
-                <th
-                  key={String(col)}
-                  className="px-3 py-2 text-left font-semibold text-slate-700 border-b border-slate-200 cursor-pointer hover:bg-slate-100"
-                  onClick={() => handleSort(col)}
-                >
-                  <div className="inline-flex items-center gap-1">
-                    <span>{String(col)}</span>
-                    {sortField === col && (
-                      <span className="text-slate-500">{sortDirection === 'asc' ? '▲' : '▼'}</span>
-                    )}
-                  </div>
-                </th>
-              ))}
-              <th className="px-3 py-2 text-left font-semibold text-slate-700 border-b border-slate-200">
-                Acciones
-              </th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-200">
-            {sortedData.map((item, idx) => (
-              <tr
-                key={item.id}
-                className={`${
-                  idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'
-                } hover:bg-slate-50 transition-colors ${rowClassName?.(item) || ''}`}
-              >
-                {columns.map((col) => (
-                  <td key={String(col)} className="px-3 py-2 text-slate-800">
-                    {renderValue(item, col)}
-                  </td>
-                ))}
-                <td className="px-3 py-2">
-                  <div className="flex flex-wrap gap-2">
-                    <IconButton
-                      icon={IconEditar}
-                      title="Editar"
-                      className="text-slate-700 hover:text-slate-900"
-                      onClick={() => (onEditClick ? onEditClick(item) : openModal(item))}
-                    />
-                    <IconButton
-                      icon={IconEliminar}
-                      title="Eliminar"
-                      className="text-rose-600 hover:text-rose-700"
-                      onClick={() => handleDelete(item.id)}
-                    />
-                    {extraActions && extraActions(item)}
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
+       <thead className="sticky top-0 z-10 bg-slate-50">
+  <tr>
+    {columns.map((col) => (
+      <th
+        key={String(col)}
+        className="px-3 py-2 text-left font-semibold text-slate-700 border-b border-slate-200 cursor-pointer hover:bg-slate-100"
+        onClick={() => handleSort(col)}
+        aria-sort={sortField === col ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none'}
+      >
+        <div className="inline-flex items-center gap-1">
+          {/* usa el label si existe; si no, muestra la key */}
+          <span>{columnLabels?.[String(col)] ?? String(col)}</span>
+          {sortField === col && (
+            <span className="text-slate-500">{sortDirection === 'asc' ? '▲' : '▼'}</span>
+          )}
+        </div>
+      </th>
+    ))}
+    <th className="px-3 py-2 text-left font-semibold text-slate-700 border-b border-slate-200">
+      Acciones
+    </th>
+  </tr>
+</thead>
+
+<tbody className="divide-y divide-slate-200">
+  {sortedData.map((item, idx) => (
+    <tr
+      key={item.id}
+      className={`${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'} hover:bg-slate-50 transition-colors ${rowClassName?.(item) || ''}`}
+    >
+      {columns.map((col) => {
+        const custom = renderCell?.(col as any, item);
+        return (
+          <td key={String(col)} className="px-3 py-2 text-slate-800">
+            {custom !== undefined ? custom : renderValue(item, col)}
+          </td>
+        );
+      })}
+
+      <td className="px-3 py-2">
+        <div className="flex flex-wrap gap-2">
+          <IconButton
+            icon={IconEditar}
+            title="Editar"
+            className="text-slate-700 hover:text-slate-900"
+            onClick={() => (onEditClick ? onEditClick(item) : openModal(item))}
+          />
+          <IconButton
+            icon={IconEliminar}
+            title="Eliminar"
+            className="text-rose-600 hover:text-rose-700"
+            onClick={() => handleDelete(item.id)}
+          />
+          {extraActions && extraActions(item)}
+        </div>
+      </td>
+    </tr>
+  ))}
+</tbody>
+
         </table>
       </div>
 
@@ -436,34 +515,65 @@ return (
                 {field.required && <span className="text-rose-600 ml-1">*</span>}
               </label>
 
-              {field.type === 'select' ? (
-                <select
-                  name={field.name}
-                  value={form[field.name as keyof T]?.toString() ?? ''}
-                  onChange={handleChange}
-                  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-800
-                             focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
-                  aria-required={field.required ? 'true' : 'false'}
-                >
-                  <option value="">Seleccionar...</option>
-                  {field.options?.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <input
-                  name={field.name}
-                  type={field.type}
-                  value={field.type === 'checkbox' ? undefined : form[field.name as keyof T]?.toString() ?? ''}
-                  checked={field.type === 'checkbox' ? Boolean(form[field.name as keyof T]) : undefined}
-                  onChange={handleChange}
-                  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-800
-                             focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
-                  aria-required={field.required ? 'true' : 'false'}
-                />
-              )}
+{field.type === 'select' ? (
+  field.multiple ? (
+    // ✅ Render como checkboxes cuando es múltiple
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+      {(field.options ?? []).map((opt) => {
+        const arr = Array.isArray(form[field.name as keyof T])
+          ? (form[field.name as keyof T] as unknown as string[])
+          : [];
+        const checked = arr.includes(opt.value);
+        return (
+          <label key={opt.value} className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={checked}
+              onChange={(e) => {
+                const next = new Set(arr);
+                if (e.target.checked) next.add(opt.value);
+                else next.delete(opt.value);
+                setForm((prev) => ({
+                  ...prev,
+                  [field.name]: Array.from(next) as T[keyof T],
+                }));
+              }}
+            />
+            {opt.label}
+          </label>
+        );
+      })}
+    </div>
+  ) : (
+    // ⬇️ select simple (una sola opción)
+    <select
+      name={field.name}
+      value={form[field.name as keyof T]?.toString() ?? ''}
+      onChange={handleChange}
+      className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-800
+                 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
+      aria-required={field.required ? 'true' : 'false'}
+    >
+      <option value="">Seleccionar...</option>
+      {field.options?.map((opt) => (
+        <option key={opt.value} value={opt.value}>
+          {opt.label}
+        </option>
+      ))}
+    </select>
+  )
+) : (
+  <input
+    name={field.name}
+    type={field.type}
+    value={field.type === 'checkbox' ? undefined : form[field.name as keyof T]?.toString() ?? ''}
+    checked={field.type === 'checkbox' ? Boolean(form[field.name as keyof T]) : undefined}
+    onChange={handleChange}
+    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-800
+               focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
+    aria-required={field.required ? 'true' : 'false'}
+  />
+)}
             </div>
           ))}
       </div>

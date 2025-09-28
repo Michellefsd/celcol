@@ -85,10 +85,13 @@ function getDisplayComponente(o: OrdenTrabajo) {
   return [base, numeroSerie ? `#${numeroSerie}` : ''].filter(Boolean).join(' ').trim();
 }
 
+type FiltroEstado = 'TODAS' | 'ABIERTA' | 'CERRADA' | 'CANCELADA';
+
 export default function TrabajoCard({ soloArchivadas = false }: { soloArchivadas?: boolean }) {
   const [ordenes, setOrdenes] = useState<OrdenTrabajo[]>([]);
   const [busqueda, setBusqueda] = useState('');
   const deferredBusqueda = useDeferredValue(busqueda);
+  const [estadoFiltro, setEstadoFiltro] = useState<FiltroEstado>('TODAS');
   const router = useRouter();
 
   useEffect(() => {
@@ -119,11 +122,23 @@ export default function TrabajoCard({ soloArchivadas = false }: { soloArchivadas
     return isNaN(date.getTime()) ? '—' : date.toLocaleDateString('es-UY');
   }
 
-  // —— FILTRO (memo + búsqueda diferida) ——
+  // —— contadores por estado (para tooltip y posible UI futura) ——
+  const counts = useMemo(() => {
+    const lista = ordenes.filter(o => (soloArchivadas ? !!o.archivada : !o.archivada));
+    return {
+      ABIERTA: lista.filter(o => o.estadoOrden === 'ABIERTA').length,
+      CERRADA: lista.filter(o => o.estadoOrden === 'CERRADA').length,
+      CANCELADA: lista.filter(o => o.estadoOrden === 'CANCELADA').length,
+      TOTAL: lista.length,
+    };
+  }, [ordenes, soloArchivadas]);
+
+  // —— FILTRO (memo + búsqueda diferida + estado) ——
   const ordenesFiltradas = useMemo(() => {
     const texto = norm(deferredBusqueda.trim());
     return ordenes
       .filter((o) => (soloArchivadas ? !!o.archivada : !o.archivada))
+      .filter((o) => (estadoFiltro === 'TODAS' ? true : o.estadoOrden === estadoFiltro))
       .filter((o) => {
         if (!texto) return true;
         const avion = norm(getDisplayAvionMatricula(o));
@@ -131,15 +146,88 @@ export default function TrabajoCard({ soloArchivadas = false }: { soloArchivadas
         const id    = norm(String(o.id ?? ''));
         return avion.includes(texto) || comp.includes(texto) || id.includes(texto);
       });
-  }, [ordenes, soloArchivadas, deferredBusqueda]);
+  }, [ordenes, soloArchivadas, deferredBusqueda, estadoFiltro]);
+
+  // —— UI helpers: botón redondo de filtro
+  function CircleFilter({
+    color,
+    active,
+    onClick,
+    title,
+  }: {
+    color: 'emerald' | 'rose' | 'slate';
+    active: boolean;
+    onClick: () => void;
+    title: string;
+  }) {
+    const base =
+      'h-4 w-4 rounded-full border transition ring-offset-2 cursor-pointer';
+    const map: Record<typeof color, string> = {
+      emerald: active
+        ? 'bg-emerald-500 border-emerald-600 ring-2 ring-emerald-400'
+        : 'bg-emerald-400/70 border-emerald-500 hover:ring-2 hover:ring-emerald-300',
+      rose: active
+        ? 'bg-rose-500 border-rose-600 ring-2 ring-rose-400'
+        : 'bg-rose-400/70 border-rose-500 hover:ring-2 hover:ring-rose-300',
+      slate: active
+        ? 'bg-slate-400 border-slate-500 ring-2 ring-slate-300'
+        : 'bg-slate-300 border-slate-400 hover:ring-2 hover:ring-slate-300',
+    };
+    return (
+      <button
+        type="button"
+        title={title}
+        aria-label={title}
+        onClick={onClick}
+        className={`${base} ${map[color]}`}
+      />
+    );
+  }
 
   return (
     <BaseCard>
       <div className="flex items-center justify-between">
         <BaseHeading>{soloArchivadas ? 'Órdenes archivadas' : 'Trabajos realizados'}</BaseHeading>
+
+        {/* ——— filtros por estado: ABIERTA (verde) / CERRADA (rojo) / CANCELADA (gris) ——— */}
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <CircleFilter
+              color="emerald"
+              active={estadoFiltro === 'ABIERTA'}
+              title={`ABIERTAS (${counts.ABIERTA})`}
+              onClick={() =>
+                setEstadoFiltro((prev) => (prev === 'ABIERTA' ? 'TODAS' : 'ABIERTA'))
+              }
+            />
+            <CircleFilter
+              color="rose"
+              active={estadoFiltro === 'CERRADA'}
+              title={`CERRADAS (${counts.CERRADA})`}
+              onClick={() =>
+                setEstadoFiltro((prev) => (prev === 'CERRADA' ? 'TODAS' : 'CERRADA'))
+              }
+            />
+            <CircleFilter
+              color="slate"
+              active={estadoFiltro === 'CANCELADA'}
+              title={`CANCELADAS (${counts.CANCELADA})`}
+              onClick={() =>
+                setEstadoFiltro((prev) => (prev === 'CANCELADA' ? 'TODAS' : 'CANCELADA'))
+              }
+            />
+          </div>
+
+          {/* indicador de filtro activo (opcional) */}
+          {estadoFiltro !== 'TODAS' && (
+            <span className="text-xs text-slate-500">
+              Filtrando: <strong>{estadoFiltro}</strong> · {ordenesFiltradas.length}/{counts.TOTAL}
+            </span>
+          )}
+        </div>
       </div>
 
-      <div className="mb-4">
+      <div className="mb-4 mt-3">
         <input
           type="text"
           placeholder="Buscar por matrícula, tipo o ID..."
@@ -214,7 +302,6 @@ export default function TrabajoCard({ soloArchivadas = false }: { soloArchivadas
                     className="text-slate-700 hover:text-slate-900"
                     onClick={() => {
                       const url = api(`/ordenes-trabajo/${orden.id}/pdf`);
-                      // abrir en nueva pestaña con pequeño delay por pop-up blockers
                       const win = window.open('about:blank', '_blank');
                       if (win) setTimeout(() => (win.location.href = url), 60);
                       else window.open(url, '_blank');

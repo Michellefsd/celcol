@@ -19,7 +19,6 @@ type Empleado = {
   numeroLicencia: string;
   vencimientoLicencia: string;
   fechaAlta: string;
-  horasTrabajadas: number;
 };
 
 
@@ -45,7 +44,7 @@ export default function EmpleadosPage() {
           endpoint={api('/personal')}
           columns={[
             'nombre','apellido','telefono','email','esCertificador','esTecnico',
-            'direccion','tipoLicencia','numeroLicencia','vencimientoLicencia','fechaAlta','horasTrabajadas'
+            'direccion','tipoLicencia','numeroLicencia','vencimientoLicencia','fechaAlta',
           ]}
           formFields={[
             { name: 'nombre', label: 'Nombre', type: 'text', required: true },
@@ -58,7 +57,7 @@ export default function EmpleadosPage() {
             { name: 'tipoLicencia', label: 'Tipo de Licencia', type: 'select', multiple: true, options: [
               { value: 'MOTOR', label: 'Motor' },
               { value: 'AVIONICA', label: 'Aviónica' },
-              { value: 'AERONAVE', label: 'Aeronave' },
+              { value: 'CELULA', label: 'Célula' },
             ], required: true },
             { name: 'numeroLicencia', label: 'Número de Licencia', type: 'text' },
             { name: 'vencimientoLicencia', label: 'Vencimiento de Licencia', type: 'date' },

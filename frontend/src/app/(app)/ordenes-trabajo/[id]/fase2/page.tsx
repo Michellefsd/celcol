@@ -1,7 +1,7 @@
 'use client';
 
 import { useParams, useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { api, fetchJson, apiFetch} from '@/services/api';
 import SubirArchivo from '@/components/Asignaciones/SubirArchivo';
 
@@ -15,6 +15,75 @@ export default function Fase2OrdenTrabajoPage() {
   const [OTsolicitud, setOTsolicitud] = useState('');
   const [archivo, setArchivo] = useState<File | null>(null);
   const [mostrarSubirSolicitud, setMostrarSubirSolicitud] = useState(false);
+  const [editFechaApertura, setEditFechaApertura] = useState(false);
+  const [fechaApertura, setFechaApertura] = useState('');
+  const dateInputRef = useRef<HTMLInputElement>(null);
+
+useEffect(() => {
+  if (editFechaApertura) {
+    // enfoca apenas entra en modo edición
+    setTimeout(() => dateInputRef.current?.focus(), 0);
+  }
+}, [editFechaApertura]);
+
+  
+
+// Helper: de ISO a "YYYY-MM-DD" para <input type="date">
+function toDateInputValue(iso?: string) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '';
+  // a string YYYY-MM-DD (sin asumir TZ; simple y consistente)
+  return d.toISOString().slice(0, 10);
+}
+
+// Helper: mostrar en lectura con locale
+function formatFechaLectura(iso?: string) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  return isNaN(d.getTime()) ? '—' : d.toLocaleDateString('es-UY');
+}
+
+
+ // --- helpers concretos a tu modelo
+function ownerFullName(p?: { nombre?: string; apellido?: string } | null) {
+  if (!p) return '';
+  return [p.nombre, p.apellido].filter(Boolean).join(' ').trim();
+}
+
+// devuelve el propietario PERSONA sugerido:
+// 1) si hay componente con propietario -> ese
+// 2) si no, el primer propietario del avión (propietarios: { propietario }[])
+function pickOwnerFromOrden(orden: any): any | null {
+  if (orden?.componente?.propietario) return orden.componente.propietario;
+
+  const arr = Array.isArray(orden?.avion?.propietarios) ? orden.avion.propietarios : [];
+  if (arr.length === 0) return null;
+
+  // cada item es { propietario: Propietario }
+  const first = arr[0]?.propietario ?? null;
+  return first ?? null;
+}
+
+// — Sugerencia calculada (solo PERSONA: nombre y apellido)
+const sugerenciaSolicitadoPor = ownerFullName(pickOwnerFromOrden(orden)) || '';
+console.debug('sugerenciaSolicitadoPor (placeholder):', sugerenciaSolicitadoPor);
+
+// Completa con Tab si el campo está vacío
+function handleKeyDownSolicitadoPor(e: React.KeyboardEvent<HTMLInputElement>) {
+  if (e.key === 'Tab' && !solicitadoPor && sugerenciaSolicitadoPor) {
+    setSolicitadoPor(sugerenciaSolicitadoPor);
+    console.debug('▶ sugerencia aplicada por Tab:', sugerenciaSolicitadoPor);
+  }
+}
+useEffect(() => {
+  if (!solicitadoPor && orden) {
+    const p = pickOwnerFromOrden(orden);
+    const name = ownerFullName(p);
+    if (name) setSolicitadoPor(name);
+    console.debug('▶ owner detectado:', p);
+  }
+}, [orden]); // recalcula cuando llega la OT
 
 
 useEffect(() => {
@@ -22,24 +91,27 @@ useEffect(() => {
     .then((data) => {
       if (data.estadoOrden === 'CERRADA') {
         router.replace(`/ordenes-trabajo/${id}/cerrada`);
-        return;
+        return; // 👈 no seteamos nada, salimos
       }
 
       if (data.estadoOrden === 'CANCELADA') {
-  router.replace(`/ordenes-trabajo/${id}/cancelada`);
-  return;
-}
-if (data.avion?.ComponenteAvion) {
-  data.avion.componentes = data.avion.ComponenteAvion;
-}
+        router.replace(`/ordenes-trabajo/${id}/cancelada`);
+        return; // 👈 idem
+      }
 
+      if (data.avion?.ComponenteAvion) {
+        data.avion.componentes = data.avion.ComponenteAvion;
+      }
+
+      // 👇 setters solo si seguimos en Fase 2
       setOrden(data);
       setSolicitud(data.solicitud ?? '');
       setSolicitadoPor(data.solicitadoPor ?? '');
       setOTsolicitud(data.OTsolicitud ?? '');
+      setFechaApertura(toDateInputValue(data.fechaApertura)); // 👈 acá va
     })
     .catch((err) => console.error('Error cargando orden de trabajo:', err));
-}, [id]);
+}, [id]); // si querés, también podrías incluir router en deps
 
 
   const handleGuardar = async (redirect: boolean = false): Promise<void> => {
@@ -47,6 +119,8 @@ if (data.avion?.ComponenteAvion) {
     formData.append('solicitud', solicitud);
     formData.append('solicitadoPor', solicitadoPor);
     formData.append('OTsolicitud', OTsolicitud);
+
+    if (fechaApertura) formData.append('fechaApertura', fechaApertura);
 
     if (archivo) {
         formData.append('solicitudFirma', archivo); 
@@ -119,6 +193,49 @@ return (
       <h1 className="text-2xl font-semibold text-slate-900">
         Fase 2: Detalles de la orden #{orden.id}
       </h1>
+      {/* Fecha de apertura (sutil editable) */}
+<div className="flex items-center gap-3">
+  <div className="min-w-44">
+    <label className="block text-sm font-medium text-slate-700 mb-1">
+      Fecha de apertura
+    </label>
+
+    {!editFechaApertura ? (
+      // modo lectura: no cambia cursor, ni hover; doble click -> edición
+      <div
+        className="text-slate-800 cursor-default select-text"
+        onDoubleClick={() => setEditFechaApertura(true)}
+      >
+        <span className="inline-block rounded-md border border-transparent px-0.5">
+          {formatFechaLectura(orden.fechaApertura)}
+        </span>
+      </div>
+    ) : (
+      <input
+        ref={dateInputRef}
+        type="date"
+        className="rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-slate-800
+                   focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500
+                   text-sm"
+        value={fechaApertura}
+        onChange={(e) => setFechaApertura(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Escape') {
+            setFechaApertura(toDateInputValue(orden.fechaApertura)); // volver al original
+            setEditFechaApertura(false);
+          }
+          if (e.key === 'Enter') {
+            setEditFechaApertura(false); // confirmar y salir (no guarda aún)
+          }
+        }}
+        onBlur={() => {
+          // salir discretamente al perder foco (mantiene lo tipeado; guardás con tu botón global)
+          setEditFechaApertura(false);
+        }}
+      />
+    )}
+  </div>
+</div>
 
       {/* Resumen del objeto (avión o componente) */}
       <section className="rounded-2xl border border-slate-200 bg-white shadow-sm p-4 md:p-6">
@@ -251,17 +368,22 @@ return (
             onChange={(e) => setSolicitud(e.target.value)}
           />
         </div>
-
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">Solicitado por</label>
-          <input
-            type="text"
-            className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-800
-                       focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
-            value={solicitadoPor}
-            onChange={(e) => setSolicitadoPor(e.target.value)}
-          />
-        </div>
+<div>
+  <label className="block text-sm font-medium text-slate-700 mb-1">
+    Solicitado por
+  </label>
+  <div className="flex gap-2">
+    <input
+      type="text"
+      className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-800
+                 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
+      value={solicitadoPor}
+      placeholder={sugerenciaSolicitadoPor || 'Ingresá nombre o empresa'}
+      onChange={(e) => setSolicitadoPor(e.target.value)}
+      onKeyDown={handleKeyDownSolicitadoPor}
+    />
+  </div>
+</div>
 
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-1">N.º de OT previa (otro taller)</label>
@@ -305,14 +427,13 @@ return (
   </div>
 )}
 
-
           </div>
 <SubirArchivo
   open={mostrarSubirSolicitud}
   onClose={() => setMostrarSubirSolicitud(false)}
-  url={`/ordenes-trabajo/${id}/solicitudFirma`}  // ✅ ruta correcta
+  url={`/ordenes-trabajo/${id}/solicitudFirma`}  
   label="Subir archivo de solicitud"
-  nombreCampo="solicitudFirma"                     // ✅ coincide con multer y controller
+  nombreCampo="solicitudFirma"                     
   onUploaded={async () => {
     const updated = await fetchJson<any>(`/ordenes-trabajo/${id}`);
     setOrden(updated);

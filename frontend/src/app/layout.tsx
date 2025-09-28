@@ -1,5 +1,4 @@
-// frontend/src/app/layout.tsx
-import './globals.css';                 // ✅ ruta correcta (mismo dir)
+import './globals.css';              
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 

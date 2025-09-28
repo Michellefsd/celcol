@@ -498,17 +498,21 @@ async function descargarSolicitudArchivo(key?: string) {
               onChange={(e) => setAccionTomada(e.target.value)}
             />
           </div>
+<div>
+  {/* antes: "Observaciones" */}
+  <label className="block text-sm font-medium text-slate-700 mb-1">
+    Discrepancias
+  </label>
+  <textarea
+    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-800
+               focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
+    rows={3}
+    value={observaciones}
+    onChange={(e) => setObservaciones(e.target.value)}
+    placeholder="Anota aquí las discrepancias detectadas…" // opcional
+  />
+</div>
 
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Observaciones</label>
-            <textarea
-              className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-800
-                         focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
-              rows={3}
-              value={observaciones}
-              onChange={(e) => setObservaciones(e.target.value)}
-            />
-          </div>
 
           {/* Asignaciones */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

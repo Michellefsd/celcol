@@ -116,8 +116,8 @@ model Herramienta {
   marca                    String?
   modelo                   String?
   numeroSerie              String?
+  numeroParte              String?
   fechaIngreso             DateTime?
-  /// //////DESPLEGAR ALERTA DOS MESES ANTES Y NO ELEGIBLE EN ot PASADA LA FECHA////////
   fechaVencimiento         DateTime?
   certificadoCalibracionId Int?
   archivado                Boolean            @default(false)
@@ -318,7 +318,7 @@ enum TipoPropietario {
 }
 
 enum TipoLicencia {
-  AERONAVE
+  CELULA        @map("AERONAVE")
   MOTOR
   AVIONICA
 }

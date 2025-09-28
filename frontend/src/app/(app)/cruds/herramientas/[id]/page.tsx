@@ -21,6 +21,7 @@ interface Herramienta {
   marca?: string;
   modelo?: string;
   numeroSerie?: string;
+  numeroParte?: string;
   fechaIngreso?: string;
   fechaVencimiento?: string;
   certificadoCalibracion?: ArchivoRef | null; // relación Archivo
@@ -149,6 +150,12 @@ export default function DetalleHerramientaPage() {
                 <p>
                   <span className="text-slate-500">N° Serie:</span>{' '}
                   <span className="text-slate-800 font-medium">{item.numeroSerie}</span>
+                </p>
+              )}
+              {item.numeroParte && (
+                <p>
+                  <span className="text-slate-500">N° Parte:</span>{' '}
+                  <span className="text-slate-800 font-medium">{item.numeroParte}</span>
                 </p>
               )}
               {item.fechaIngreso && (

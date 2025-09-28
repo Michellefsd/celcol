@@ -4,6 +4,9 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { api, fetchJson } from '@/services/api';
 import SubirArchivo from '@/components/Asignaciones/SubirArchivo';
+import IconButton from '@/components/IconButton';
+import { IconDescargar }  from '../../../../../components/ui/Icons';
+
 
 interface Empleado { nombre: string; apellido: string; }
 
@@ -158,31 +161,34 @@ interface OrdenTrabajo {
   const [mostrarSubirFactura, setMostrarSubirFactura] = useState(false);
   const [numeroFactura, setNumeroFactura] = useState('');
 
-  useEffect(() => {
-    const qs = includeArchived ? '?includeArchived=1' : '';          // 👈 nuevo
-    fetchJson<OrdenTrabajo>(`/ordenes-trabajo/${id}${qs}`)            // 👈 ajustado
-      .then((data) => {
-        setOrden(data);
-        setEstadoFactura(data.estadoFactura ?? 'PENDIENTE');
-        setNumeroFactura(data.numeroFactura ?? '');
-      })
-      .catch(err => console.error('Error al cargar orden:', err));
-  }, [id, includeArchived]);
+useEffect(() => {
+  const qs = includeArchived ? '?includeArchived=1' : '';
+  fetchJson<OrdenTrabajo>(`/ordenes-trabajo/${id}${qs}`)
+    .then((data) => {
+      setOrden(data);
+      setEstadoFactura(data.estadoFactura ?? 'PENDIENTE');
+      setNumeroFactura(data.numeroFactura ?? '');
+    })
+    .catch(err => console.error('Error al cargar orden:', err));
+}, [id, includeArchived]);
 
 
 
 const handleGuardarFactura = async () => {
   try {
     await fetchJson(`/ordenes-trabajo/${id}/factura`, {
-      method: 'PUT',                                           
-      body: JSON.stringify({ estadoFactura, numeroFactura }),  
+      method: 'PUT',
+      body: JSON.stringify({ estadoFactura, numeroFactura }),
     });
     alert('Factura actualizada');
-    router.refresh();
+    const qs = includeArchived ? '?includeArchived=1' : '';
+    const updated = await fetchJson<OrdenTrabajo>(`/ordenes-trabajo/${id}${qs}`);
+    setOrden(updated);
   } catch (e: any) {
     alert(e?.body?.error || e?.message || 'Error al guardar');
   }
 };
+
 
   if (!orden) return <p>Cargando...</p>;
 const esComponente = Boolean(orden.datosComponenteSnapshot || orden.componente);
@@ -322,6 +328,7 @@ return (
     )}
   </div>
 )}
+
 
 {esComponente && orden.datosComponenteSnapshot && (
   <div className="mt-4 rounded-xl border border-slate-200 bg-white p-4 text-[15px] leading-7">
@@ -514,10 +521,13 @@ return (
         const norm = (s: string) =>
           (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
 
-        const registrosEmpleado = registrosTrabajo.filter((r) =>
-          norm(r.empleado.nombre) === norm(asignacion.empleado.nombre) &&
-          norm(r.empleado.apellido) === norm(asignacion.empleado.apellido)
-        );
+const registrosEmpleado = registrosTrabajo.filter((r) => {
+  const roleOk = (r.rol ?? asignacion.rol) === asignacion.rol; // evita que aparezca en ambos bloques
+  const samePerson =
+    norm(r.empleado.nombre) === norm(asignacion.empleado.nombre) &&
+    norm(r.empleado.apellido) === norm(asignacion.empleado.apellido);
+  return roleOk && samePerson;
+});
 
         const fmtFecha = (d: string) => new Date(d).toLocaleDateString('es-UY');
 
@@ -535,7 +545,13 @@ return (
                 {registrosEmpleado.map((r, i) => (
                   <li key={`${r.fecha}-${i}`}>
                     <span className="text-slate-500">{fmtFecha(r.fecha)}:</span>{' '}
-                    <span>{Number(r.horasTrabajadas).toFixed(2)} h — </span>
+<span>
+  {(() => {
+    const h: any = (r as any).horas ?? r.horasTrabajadas ?? 0;   // fallback si backend manda "horas"
+    const n = typeof h === 'string' ? Number(h) : h;
+    return (Number.isFinite(n) ? n.toFixed(2) : '0.00') + ' h';
+  })()} — 
+</span>
                     <span>{r.trabajoRealizado?.trim() || 'Sin detalle'}</span>
                   </li>
                 ))}
@@ -584,18 +600,19 @@ return (
   </div>
 
   {/* Modal de subida */}
-  <SubirArchivo
-    open={mostrarSubirFactura}
-    onClose={() => setMostrarSubirFactura(false)}
-    url={`/ordenes-trabajo/${id}/subir-factura`}   // POST de subida
-    label="Subir archivo de factura"
-    nombreCampo="archivoFactura"
-    onUploaded={async () => {
-      setMostrarSubirFactura(false);
-      const updated = await fetchJson<any>(`/ordenes-trabajo/${id}`);
-      setOrden(updated);
-    }}
-  />
+<SubirArchivo
+  open={mostrarSubirFactura}
+  onClose={() => setMostrarSubirFactura(false)}
+  url={`/ordenes-trabajo/${id}/factura`} // coincide con tu backend (POST /:id/factura)
+  label="Subir archivo de factura"
+  nombreCampo="archivoFactura"
+  onUploaded={async () => {
+    setMostrarSubirFactura(false);
+    const qs = includeArchived ? '?includeArchived=1' : '';
+    const updated = await fetchJson<OrdenTrabajo>(`/ordenes-trabajo/${id}${qs}`);
+    setOrden(updated);
+  }}
+/>
 
   {/* Ver / Descargar factura */}
   {orden.archivoFactura?.storageKey && (
@@ -617,18 +634,6 @@ return (
     </div>
   )}
 
- <SubirArchivo
-  open={mostrarSubirFactura}
-  onClose={() => setMostrarSubirFactura(false)}
-  url={`/ordenes-trabajo/${id}/subir-factura`}   
-  label="Subir archivo de factura"
-  nombreCampo="archivoFactura"                   
-  onUploaded={async () => {
-    setMostrarSubirFactura(false);
-    const updated = await fetchJson<OrdenTrabajo>(`/ordenes-trabajo/${id}`);
-    setOrden(updated);
-  }}
-/>
 
       </section>
     </main>
