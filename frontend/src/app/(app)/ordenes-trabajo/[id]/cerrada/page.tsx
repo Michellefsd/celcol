@@ -326,6 +326,7 @@ return (
   </div>
 )}
 
+
 {esComponente && orden.datosComponenteSnapshot && (
   <div className="mt-4 rounded-xl border border-slate-200 bg-white p-4 text-[15px] leading-7">
     <h3 className="font-semibold text-slate-900 mb-1.5">
