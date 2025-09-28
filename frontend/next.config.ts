@@ -1,7 +1,7 @@
 // frontend/next.config.ts
 import type { NextConfig } from "next";
 
-const BACKEND_URL = process.env.BACKEND_URL ?? "https://celcol-production-testing.up.railway.app";
+const BACKEND_URL = process.env.BACKEND_URL ?? "https://celcol-production.up.railway.app";
 
 const nextConfig: NextConfig = {
   eslint: {
