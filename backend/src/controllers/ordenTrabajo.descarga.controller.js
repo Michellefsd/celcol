@@ -552,40 +552,40 @@ export const descargarOrdenPDF = async (req, res) => {
       .filter(e => (e?.rol || '').toUpperCase() === 'CERTIFICADOR')
       .map(toNombre);
 
-    // Filas 1-4 - NUEVA ESTRUCTURA BASADA EN LA IMAGEN
+    // Obtener acciones tomadas de registros de trabajo
     const regs = Array.isArray(orden.registrosTrabajo) ? orden.registrosTrabajo : [];
-    const filas = [];
+    const accionesTomadas = [];
     
-    // Procesar registros de trabajo para las filas 1-4
     for (let i = 0; i < Math.min(4, regs.length); i++) {
       const r = regs[i];
-      const rep = r?.trabajoRealizado || r?.detalle || r?.descripcion || '';
-      const hh  = String(r?.horas ?? r?.cantidadHoras ?? '');
-      filas.push({
-        num: i + 1,
-        reporte: rep,
-        accion: rep, // Por ahora mismo valor, luego puede venir de otro campo
-        certificador: certificadores[0] || '',
-        hh
-      });
-    }
-    
-    // Completar con datos de solicitud si hay espacios vacíos
-    for (let i = 0; i < 4; i++) {
-      if (!filas[i]) filas[i] = { num: i + 1, reporte: '', accion: '', certificador: '', hh: '' };
-      if (isEmpty(filas[i].reporte) && solicitudBullets[i]) {
-        const b = solicitudBullets[i];
-        filas[i].reporte = b;
-        filas[i].accion  = b;
+      const accion = r?.trabajoRealizado || r?.detalle || r?.descripcion || '';
+      const tecnicoNombre = [r?.empleado?.nombre, r?.empleado?.apellido].filter(Boolean).join(' ').trim();
+      const hh = String(r?.horas ?? r?.cantidadHoras ?? '');
+      
+      if (accion) {
+        accionesTomadas.push({
+          descripcion: accion,
+          tecnico: tecnicoNombre || (tecnicos[0] || ''),
+          certificador: certificadores[0] || '',
+          horas: hh
+        });
       }
-      // Escapar
-      filas[i].reporte = escapeHTML(filas[i].reporte);
-      filas[i].accion  = escapeHTML(filas[i].accion);
-      filas[i].certificador = escapeHTML(filas[i].certificador);
-      filas[i].hh = escapeHTML(filas[i].hh);
     }
 
-    // Discrepancias - ajustado al nuevo diseño
+    // Si no hay registros, usar datos de solicitud
+    if (accionesTomadas.length === 0 && solicitudBullets.length > 0) {
+      solicitudBullets.forEach((bullet, index) => {
+        if (index < 4) {
+          accionesTomadas.push({
+            descripcion: bullet,
+            tecnico: tecnicos[0] || '',
+            certificador: certificadores[0] || '',
+            horas: ''
+          });
+        }
+      });
+    }
+
     const discrepanciaTexto = discrep?.A?.texto || discrep?.B?.texto || observBullets[0] || '';
 
     const fechaCierreTexto = estado === 'CERRADA' ? fmtUY(orden.fechaCierre) : fmtUY(orden.fechaCancelacion);
@@ -600,7 +600,7 @@ export const descargarOrdenPDF = async (req, res) => {
       }
     } catch {}
 
-    // HTML/CSS - AJUSTADO AL NUEVO DISEÑO
+    // HTML/CSS - ESTRUCTURA CORREGIDA
     const html = `<!doctype html>
 <html>
 <head>
@@ -633,15 +633,19 @@ export const descargarOrdenPDF = async (req, res) => {
   /* Autorización */
   .autorizacion { text-align: center; font-size: 9pt; margin: 4mm 0; padding: 0 5mm; }
 
-  /* Tabla de trabajos */
-  .trabajos-table { width: 100%; border-collapse: collapse; margin-bottom: 3mm; }
-  .trabajos-table td { border: 0.5pt solid #000; padding: 2mm; vertical-align: top; }
-  .trabajo-num { width: 15mm; text-align: center; font-weight: bold; }
-  .trabajo-rep { width: 45%; position: relative; min-height: 20mm; }
-  .trabajo-acc { width: 45%; position: relative; min-height: 20mm; }
-  .trabajo-label { position: absolute; top: -3mm; left: 2mm; background: white; padding: 0 2mm; font-size: 8pt; font-weight: bold; }
-  .trabajo-footer { position: absolute; bottom: 1mm; right: 2mm; display: flex; gap: 2mm; font-size: 8pt; }
-  .cert-box, .hh-box { border: 0.5pt solid #000; padding: 1mm 2mm; min-width: 25mm; }
+  /* Sección 1 - Reporte */
+  .seccion-reporte { border: 0.5pt solid #000; padding: 2mm; margin-bottom: 3mm; position: relative; min-height: 25mm; }
+  .seccion-label { position: absolute; top: -3mm; left: 2mm; background: white; padding: 0 2mm; font-size: 8pt; font-weight: bold; }
+
+  /* Sección 2 - Acciones Tomadas */
+  .seccion-acciones { border: 0.5pt solid #000; padding: 2mm; margin-bottom: 3mm; position: relative; min-height: 35mm; }
+  
+  /* Lista de acciones */
+  .lista-acciones { margin-top: 2mm; }
+  .accion-item { margin-bottom: 3mm; padding-bottom: 2mm; border-bottom: 0.5pt solid #ccc; }
+  .accion-desc { margin-bottom: 2mm; }
+  .accion-datos { display: flex; gap: 3mm; font-size: 8pt; }
+  .dato-box { border: 0.5pt solid #000; padding: 1mm 2mm; min-width: 25mm; }
 
   /* Fecha cierre */
   .cierre { display: grid; grid-template-columns: 1fr 40mm; gap: 3mm; margin-top: 5mm; }
@@ -708,37 +712,38 @@ export const descargarOrdenPDF = async (req, res) => {
   Autorizo a la OMA, la realización en la aeronave o componente de los trabajos detallados en la siguiente orden
 </div>
 
-<!-- Tabla de trabajos 1-4 -->
-<table class="trabajos-table">
-  ${filas.map(f => {
-    const emptyRep = isEmpty(f.reporte);
-    const emptyAcc = isEmpty(f.accion);
-    return `
-    <tr>
-      <td class="trabajo-num">${f.num}</td>
-      <td class="trabajo-rep" style="${emptyRep ? 'border-width: 0.25pt; opacity: 0.7;' : ''}">
-        <div class="trabajo-label">1 Reporte</div>
-        <div class="mono" style="margin-top: 1mm;">${f.reporte}</div>
-        ${!emptyRep ? `
-        <div class="trabajo-footer">
-          <div class="cert-box">Certific. ${f.certificador}</div>
-          <div class="hh-box">H.H ${f.hh}</div>
+<!-- SECCIÓN 1 - REPORTE -->
+<div class="seccion-reporte">
+  <div class="seccion-label">1 Reporte</div>
+  <div class="mono" style="margin-top: 1mm;">${escapeHTML(solicitudBruta)}</div>
+</div>
+
+<!-- SECCIÓN 2 - ACCIONES TOMADAS -->
+<div class="seccion-acciones">
+  <div class="seccion-label">2 Acciones Tomadas</div>
+  <div class="lista-acciones">
+    ${accionesTomadas.map((accion, index) => `
+      <div class="accion-item">
+        <div class="accion-desc">${escapeHTML(accion.descripcion)}</div>
+        <div class="accion-datos">
+          <div class="dato-box">Técnico: ${escapeHTML(accion.tecnico)}</div>
+          <div class="dato-box">Certific.: ${escapeHTML(accion.certificador)}</div>
+          <div class="dato-box">H.H: ${escapeHTML(accion.horas)}</div>
         </div>
-        ` : ''}
-      </td>
-      <td class="trabajo-acc" style="${emptyAcc ? 'border-width: 0.25pt; opacity: 0.7;' : ''}">
-        <div class="trabajo-label">2 Acción Tomada</div>
-        <div class="mono" style="margin-top: 1mm;">${f.accion}</div>
-        ${!emptyAcc ? `
-        <div class="trabajo-footer">
-          <div class="cert-box">Certific. ${f.certificador}</div>
-          <div class="hh-box">H.H ${f.hh}</div>
+      </div>
+    `).join('')}
+    ${accionesTomadas.length === 0 ? `
+      <div class="accion-item">
+        <div class="accion-desc"></div>
+        <div class="accion-datos">
+          <div class="dato-box">Técnico:</div>
+          <div class="dato-box">Certific.:</div>
+          <div class="dato-box">H.H:</div>
         </div>
-        ` : ''}
-      </td>
-    </tr>`;
-  }).join('')}
-</table>
+      </div>
+    ` : ''}
+  </div>
+</div>
 
 <!-- Fecha de cierre -->
 <div class="cierre">
