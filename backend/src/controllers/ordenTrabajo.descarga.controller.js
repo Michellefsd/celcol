@@ -545,6 +545,11 @@ export const descargarOrdenPDF = async (req, res) => {
       const a = emp?.apellido ?? emp?.empleado?.apellido;
       return [n, a].filter(Boolean).join(' ').trim();
     };
+    
+    const toRol = (emp) => {
+      return emp?.rol ?? emp?.empleado?.rol ?? 'TÉCNICO';
+    };
+
     const tecnicos = (orden.empleadosAsignados || [])
       .filter(e => (e?.rol || '').toUpperCase() === 'TECNICO')
       .map(toNombre);
@@ -560,12 +565,14 @@ export const descargarOrdenPDF = async (req, res) => {
       const r = regs[i];
       const accion = r?.trabajoRealizado || r?.detalle || r?.descripcion || '';
       const tecnicoNombre = [r?.empleado?.nombre, r?.empleado?.apellido].filter(Boolean).join(' ').trim();
+      const rolEmpleado = r?.empleado?.rol || 'TÉCNICO';
       const hh = String(r?.horas ?? r?.cantidadHoras ?? '');
       
       if (accion) {
         accionesTomadas.push({
           descripcion: accion,
           tecnico: tecnicoNombre || (tecnicos[0] || ''),
+          rol: rolEmpleado,
           certificador: certificadores[0] || '',
           horas: hh
         });
@@ -579,6 +586,7 @@ export const descargarOrdenPDF = async (req, res) => {
           accionesTomadas.push({
             descripcion: bullet,
             tecnico: tecnicos[0] || '',
+            rol: 'TÉCNICO',
             certificador: certificadores[0] || '',
             horas: ''
           });
@@ -609,7 +617,8 @@ export const descargarOrdenPDF = async (req, res) => {
 <style>
   @page { size: A4; margin: 12mm; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: Arial, Helvetica, sans-serif; font-size: 10pt; color: #000; line-height: 1.2; }
+  body { font-family: Arial, Helvetica, sans-serif; font-size: 10pt; color: #000; line-height: 1.2; 
+         position: relative; min-height: 297mm; padding-bottom: 20mm; }
 
   /* Header */
   .header { text-align: center; margin-bottom: 4mm; }
@@ -651,8 +660,10 @@ export const descargarOrdenPDF = async (req, res) => {
   .cierre { display: grid; grid-template-columns: 1fr 40mm; gap: 3mm; margin-top: 5mm; }
   .fecha-cierre { border: 0.5pt solid #000; padding: 2mm; position: relative; min-height: 12mm; }
 
-  /* Footer */
-  .footer { display: flex; justify-content: space-between; margin-top: 8mm; font-size: 8pt; }
+  /* Footer - POSICIÓN FIJA */
+  .footer { position: absolute; bottom: 0; left: 0; right: 0; 
+            display: flex; justify-content: space-between; 
+            font-size: 8pt; margin-top: 15mm; }
 
   .mono { white-space: pre-wrap; font-family: monospace; }
   .bold { font-weight: bold; }
@@ -701,9 +712,9 @@ export const descargarOrdenPDF = async (req, res) => {
   </div>
 </div>
 
-<!-- Discrepancias -->
+<!-- Discrepancias - NUMERO 6 -->
 <div class="discrepancias">
-  <div class="discrepancias-label">5 Discrepancias encontradas</div>
+  <div class="discrepancias-label">6 Discrepancias encontradas</div>
   <div class="mono" style="margin-top: 1mm;">${escapeHTML(discrepanciaTexto)}</div>
 </div>
 
@@ -726,7 +737,7 @@ export const descargarOrdenPDF = async (req, res) => {
       <div class="accion-item">
         <div class="accion-desc">${escapeHTML(accion.descripcion)}</div>
         <div class="accion-datos">
-          <div class="dato-box">Técnico: ${escapeHTML(accion.tecnico)}</div>
+          <div class="dato-box">${escapeHTML(accion.rol)}: ${escapeHTML(accion.tecnico)}</div>
           <div class="dato-box">Certific.: ${escapeHTML(accion.certificador)}</div>
           <div class="dato-box">H.H: ${escapeHTML(accion.horas)}</div>
         </div>
@@ -736,7 +747,7 @@ export const descargarOrdenPDF = async (req, res) => {
       <div class="accion-item">
         <div class="accion-desc"></div>
         <div class="accion-datos">
-          <div class="dato-box">Técnico:</div>
+          <div class="dato-box">TÉCNICO:</div>
           <div class="dato-box">Certific.:</div>
           <div class="dato-box">H.H:</div>
         </div>
@@ -754,7 +765,7 @@ export const descargarOrdenPDF = async (req, res) => {
   </div>
 </div>
 
-<!-- Footer -->
+<!-- Footer - POSICIÓN FIJA -->
 <div class="footer">
   <div>Manual de la Organización de Mantenimiento – MOM</div>
   <div>Aprobado por: CELCOL AVIATION</div>
