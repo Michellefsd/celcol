@@ -1003,8 +1003,8 @@ export const descargarOrdenPDF = async (req, res) => {
       }
     } catch {}
 
-    // HTML/CSS - ESTRUCTURA CORREGIDA
-    const html = `<!doctype html>
+// HTML/CSS - ESTRUCTURA CORREGIDA
+const html = `<!doctype html>
 <html>
 <head>
 <meta charset="utf-8"/>
@@ -1018,9 +1018,9 @@ export const descargarOrdenPDF = async (req, res) => {
   /* Header */
   .header { position: relative; margin-bottom: 4mm; height: 25mm; }
   .logo { position: absolute; left: 0; top: 0; width: 40mm; height: auto; }
-  .header-content { margin-left: 45mm; }
+  .header-content { margin-left: 45mm; text-align: center; }
   .header h1 { font-size: 14pt; font-weight: bold; margin-bottom: 1mm; }
-  .header-fecha { position: absolute; top: 0; right: 0; font-size: 10pt; }
+  .header-fecha { position: absolute; top: 5mm; right: 0; font-size: 10pt; }
 
   /* Grid principal */
   .grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 3mm; margin-bottom: 3mm; }
