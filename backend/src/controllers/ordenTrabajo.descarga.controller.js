@@ -523,7 +523,7 @@ export const descargarOrdenPDF = async (req, res) => {
     const discrep  = normalizeSnap(orden.discrepanciasSnapshot) || {};
 
     const matricula = (avSnap?.matricula) || (orden.avion?.matricula) || (compSnap?.matricula) || '';
-    const fechaSolicitud = fmtUY(orden.fechaApertura); // usar apertura
+    const fechaSolicitud = fmtUY(orden.fechaApertura);
     const otNro = String(orden.numero ?? orden.id);
 
     const propName =
@@ -552,27 +552,27 @@ export const descargarOrdenPDF = async (req, res) => {
       .filter(e => (e?.rol || '').toUpperCase() === 'CERTIFICADOR')
       .map(toNombre);
 
-    // Filas 1–4 - NUEVA ESTRUCTURA
+    // Filas 1-4 - NUEVA ESTRUCTURA BASADA EN LA IMAGEN
     const regs = Array.isArray(orden.registrosTrabajo) ? orden.registrosTrabajo : [];
     const filas = [];
+    
+    // Procesar registros de trabajo para las filas 1-4
     for (let i = 0; i < Math.min(4, regs.length); i++) {
       const r = regs[i];
-      const nombre = [r?.empleado?.nombre, r?.empleado?.apellido].filter(Boolean).join(' ').trim();
       const rep = r?.trabajoRealizado || r?.detalle || r?.descripcion || '';
       const hh  = String(r?.horas ?? r?.cantidadHoras ?? '');
       filas.push({
         num: i + 1,
-        // Campo 1: Reporte solamente
         reporte: rep,
-        // Campo 2: Acción Tomada (toma el mismo valor por ahora)
-        accion: rep,
-        tecnico: nombre || (tecnicos[0] || ''),
+        accion: rep, // Por ahora mismo valor, luego puede venir de otro campo
         certificador: certificadores[0] || '',
         hh
       });
     }
+    
+    // Completar con datos de solicitud si hay espacios vacíos
     for (let i = 0; i < 4; i++) {
-      if (!filas[i]) filas[i] = { num: i + 1, reporte: '', accion: '', tecnico: '', certificador: '', hh: '' };
+      if (!filas[i]) filas[i] = { num: i + 1, reporte: '', accion: '', certificador: '', hh: '' };
       if (isEmpty(filas[i].reporte) && solicitudBullets[i]) {
         const b = solicitudBullets[i];
         filas[i].reporte = b;
@@ -581,17 +581,12 @@ export const descargarOrdenPDF = async (req, res) => {
       // Escapar
       filas[i].reporte = escapeHTML(filas[i].reporte);
       filas[i].accion  = escapeHTML(filas[i].accion);
-      filas[i].tecnico = escapeHTML(filas[i].tecnico);
       filas[i].certificador = escapeHTML(filas[i].certificador);
       filas[i].hh = escapeHTML(filas[i].hh);
     }
 
-    // A/B (Discrepancias)
-    const A = Object.assign({ texto: '', accion: '', tecnico: '', certificador: '', hh: '' }, discrep?.A || {});
-    const B = Object.assign({ texto: '', accion: '', tecnico: '', certificador: '', hh: '' }, discrep?.B || {});
-    if (isEmpty(A.texto) && observBullets[0]) A.texto = observBullets[0];
-    if (isEmpty(B.texto) && observBullets[1]) B.texto = observBullets[1];
-    ['texto','accion','tecnico','certificador','hh'].forEach(k => { A[k] = escapeHTML(A[k] || ''); B[k] = escapeHTML(B[k] || ''); });
+    // Discrepancias - ajustado al nuevo diseño
+    const discrepanciaTexto = discrep?.A?.texto || discrep?.B?.texto || observBullets[0] || '';
 
     const fechaCierreTexto = estado === 'CERRADA' ? fmtUY(orden.fechaCierre) : fmtUY(orden.fechaCancelacion);
 
@@ -605,7 +600,7 @@ export const descargarOrdenPDF = async (req, res) => {
       }
     } catch {}
 
-    // HTML/CSS
+    // HTML/CSS - AJUSTADO AL NUEVO DISEÑO
     const html = `<!doctype html>
 <html>
 <head>
@@ -613,210 +608,148 @@ export const descargarOrdenPDF = async (req, res) => {
 <title>CA-29 OT ${escapeHTML(otNro)}</title>
 <style>
   @page { size: A4; margin: 12mm; }
-  * { box-sizing: border-box; }
-  body { font-family: Arial, Helvetica, sans-serif; font-size: 9.5pt; color: #000; }
-
-  .row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 3mm; }
-  .box { border: 0.35pt solid #000; padding: 2mm; position: relative; }
-  .label { position:absolute; top: -3mm; left: 2mm; background:#fff; padding: 0 1mm; font-size: 8pt; font-weight: 700; }
-  .half .label { top: -1.4mm; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Arial, Helvetica, sans-serif; font-size: 10pt; color: #000; line-height: 1.2; }
 
   /* Header */
-  .hdr { position:relative; height: 23mm; margin-bottom: 2mm; }
-  .logo { position:absolute; left:0; top:1mm; width:30mm; }
-  .meta { position: absolute; top: 0; right: 0; width: 55mm; height: 18mm; border: 0.35pt solid #000; padding: 2mm; font-size: 8.5pt; }
-  .meta .ca { position: absolute; top: 2mm; right: 3mm; font-weight: 700; }
-  .h1 { position:absolute; top: 6mm; left: 34mm; right: 58mm; font-weight: 700; font-size: 13.5pt; line-height: 1.05; margin: 0; }
+  .header { text-align: center; margin-bottom: 4mm; }
+  .header h1 { font-size: 14pt; font-weight: bold; margin-bottom: 2mm; }
+  .header .fecha { font-size: 10pt; margin-bottom: 4mm; }
 
-  .topline { border-top: 0.35pt solid #000; margin-top: 3mm; }
-  .mono { white-space: pre-wrap; }
+  /* Grid principal */
+  .grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 3mm; margin-bottom: 3mm; }
+  .field { border: 0.5pt solid #000; padding: 2mm; position: relative; min-height: 12mm; }
+  .field-label { position: absolute; top: -3mm; left: 2mm; background: white; padding: 0 2mm; font-size: 8pt; font-weight: bold; }
 
-/* ======= ESTRUCTURA UNIFICADA PARA TODAS LAS FILAS ======= */
-.items { margin-top: 5mm; }
-.item { 
-  display: grid; 
-  grid-template-columns: 12mm 1fr 1fr; 
-  gap: 2mm; 
-  height: 26mm; 
-  margin-bottom: 2mm; 
-}
-.item .num { 
-  border: 0.35pt solid #000; 
-  display:flex; 
-  align-items:center; 
-  justify-content:center; 
-  font-weight:700; 
-}
+  /* Sección 4-5 */
+  .section-45 { display: grid; grid-template-columns: 1fr 40mm; gap: 3mm; margin-bottom: 3mm; }
+  .solicitud { border: 0.5pt solid #000; padding: 2mm; position: relative; min-height: 25mm; }
+  .firma { border: 0.5pt solid #000; padding: 2mm; position: relative; min-height: 25mm; }
 
-.half { 
-  border: 0.35pt solid #000;
-  position: relative; 
-  padding: 3mm 2mm 8.5mm 2mm;
-}
+  /* Discrepancias */
+  .discrepancias { border: 0.5pt solid #000; padding: 2mm; margin-bottom: 3mm; position: relative; min-height: 15mm; }
+  .discrepancias-label { position: absolute; top: -3mm; left: 2mm; background: white; padding: 0 2mm; font-size: 8pt; font-weight: bold; }
 
-.half .label { 
-  position:absolute; 
-  top: -3mm; 
-  left: 2mm; 
-  background:#fff; 
-  padding: 0 1mm; 
-  font-size: 8pt; 
-  font-weight: 700; 
-}
+  /* Autorización */
+  .autorizacion { text-align: center; font-size: 9pt; margin: 4mm 0; padding: 0 5mm; }
 
-.mini-wrap { 
-  position:absolute; 
-  right: 2mm; 
-  bottom: 2mm; 
-  display:flex; 
-  gap: 2mm; 
-}
-.mini { 
-  border: 0.35pt solid #000; 
-  padding: 1mm 2.6mm; 
-  font-size: 7.4pt; 
-  height: 7.2mm; 
-  line-height: 1; 
-  display:inline-block; 
-}
-.mini .val { 
-  display:block; 
-  font-size: 7.2pt; 
-  margin-top: 0.4mm; 
-  white-space: nowrap; 
-  overflow: hidden; 
-  text-overflow: ellipsis; 
-}
-.mini-tech { min-width: 34mm; }
-.mini-cert { min-width: 30mm; }
-.mini-hh   { min-width: 22mm; text-align: right; }
+  /* Tabla de trabajos */
+  .trabajos-table { width: 100%; border-collapse: collapse; margin-bottom: 3mm; }
+  .trabajos-table td { border: 0.5pt solid #000; padding: 2mm; vertical-align: top; }
+  .trabajo-num { width: 15mm; text-align: center; font-weight: bold; }
+  .trabajo-rep { width: 45%; position: relative; min-height: 20mm; }
+  .trabajo-acc { width: 45%; position: relative; min-height: 20mm; }
+  .trabajo-label { position: absolute; top: -3mm; left: 2mm; background: white; padding: 0 2mm; font-size: 8pt; font-weight: bold; }
+  .trabajo-footer { position: absolute; bottom: 1mm; right: 2mm; display: flex; gap: 2mm; font-size: 8pt; }
+  .cert-box, .hh-box { border: 0.5pt solid #000; padding: 1mm 2mm; min-width: 25mm; }
 
-.half.empty { border-width: 0.25pt; opacity: 0.9; }
-.mini.empty { border-width: 0.25pt; opacity: 0.9; }
+  /* Fecha cierre */
+  .cierre { display: grid; grid-template-columns: 1fr 40mm; gap: 3mm; margin-top: 5mm; }
+  .fecha-cierre { border: 0.5pt solid #000; padding: 2mm; position: relative; min-height: 12mm; }
 
-/* ======= SECCIÓN A / B ======= */
-.ab { 
-  display: grid; 
-  grid-template-columns: 12mm 1fr 1fr; 
-  gap: 2mm; 
-  height: 23mm; 
-  margin: 2mm 0; 
-}
+  /* Footer */
+  .footer { display: flex; justify-content: space-between; margin-top: 8mm; font-size: 8pt; }
 
-  /* Fecha de cierre (aire suficiente) */
-  .close-row { grid-template-columns: 1fr 55mm 0; margin-top: 6mm; }
-
-  /* Firma */
-  .sig { height: 100%; display: flex; flex-direction: column; }
-  .sig .line { margin-top: auto; border-top: 0.35pt solid #000; text-align: center; font-size: 7.5pt; padding-top: 1mm; }
-
-  .footer { margin-top: 6mm; display:flex; justify-content: space-between; font-size:8.8pt; }
+  .mono { white-space: pre-wrap; font-family: monospace; }
+  .bold { font-weight: bold; }
 </style>
-
 </head>
 <body>
 
-<div class="hdr">
-  ${logoData ? `<img class="logo" src="${logoData}">` : ''}
-  <div class="meta">
-    <div>Capítulo: 9</div>
-    <div>Fecha: ${escapeHTML(fmtUY(new Date()))}</div>
-    <div class="ca">CA-29</div>
+<div class="header">
+  ${logoData ? `<img src="${logoData}" style="height: 15mm; margin-bottom: 2mm;">` : ''}
+  <h1>SOLICITUD - ORDEN DE TRABAJO DISCREPANCIAS</h1>
+  <div class="fecha">Fecha: ${escapeHTML(fmtUY(new Date()))}</div>
+</div>
+
+<!-- Campos 1-3 -->
+<div class="grid">
+  <div class="field">
+    <div class="field-label">1 Matrícula</div>
+    <div class="mono">${escapeHTML(matricula || '')}</div>
   </div>
-  <div class="h1">SOLICITUD - ORDEN DE TRABAJO&nbsp;&nbsp;DISCREPANCIAS</div>
+  <div class="field">
+    <div class="field-label">2 Fecha solicitud</div>
+    <div class="mono">${escapeHTML(fechaSolicitud || '')}</div>
+  </div>
+  <div class="field">
+    <div class="field-label">3 O/T Nro.</div>
+    <div class="mono">${escapeHTML(otNro)}</div>
+  </div>
 </div>
 
-<div class="topline"></div>
-
-<!-- 1-3 -->
-<div class="row" style="margin-top: 3mm;">
-  <div class="box"><div class="label">1 Matrícula</div><div class="mono">${escapeHTML(matricula || '-')}</div></div>
-  <div class="box"><div class="label">2 Fecha solicitud</div><div class="mono">${escapeHTML(fechaSolicitud || '-')}</div></div>
-  <div class="box"><div class="label">3 O/T Nro.</div><div class="mono">${escapeHTML(otNro)}</div></div>
-</div>
-
-<!-- 4-5 -->
-<div class="row" style="margin-top: 3mm; grid-template-columns: 1fr 55mm 0; gap: 3mm;">
-  <div class="box" style="height: 22mm;"><div class="label">4 Solicitud (descripción del trabajo)</div>
-    <div class="mono" style="line-height: 1.2;">${escapeHTML(solicitudBruta)}</div></div>
-  <div class="box" style="height: 26mm;">
-    <div class="label">5 Firma o email</div>
-    <div class="sig">
-      <div><b>Solicitó:</b> ${escapeHTML(propName || '-')}</div>
+<!-- Sección 4-5 -->
+<div class="section-45">
+  <div class="solicitud">
+    <div class="field-label">4 Solicitud (descripción del trabajo)</div>
+    <div class="mono" style="margin-top: 1mm;">${escapeHTML(solicitudBruta)}</div>
+  </div>
+  <div class="firma">
+    <div class="field-label">5 Firma o email</div>
+    <div style="margin-top: 1mm;">
+      <div class="bold">Solicitó:</div>
+      <div>${escapeHTML(propName || '')}</div>
       <div>${escapeHTML(propEmail || '')}</div>
-      <div class="line">Firma</div>
+      <div style="margin-top: 8mm; border-top: 0.5pt solid #000; text-align: center; padding-top: 1mm;">
+        Firma
+      </div>
     </div>
   </div>
 </div>
 
-<!-- Texto intermedio -->
-<div style="margin: 4mm 0 3mm 0; font-size: 9pt; line-height:1.15;">
+<!-- Discrepancias -->
+<div class="discrepancias">
+  <div class="discrepancias-label">5 Discrepancias encontradas</div>
+  <div class="mono" style="margin-top: 1mm;">${escapeHTML(discrepanciaTexto)}</div>
+</div>
+
+<!-- Texto de autorización -->
+<div class="autorizacion">
   Autorizo a la OMA, la realización en la aeronave o componente de los trabajos detallados en la siguiente orden
 </div>
 
-<!-- 1-4 items - NUEVA ESTRUCTURA -->
-<div class="items">
+<!-- Tabla de trabajos 1-4 -->
+<table class="trabajos-table">
   ${filas.map(f => {
-    const empty1 = isEmpty(f.reporte);
-    const empty2 = isEmpty(f.accion);
-    const emptyTecnico = isEmpty(f.tecnico);
-    const emptyCertificador = isEmpty(f.certificador);
-    const emptyHH = isEmpty(f.hh);
+    const emptyRep = isEmpty(f.reporte);
+    const emptyAcc = isEmpty(f.accion);
     return `
-    <div class="item">
-      <div class="num">${f.num}</div>
-      <div class="half ${empty1 ? 'empty' : ''}">
-        <div class="label">1 Reporte</div>
-        <div class="mono" style="line-height:1.2;">${f.reporte}</div>
-      </div>
-      <div class="half ${empty2 ? 'empty' : ''}">
-        <div class="label">2 Acción Tomada</div>
-        <div class="mono" style="line-height:1.2;">${f.accion}</div>
-        <div class="mini-wrap">
-          <div class="mini mini-tech ${emptyTecnico ? 'empty' : ''}">Técnico<span class="val">${f.tecnico}</span></div>
-          <div class="mini mini-cert ${emptyCertificador ? 'empty' : ''}">Certific.<span class="val">${f.certificador}</span></div>
-          <div class="mini mini-hh ${emptyHH ? 'empty' : ''}">H.H<span class="val">${f.hh}</span></div>
+    <tr>
+      <td class="trabajo-num">${f.num}</td>
+      <td class="trabajo-rep" style="${emptyRep ? 'border-width: 0.25pt; opacity: 0.7;' : ''}">
+        <div class="trabajo-label">1 Reporte</div>
+        <div class="mono" style="margin-top: 1mm;">${f.reporte}</div>
+        ${!emptyRep ? `
+        <div class="trabajo-footer">
+          <div class="cert-box">Certific. ${f.certificador}</div>
+          <div class="hh-box">H.H ${f.hh}</div>
         </div>
-      </div>
-    </div>`;
+        ` : ''}
+      </td>
+      <td class="trabajo-acc" style="${emptyAcc ? 'border-width: 0.25pt; opacity: 0.7;' : ''}">
+        <div class="trabajo-label">2 Acción Tomada</div>
+        <div class="mono" style="margin-top: 1mm;">${f.accion}</div>
+        ${!emptyAcc ? `
+        <div class="trabajo-footer">
+          <div class="cert-box">Certific. ${f.certificador}</div>
+          <div class="hh-box">H.H ${f.hh}</div>
+        </div>
+        ` : ''}
+      </td>
+    </tr>`;
   }).join('')}
-</div>
+</table>
 
-<!-- A/B - NUEVA ESTRUCTURA -->
-${[['A', A], ['B', B]].map(([tag, r], idx) => {
-  const empty1 = isEmpty(r?.texto);
-  const empty2 = isEmpty(r?.accion);
-  const emptyTecnico = isEmpty(r?.tecnico);
-  const emptyCertificador = isEmpty(r?.certificador);
-  const emptyHH = isEmpty(r?.hh);
-  return `
-  <div class="ab">
-    <div class="num">${tag}</div>
-    <div class="half ${empty1 ? 'empty' : ''}">
-      <div class="label">1 Discrepancias encontradas</div>
-      <div class="mono" style="line-height:1.2;">${r?.texto || ''}</div>
-    </div>
-    <div class="half ${empty2 ? 'empty' : ''}">
-      <div class="label">2 Acción Tomada</div>
-      <div class="mono" style="line-height:1.2;">${r?.accion || ''}</div>
-      <div class="mini-wrap">
-        <div class="mini mini-tech ${emptyTecnico ? 'empty' : ''}">Técnico<span class="val">${r?.tecnico || ''}</span></div>
-        <div class="mini mini-cert ${emptyCertificador ? 'empty' : ''}">Certific.<span class="val">${r?.certificador || ''}</span></div>
-        <div class="mini mini-hh ${emptyHH ? 'empty' : ''}">H.H<span class="val">${r?.hh || ''}</span></div>
-      </div>
-    </div>
-  </div>`;
-}).join('')}
-
-<!-- 3 Fecha de cierre (con margen extra) -->
-<div class="row close-row">
+<!-- Fecha de cierre -->
+<div class="cierre">
   <div></div>
-  <div class="box" style="height: 12mm;">
-    <div class="label">3 Fecha de cierre</div>
-    <div class="mono" style="font-weight:700;">${escapeHTML(fechaCierreTexto || '')}</div>
+  <div class="fecha-cierre">
+    <div class="field-label">3 Fecha de cierre</div>
+    <div class="mono bold" style="margin-top: 1mm; text-align: center;">${escapeHTML(fechaCierreTexto || '')}</div>
   </div>
 </div>
 
+<!-- Footer -->
 <div class="footer">
   <div>Manual de la Organización de Mantenimiento – MOM</div>
   <div>Aprobado por: CELCOL AVIATION</div>
