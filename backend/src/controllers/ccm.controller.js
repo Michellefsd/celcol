@@ -1,5 +1,5 @@
 // src/controllers/conformidadMantenimiento.controller.js (ESM)
-import { PrismaClient } from '@prisma/client';
+/*import { PrismaClient } from '@prisma/client';
 import path from 'path';
 import fs from 'fs';
 import puppeteer from 'puppeteer';
@@ -109,7 +109,7 @@ export const descargarConformidadPDF = async (req, res) => {
 <style>
   @page { 
     size: A4; 
-    margin: 30mm 30mm 20mm 30mm; /* 3cm izq/der, 2cm abajo, 3cm arriba */
+    margin: 30mm 30mm 20mm 30mm; /* 3cm izq/der, 2cm abajo, 3cm arriba * /
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { 
@@ -122,7 +122,7 @@ export const descargarConformidadPDF = async (req, res) => {
     padding: 0;
   }
 
-  /* Header */
+  // Header //
   .header {
     text-align: center;
     margin-bottom: 12mm;
@@ -139,12 +139,12 @@ export const descargarConformidadPDF = async (req, res) => {
 
   .header .subtitle { font-size: 12pt; font-weight: bold; }
 
-  /* Información de la OMA */
+  // Información de la OMA //
   .oma-info { text-align: center; margin-bottom: 8mm; font-size: 10pt; }
   .oma-info .address { font-weight: bold; margin-bottom: 1mm; }
   .oma-info .hangar { font-style: italic; }
 
-  /* Tabla de datos de la aeronave */
+  // Tabla de datos de la aeronave //
   .aircraft-table {
     width: 100%;
     border-collapse: collapse;
@@ -159,7 +159,7 @@ export const descargarConformidadPDF = async (req, res) => {
   .aircraft-table .label { font-weight: bold; width: 25%; }
   .aircraft-table .value { width: 75%; }
 
-  /* Sección de certificado */
+  // Sección de certificado //
   .certificate-section { margin-bottom: 10mm; }
   .certificate-title {
     font-size: 14pt; font-weight: bold; text-align: center;
@@ -173,7 +173,7 @@ export const descargarConformidadPDF = async (req, res) => {
     margin-bottom: 8mm; font-size: 11pt; line-height: 1.6; text-align: justify;
   }
 
-  /* Tabla de certificador */
+  // Tabla de certificador //
   .certifier-table {
     width: 100%; border-collapse: collapse; margin-top: 15mm; font-size: 11pt;
   }
@@ -192,7 +192,7 @@ export const descargarConformidadPDF = async (req, res) => {
     font-size: 10pt; font-weight: bold;
   }
 
-  /* Utilidades */
+  // Utilidades //
   .text-center { text-align: center; }
   .text-bold { font-weight: bold; }
   .mb-2 { margin-bottom: 2mm; }
@@ -303,6 +303,327 @@ export const descargarConformidadPDF = async (req, res) => {
 
   } catch (error) {
     console.error('Error al generar PDF de Conformidad de Mantenimiento:', error);
+    if (!res.headersSent) return res.status(500).json({ error: 'Error al generar el PDF' });
+  }
+};
+*/
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// src/controllers/conformidadMantenimiento.controller.js (ESM)
+import { PrismaClient } from '@prisma/client';
+import path from 'path';
+import fs from 'fs';
+import puppeteer from 'puppeteer';
+
+const prisma = new PrismaClient();
+
+export const descargarConformidadPDF = async (req, res) => {
+  const id = Number.parseInt(req.params.id, 10);
+
+  // Helpers
+  const fmtUY = (d) => {
+    if (!d) return '';
+    const dt = new Date(d);
+    if (isNaN(dt)) return '';
+    const dd = String(dt.getDate()).padStart(2, '0');
+    const mm = String(dt.getMonth() + 1).padStart(2, '0');
+    const yyyy = dt.getFullYear();
+    return `${dd}/${mm}/${yyyy}`;
+  };
+  
+  const escapeHTML = (s) =>
+    String(s ?? '')
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+
+  try {
+    if (!id) return res.status(400).json({ error: 'ID inválido' });
+
+    const orden = await prisma.ordenTrabajo.findUnique({
+      where: { id },
+      include: {
+        empleadosAsignados: { include: { empleado: true } },
+        avion: true,
+        componente: true
+      }
+    });
+    if (!orden) return res.status(404).json({ error: 'Orden no encontrada' });
+
+    // Logo embebido
+    let logoData = '';
+    try {
+      const logoPath = path.join(process.cwd(), 'public', 'celcol-logo.jpeg');
+      if (fs.existsSync(logoPath)) {
+        const buf = fs.readFileSync(logoPath);
+        logoData = `data:image/jpeg;base64,${buf.toString('base64')}`;
+      }
+    } catch {}
+
+    // HTML/CSS - FORMULARIO DE CONFORMIDAD
+    const html = `<!doctype html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<title>Conformidad de Mantenimiento</title>
+<style>
+  @page { size: A4; margin: 10mm; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Arial, Helvetica, sans-serif; font-size: 10pt; color: #000; line-height: 1.2; background: white; }
+
+  /* Cabecera con número de página */
+  .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 5mm; }
+  .capitulo { font-size: 9pt; }
+  .pagina { font-size: 9pt; font-weight: bold; }
+
+  /* Título principal */
+  .titulo-principal { text-align: center; font-size: 14pt; font-weight: bold; margin: 3mm 0 5mm 0; }
+
+  /* Tabla de datos de aeronave */
+  .tabla-datos { width: 100%; border-collapse: collapse; margin-bottom: 5mm; }
+  .tabla-datos td { border: 1pt solid #000; padding: 2mm; vertical-align: top; width: 50%; }
+  .campo-label { font-weight: bold; margin-bottom: 1mm; display: block; }
+
+  /* Información de CELCOL */
+  .info-celcol { text-align: center; margin: 4mm 0; font-size: 9pt; line-height: 1.3; }
+
+  /* Certificado */
+  .certificado { text-align: center; font-size: 12pt; font-weight: bold; margin: 5mm 0; }
+
+  /* Descripción de trabajos */
+  .descripcion-trabajos { border: 1pt solid #000; padding: 3mm; min-height: 40mm; margin-bottom: 4mm; }
+  .titulo-descripcion { font-weight: bold; margin-bottom: 2mm; }
+
+  /* Texto de certificación */
+  .texto-certificacion { margin-bottom: 8mm; line-height: 1.4; }
+
+  /* Firma del certificador */
+  .firma-certificador { margin-top: 10mm; }
+  .fila-firmas { display: flex; justify-content: space-between; margin-bottom: 2mm; }
+  .campo-firma { width: 32%; }
+  .linea-firma { border-top: 1pt solid #000; padding-top: 1mm; text-align: center; font-size: 8pt; }
+
+  /* CIS */
+  .cis { text-align: center; font-weight: bold; margin: 5mm 0; }
+
+  /* Sección duplicada para motor */
+  .seccion-motor { margin-top: 15mm; }
+  
+  /* Footer */
+  .footer { position: absolute; bottom: 10mm; left: 0; right: 0; text-align: center; font-size: 8pt; }
+  .footer .mom { margin-bottom: 1mm; }
+  .footer .aprobado { font-weight: bold; }
+
+  .valor-campo { min-height: 4mm; margin-bottom: 1mm; }
+</style>
+</head>
+<body>
+
+<!-- Cabecera -->
+<div class="header">
+  <div class="capitulo">
+    <div>Capítulo: 9</div>
+    <div>Máster de Formatos</div>
+    <div>Y formularios</div>
+    <div>Quinta Edición</div>
+    <div>Fecha: ${escapeHTML(fmtUY(new Date()))}</div>
+  </div>
+  <div class="pagina">37</div>
+</div>
+
+<!-- Título principal -->
+<div class="titulo-principal">CONFORMIDAD DE MANTENIMIENTO</div>
+
+<!-- Tabla de datos de aeronave -->
+<table class="tabla-datos">
+  <tr>
+    <td>
+      <span class="campo-label">Matrícula:</span>
+      <div class="valor-campo"></div>
+      <span class="campo-label">Marca:</span>
+      <div class="valor-campo"></div>
+      <span class="campo-label">Modelo:</span>
+      <div class="valor-campo"></div>
+      <span class="campo-label">Serial:</span>
+      <div class="valor-campo"></div>
+    </td>
+    <td>
+      <span class="campo-label">Fecha:</span>
+      <div class="valor-campo"></div>
+      <span class="campo-label">Lugar:</span>
+      <div class="valor-campo"></div>
+      <span class="campo-label">HorasTT:</span>
+      <div class="valor-campo"></div>
+      <span class="campo-label">OT:</span>
+      <div class="valor-campo"></div>
+    </td>
+  </tr>
+</table>
+
+<!-- Información CELCOL -->
+<div class="info-celcol">
+  ${logoData ? `<img src="${logoData}" style="height: 15mm; margin-bottom: 2mm;">` : ''}
+  <div>CELCOL AVIATION</div>
+  <div>Camino Melilla Aeropuerto Ángel Adami</div>
+  <div>Sector Carnes Hangar No. 2 - OMA IR-158</div>
+</div>
+
+<!-- Certificado -->
+<div class="certificado">CERTIFICADO DE CONFORMIDAD DE MANTENIMIENTO</div>
+
+<!-- Descripción de trabajos -->
+<div class="descripcion-trabajos">
+  <div class="titulo-descripcion">A la aeronave se le efectuaron los trabajos que a continuación se describen:</div>
+  <div style="margin-top: 3mm; min-height: 35mm;">
+    <!-- Aquí irán las descripciones de trabajos -->
+  </div>
+</div>
+
+<!-- Texto de certificación -->
+<div class="texto-certificacion">
+  Certifico que esta aeronave ha sido inspeccionada y los trabajos arriba descritos, han sido completados de manera satisfactoria, por lo que se encuentra en condiciones seguras y aeronavegable por concepto de los trabajos realizados. Los detalles de estos mantenimientos se encuentran bajo la Orden de Trabajo arriba descrita.
+</div>
+
+<!-- Firma del certificador -->
+<div class="firma-certificador">
+  <div class="fila-firmas">
+    <div class="campo-firma">
+      <div class="linea-firma">Nombre Certificador:</div>
+    </div>
+    <div class="campo-firma">
+      <div class="linea-firma">Lic. No y Tipo:</div>
+    </div>
+    <div class="campo-firma">
+      <div class="linea-firma">Firma y Sello:</div>
+    </div>
+  </div>
+</div>
+
+<!-- CIS -->
+<div class="cis">C.I.S.</div>
+
+<!-- Sección duplicada para motor -->
+<div class="seccion-motor">
+  <!-- Tabla de datos de aeronave (duplicada) -->
+  <table class="tabla-datos">
+    <tr>
+      <td>
+        <span class="campo-label">Matrícula:</span>
+        <div class="valor-campo"></div>
+        <span class="campo-label">Marca:</span>
+        <div class="valor-campo"></div>
+        <span class="campo-label">Modelo:</span>
+        <div class="valor-campo"></div>
+        <span class="campo-label">Serial:</span>
+        <div class="valor-campo"></div>
+      </td>
+      <td>
+        <span class="campo-label">Fecha:</span>
+        <div class="valor-campo"></div>
+        <span class="campo-label">Lugar:</span>
+        <div class="valor-campo"></div>
+        <span class="campo-label">HorasTT:</span>
+        <div class="valor-campo"></div>
+        <span class="campo-label">OT:</span>
+        <div class="valor-campo"></div>
+      </td>
+    </tr>
+  </table>
+
+  <!-- Información CELCOL (duplicada) -->
+  <div class="info-celcol">
+    <div>CELCOL AVIATION</div>
+    <div>Camino Melilla Aeropuerto Ángel Adami</div>
+    <div>Sector Carnes Hangar No. 2 - OMA IR-158</div>
+  </div>
+
+  <!-- Certificado (duplicado) -->
+  <div class="certificado">CERTIFICADO DE CONFORMIDAD DE MANTENIMIENTO</div>
+
+  <!-- Descripción de trabajos para motor -->
+  <div class="descripcion-trabajos">
+    <div class="titulo-descripcion">Al motor se le efectuaron los trabajos que a continuación se describen:</div>
+    <div style="margin-top: 3mm; min-height: 35mm;">
+      <!-- Aquí irán las descripciones de trabajos del motor -->
+    </div>
+  </div>
+
+  <!-- Texto de certificación (duplicado) -->
+  <div class="texto-certificacion">
+    Certifico que esta aeronave ha sido inspeccionada y los trabajos arriba descritos, han sido completados de manera satisfactoria, por lo que se encuentra en condiciones seguras y aeronavegable por concepto de los trabajos realizados. Los detalles de estos mantenimientos se encuentran bajo la Orden de Trabajo arriba descrita.
+  </div>
+
+  <!-- Firma del certificador (duplicada) -->
+  <div class="firma-certificador">
+    <div class="fila-firmas">
+      <div class="campo-firma">
+        <div class="linea-firma">Nombre Certificador:</div>
+      </div>
+      <div class="campo-firma">
+        <div class="linea-firma">Lic. No y Tipo:</div>
+      </div>
+      <div class="campo-firma">
+        <div class="linea-firma">Firma y Sello:</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CIS (duplicado) -->
+  <div class="cis">C.I.S.</div>
+</div>
+
+<!-- Footer -->
+<div class="footer">
+  <div class="mom">Manual de la Organización de Mantenimiento – MOM</div>
+  <div class="aprobado">Aprobado Por: CELCOL AVIATION</div>
+</div>
+
+</body>
+</html>`;
+
+    // Render
+    const browser = await puppeteer.launch({
+      headless: 'new',
+      args: ['--no-sandbox', '--disable-setuid-sandbox']
+    });
+    const page = await browser.newPage();
+    await page.setContent(html, { waitUntil: 'networkidle0' });
+
+    const pdf = await page.pdf({
+      format: 'A4',
+      printBackground: true,
+      margin: { top: '0mm', bottom: '0mm', left: '0mm', right: '0mm' }
+    });
+
+    await page.close();
+    await browser.close();
+
+    const filename = `Conformidad-Mantenimiento-${orden.numero ?? orden.id}.pdf`;
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+    return res.send(pdf);
+  } catch (error) {
+    console.error('Error al generar PDF de Conformidad:', error);
     if (!res.headersSent) return res.status(500).json({ error: 'Error al generar el PDF' });
   }
 };
