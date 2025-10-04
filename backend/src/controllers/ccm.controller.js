@@ -329,7 +329,6 @@ export const descargarConformidadPDF = async (req, res) => {
 
 
 
-
 // src/controllers/conformidadMantenimiento.controller.js (ESM)
 import { PrismaClient } from '@prisma/client';
 import path from 'path';
@@ -380,222 +379,204 @@ export const descargarConformidadPDF = async (req, res) => {
       }
     } catch {}
 
-    // HTML/CSS - FORMULARIO DE CONFORMIDAD
+    // HTML/CSS - FORMULARIO SIMPLIFICADO
     const html = `<!doctype html>
 <html>
 <head>
 <meta charset="utf-8"/>
 <title>Conformidad de Mantenimiento</title>
 <style>
-  @page { size: A4; margin: 10mm; }
+  @page { size: A4; margin: 15mm; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: Arial, Helvetica, sans-serif; font-size: 10pt; color: #000; line-height: 1.2; background: white; }
 
-  /* Cabecera con número de página */
-  .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 5mm; }
-  .capitulo { font-size: 9pt; }
-  .pagina { font-size: 9pt; font-weight: bold; }
+  /* Fecha arriba a la derecha */
+  .fecha { position: absolute; top: 0; right: 0; font-size: 10pt; }
 
-  /* Título principal */
-  .titulo-principal { text-align: center; font-size: 14pt; font-weight: bold; margin: 3mm 0 5mm 0; }
+  /* Recuadro superior (1/3 de la hoja) */
+  .recuadro-superior { 
+    border: 1.5pt solid #000; 
+    padding: 5mm; 
+    height: 95mm; 
+    margin-bottom: 5mm;
+    position: relative;
+  }
 
-  /* Tabla de datos de aeronave */
-  .tabla-datos { width: 100%; border-collapse: collapse; margin-bottom: 5mm; }
-  .tabla-datos td { border: 1pt solid #000; padding: 2mm; vertical-align: top; width: 50%; }
+  /* Logo y textos centrados arriba */
+  .logo-section { 
+    text-align: center; 
+    margin-bottom: 4mm;
+    padding-bottom: 3mm;
+    border-bottom: 1pt solid #000;
+  }
+  .logo-section img { height: 20mm; margin-bottom: 2mm; }
+  .celcol-title { font-weight: bold; font-size: 11pt; }
+  .celcol-address { font-size: 9pt; line-height: 1.3; }
+
+  /* Tabla de datos al lado del logo */
+  .tabla-datos-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 5mm;
+    margin-bottom: 4mm;
+  }
+  .tabla-datos { width: 100%; border-collapse: collapse; }
+  .tabla-datos td { border: 1pt solid #000; padding: 2mm; vertical-align: top; }
   .campo-label { font-weight: bold; margin-bottom: 1mm; display: block; }
 
-  /* Información de CELCOL */
-  .info-celcol { text-align: center; margin: 4mm 0; font-size: 9pt; line-height: 1.3; }
-
   /* Certificado */
-  .certificado { text-align: center; font-size: 12pt; font-weight: bold; margin: 5mm 0; }
-
-  /* Descripción de trabajos */
-  .descripcion-trabajos { border: 1pt solid #000; padding: 3mm; min-height: 40mm; margin-bottom: 4mm; }
-  .titulo-descripcion { font-weight: bold; margin-bottom: 2mm; }
+  .certificado { 
+    text-align: center; 
+    font-size: 12pt; 
+    font-weight: bold; 
+    margin: 3mm 0;
+  }
 
   /* Texto de certificación */
-  .texto-certificacion { margin-bottom: 8mm; line-height: 1.4; }
+  .texto-certificacion { 
+    font-size: 9pt; 
+    line-height: 1.4; 
+    margin-bottom: 4mm;
+    text-align: justify;
+  }
 
-  /* Firma del certificador */
-  .firma-certificador { margin-top: 10mm; }
-  .fila-firmas { display: flex; justify-content: space-between; margin-bottom: 2mm; }
-  .campo-firma { width: 32%; }
-  .linea-firma { border-top: 1pt solid #000; padding-top: 1mm; text-align: center; font-size: 8pt; }
+  /* Tabla de firmas */
+  .tabla-firmas { 
+    width: 100%; 
+    border-collapse: collapse; 
+    margin-top: auto;
+    position: absolute;
+    bottom: 5mm;
+    left: 5mm;
+    right: 5mm;
+  }
+  .tabla-firmas td { border: 1pt solid #000; padding: 1mm; vertical-align: top; }
+  .firma-header { font-size: 8pt; text-align: center; font-weight: bold; height: 8mm; }
+  .firma-campo { height: 15mm; }
 
-  /* CIS */
-  .cis { text-align: center; font-weight: bold; margin: 5mm 0; }
+  /* Recuadro inferior (2/3 de la hoja) */
+  .recuadro-inferior { 
+    border: 1.5pt solid #000; 
+    padding: 5mm; 
+    height: 140mm;
+    position: relative;
+  }
 
-  /* Sección duplicada para motor */
-  .seccion-motor { margin-top: 15mm; }
-  
-  /* Footer */
-  .footer { position: absolute; bottom: 10mm; left: 0; right: 0; text-align: center; font-size: 8pt; }
-  .footer .mom { margin-bottom: 1mm; }
-  .footer .aprobado { font-weight: bold; }
-
-  .valor-campo { min-height: 4mm; margin-bottom: 1mm; }
+  .valor-campo { min-height: 5mm; }
+  .campo-vacio { min-height: 8mm; }
 </style>
 </head>
 <body>
 
-<!-- Cabecera -->
-<div class="header">
-  <div class="capitulo">
-    <div>Capítulo: 9</div>
-    <div>Máster de Formatos</div>
-    <div>Y formularios</div>
-    <div>Quinta Edición</div>
-    <div>Fecha: ${escapeHTML(fmtUY(new Date()))}</div>
-  </div>
-  <div class="pagina">37</div>
-</div>
+<!-- Fecha -->
+<div class="fecha">Fecha: ${escapeHTML(fmtUY(new Date()))}</div>
 
-<!-- Título principal -->
-<div class="titulo-principal">CONFORMIDAD DE MANTENIMIENTO</div>
-
-<!-- Tabla de datos de aeronave -->
-<table class="tabla-datos">
-  <tr>
-    <td>
-      <span class="campo-label">Matrícula:</span>
-      <div class="valor-campo"></div>
-      <span class="campo-label">Marca:</span>
-      <div class="valor-campo"></div>
-      <span class="campo-label">Modelo:</span>
-      <div class="valor-campo"></div>
-      <span class="campo-label">Serial:</span>
-      <div class="valor-campo"></div>
-    </td>
-    <td>
-      <span class="campo-label">Fecha:</span>
-      <div class="valor-campo"></div>
-      <span class="campo-label">Lugar:</span>
-      <div class="valor-campo"></div>
-      <span class="campo-label">HorasTT:</span>
-      <div class="valor-campo"></div>
-      <span class="campo-label">OT:</span>
-      <div class="valor-campo"></div>
-    </td>
-  </tr>
-</table>
-
-<!-- Información CELCOL -->
-<div class="info-celcol">
-  ${logoData ? `<img src="${logoData}" style="height: 15mm; margin-bottom: 2mm;">` : ''}
-  <div>CELCOL AVIATION</div>
-  <div>Camino Melilla Aeropuerto Ángel Adami</div>
-  <div>Sector Carnes Hangar No. 2 - OMA IR-158</div>
-</div>
-
-<!-- Certificado -->
-<div class="certificado">CERTIFICADO DE CONFORMIDAD DE MANTENIMIENTO</div>
-
-<!-- Descripción de trabajos -->
-<div class="descripcion-trabajos">
-  <div class="titulo-descripcion">A la aeronave se le efectuaron los trabajos que a continuación se describen:</div>
-  <div style="margin-top: 3mm; min-height: 35mm;">
-    <!-- Aquí irán las descripciones de trabajos -->
-  </div>
-</div>
-
-<!-- Texto de certificación -->
-<div class="texto-certificacion">
-  Certifico que esta aeronave ha sido inspeccionada y los trabajos arriba descritos, han sido completados de manera satisfactoria, por lo que se encuentra en condiciones seguras y aeronavegable por concepto de los trabajos realizados. Los detalles de estos mantenimientos se encuentran bajo la Orden de Trabajo arriba descrita.
-</div>
-
-<!-- Firma del certificador -->
-<div class="firma-certificador">
-  <div class="fila-firmas">
-    <div class="campo-firma">
-      <div class="linea-firma">Nombre Certificador:</div>
-    </div>
-    <div class="campo-firma">
-      <div class="linea-firma">Lic. No y Tipo:</div>
-    </div>
-    <div class="campo-firma">
-      <div class="linea-firma">Firma y Sello:</div>
+<!-- RECUADRO SUPERIOR -->
+<div class="recuadro-superior">
+  <!-- Logo y textos -->
+  <div class="logo-section">
+    ${logoData ? `<img src="${logoData}">` : ''}
+    <div class="celcol-title">CELCOL AVIATION</div>
+    <div class="celcol-address">
+      Camino Melilla Aeropuerto Ángel Adami<br>
+      Sector Carnes Hangar No. 2 - OMA IR-158
     </div>
   </div>
-</div>
 
-<!-- CIS -->
-<div class="cis">C.I.S.</div>
+  <!-- Tablas de datos al lado del logo -->
+  <div class="tabla-datos-container">
+    <!-- Tabla izquierda -->
+    <table class="tabla-datos">
+      <tr><td><span class="campo-label">Matrícula:</span><div class="valor-campo"></div></td></tr>
+      <tr><td><span class="campo-label">Marca:</span><div class="valor-campo"></div></td></tr>
+      <tr><td><span class="campo-label">Modelo:</span><div class="valor-campo"></div></td></tr>
+      <tr><td><span class="campo-label">Serial:</span><div class="valor-campo"></div></td></tr>
+    </table>
 
-<!-- Sección duplicada para motor -->
-<div class="seccion-motor">
-  <!-- Tabla de datos de aeronave (duplicada) -->
-  <table class="tabla-datos">
-    <tr>
-      <td>
-        <span class="campo-label">Matrícula:</span>
-        <div class="valor-campo"></div>
-        <span class="campo-label">Marca:</span>
-        <div class="valor-campo"></div>
-        <span class="campo-label">Modelo:</span>
-        <div class="valor-campo"></div>
-        <span class="campo-label">Serial:</span>
-        <div class="valor-campo"></div>
-      </td>
-      <td>
-        <span class="campo-label">Fecha:</span>
-        <div class="valor-campo"></div>
-        <span class="campo-label">Lugar:</span>
-        <div class="valor-campo"></div>
-        <span class="campo-label">HorasTT:</span>
-        <div class="valor-campo"></div>
-        <span class="campo-label">OT:</span>
-        <div class="valor-campo"></div>
-      </td>
-    </tr>
-  </table>
-
-  <!-- Información CELCOL (duplicada) -->
-  <div class="info-celcol">
-    <div>CELCOL AVIATION</div>
-    <div>Camino Melilla Aeropuerto Ángel Adami</div>
-    <div>Sector Carnes Hangar No. 2 - OMA IR-158</div>
+    <!-- Tabla derecha -->
+    <table class="tabla-datos">
+      <tr><td><span class="campo-label">Fecha:</span><div class="valor-campo"></div></td></tr>
+      <tr><td><span class="campo-label">Lugar:</span><div class="valor-campo"></div></td></tr>
+      <tr><td><span class="campo-label">HorasTT:</span><div class="valor-campo"></div></td></tr>
+      <tr><td><span class="campo-label">OT:</span><div class="valor-campo"></div></td></tr>
+    </table>
   </div>
 
-  <!-- Certificado (duplicado) -->
+  <!-- Certificado -->
   <div class="certificado">CERTIFICADO DE CONFORMIDAD DE MANTENIMIENTO</div>
 
-  <!-- Descripción de trabajos para motor -->
-  <div class="descripcion-trabajos">
-    <div class="titulo-descripcion">Al motor se le efectuaron los trabajos que a continuación se describen:</div>
-    <div style="margin-top: 3mm; min-height: 35mm;">
-      <!-- Aquí irán las descripciones de trabajos del motor -->
-    </div>
-  </div>
-
-  <!-- Texto de certificación (duplicado) -->
+  <!-- Texto de certificación -->
   <div class="texto-certificacion">
     Certifico que esta aeronave ha sido inspeccionada y los trabajos arriba descritos, han sido completados de manera satisfactoria, por lo que se encuentra en condiciones seguras y aeronavegable por concepto de los trabajos realizados. Los detalles de estos mantenimientos se encuentran bajo la Orden de Trabajo arriba descrita.
   </div>
 
-  <!-- Firma del certificador (duplicada) -->
-  <div class="firma-certificador">
-    <div class="fila-firmas">
-      <div class="campo-firma">
-        <div class="linea-firma">Nombre Certificador:</div>
-      </div>
-      <div class="campo-firma">
-        <div class="linea-firma">Lic. No y Tipo:</div>
-      </div>
-      <div class="campo-firma">
-        <div class="linea-firma">Firma y Sello:</div>
-      </div>
+  <!-- Tabla de firmas -->
+  <table class="tabla-firmas">
+    <tr>
+      <td class="firma-header">Nombre Certificador</td>
+      <td class="firma-header">Lic. No y Tipo</td>
+      <td class="firma-header">Firma y Sello</td>
+    </tr>
+    <tr>
+      <td class="firma-campo"></td>
+      <td class="firma-campo"></td>
+      <td class="firma-campo"></td>
+    </tr>
+  </table>
+</div>
+
+<!-- RECUADRO INFERIOR -->
+<div class="recuadro-inferior">
+  <!-- Logo y textos -->
+  <div class="logo-section">
+    ${logoData ? `<img src="${logoData}">` : ''}
+    <div class="celcol-title">CELCOL AVIATION</div>
+    <div class="celcol-address">
+      Camino Melilla Aeropuerto Ángel Adami<br>
+      Sector Carnes Hangar No. 2 - OMA IR-158
     </div>
   </div>
 
-  <!-- CIS (duplicado) -->
-  <div class="cis">C.I.S.</div>
-</div>
+  <!-- Tablas de datos al lado del logo -->
+  <div class="tabla-datos-container">
+    <!-- Tabla izquierda -->
+    <table class="tabla-datos">
+      <tr><td><span class="campo-label">Matrícula:</span><div class="valor-campo"></div></td></tr>
+      <tr><td><span class="campo-label">Marca:</span><div class="valor-campo"></div></td></tr>
+      <tr><td><span class="campo-label">Modelo:</span><div class="valor-campo"></div></td></tr>
+      <tr><td><span class="campo-label">Serial:</span><div class="valor-campo"></div></td></tr>
+    </table>
 
-<!-- Footer -->
-<div class="footer">
-  <div class="mom">Manual de la Organización de Mantenimiento – MOM</div>
-  <div class="aprobado">Aprobado Por: CELCOL AVIATION</div>
+    <!-- Tabla derecha -->
+    <table class="tabla-datos">
+      <tr><td><span class="campo-label">Fecha:</span><div class="valor-campo"></div></td></tr>
+      <tr><td><span class="campo-label">Lugar:</span><div class="valor-campo"></div></td></tr>
+      <tr><td><span class="campo-label">HorasTT:</span><div class="valor-campo"></div></td></tr>
+      <tr><td><span class="campo-label">OT:</span><div class="valor-campo"></div></td></tr>
+    </table>
+  </div>
+
+  <!-- Certificado -->
+  <div class="certificado">CERTIFICADO DE CONFORMIDAD DE MANTENIMIENTO</div>
+
+  <!-- Texto de certificación -->
+  <div class="texto-certificacion">
+    Certifico que esta aeronave ha sido inspeccionada y los trabajos arriba descritos, han sido completados de manera satisfactoria, por lo que se encuentra en condiciones seguras y aeronavegable por concepto de los trabajos realizados. Los detalles de estos mantenimientos se encuentran bajo la Orden de Trabajo arriba descrita.
+  </div>
+
+  <!-- Tabla de firmas -->
+  <table class="tabla-firmas">
+    <tr>
+      <td class="firma-header">Nombre Certificador</td>
+      <td class="firma-header">Lic. No y Tipo</td>
+      <td class="firma-header">Firma y Sello</td>
+    </tr>
+    <tr>
+      <td class="firma-campo"></td>
+      <td class="firma-campo"></td>
+      <td class="firma-campo"></td>
+    </tr>
+  </table>
 </div>
 
 </body>
