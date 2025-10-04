@@ -326,8 +326,6 @@ export const descargarConformidadPDF = async (req, res) => {
 
 
 
-
-
 // src/controllers/conformidadMantenimiento.controller.js (ESM)
 import { PrismaClient } from '@prisma/client';
 import path from 'path';
@@ -378,101 +376,131 @@ export const descargarConformidadPDF = async (req, res) => {
       }
     } catch {}
 
-    // HTML/CSS - FORMULARIO COMPACTO
+    // HTML/CSS - DISEÑO MEJORADO
     const html = `<!doctype html>
 <html>
 <head>
 <meta charset="utf-8"/>
 <title>Conformidad de Mantenimiento</title>
 <style>
-  @page { size: A4; margin: 12mm; }
+  @page { size: A4; margin: 15mm; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: Arial, Helvetica, sans-serif; font-size: 9pt; color: #000; line-height: 1.1; background: white; }
 
-  /* Fecha arriba a la derecha */
-  .fecha { position: absolute; top: 0; right: 0; font-size: 9pt; }
+  /* Fecha afuera de los recuadros */
+  .fecha { position: absolute; top: -10mm; right: 0; font-size: 9pt; }
 
-  /* Recuadro superior (1/3 de la hoja) */
+  /* Recuadro superior con borde doble */
   .recuadro-superior { 
-    border: 1pt solid #000; 
-    padding: 3mm; 
-    height: 90mm; 
-    margin-bottom: 3mm;
+    border: 3pt double #000; 
+    padding: 4mm; 
+    height: 100mm; 
+    margin-bottom: 8mm;
     position: relative;
   }
 
   /* Logo y textos centrados arriba */
   .logo-section { 
     text-align: center; 
-    margin-bottom: 2mm;
-    padding-bottom: 2mm;
-    border-bottom: 0.5pt solid #000;
+    margin-bottom: 3mm;
   }
-  .logo-section img { height: 18mm; margin-bottom: 1mm; }
-  .celcol-title { font-weight: bold; font-size: 10pt; }
+  .logo-section img { height: 20mm; margin-bottom: 1mm; }
+  .celcol-title { font-weight: bold; font-size: 11pt; margin-bottom: 1mm; }
   .celcol-address { font-size: 8pt; line-height: 1.2; }
 
-  /* Tabla de datos al lado del logo - MÁS COMPACTA */
-  .tabla-datos-container {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 3mm;
-    margin-bottom: 2mm;
+  /* Contenedor de tablas a los lados del logo */
+  .tablas-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin: 3mm 0;
   }
-  .tabla-datos { width: 100%; border-collapse: collapse; font-size: 8pt; }
-  .tabla-datos td { border: 0.5pt solid #000; padding: 1mm; vertical-align: top; height: 6mm; }
-  .campo-label { font-weight: bold; font-size: 7pt; display: block; }
+
+  /* Tablas a los lados */
+  .tabla-izquierda, .tabla-derecha {
+    width: 48%;
+    border-collapse: collapse;
+    font-size: 8pt;
+  }
+  .tabla-izquierda td, .tabla-derecha td { 
+    border: 1pt solid #000; 
+    padding: 1.5mm; 
+    vertical-align: top; 
+    height: 7mm;
+  }
+  .campo-label { font-weight: bold; font-size: 8pt; display: block; }
 
   /* Certificado */
   .certificado { 
     text-align: center; 
-    font-size: 10pt; 
+    font-size: 11pt; 
     font-weight: bold; 
-    margin: 2mm 0;
+    margin: 4mm 0 3mm 0;
+    text-decoration: underline;
   }
 
-  /* Texto de certificación - MÁS PEQUEÑO */
+  /* Descripción de trabajos */
+  .descripcion-trabajos {
+    margin: 2mm 0 3mm 0;
+    font-size: 8pt;
+  }
+  .titulo-descripcion {
+    font-weight: bold;
+    margin-bottom: 1mm;
+  }
+
+  /* Texto de certificación */
   .texto-certificacion { 
-    font-size: 7.5pt; 
+    font-size: 8pt; 
     line-height: 1.3; 
-    margin-bottom: 2mm;
+    margin-bottom: 4mm;
     text-align: justify;
   }
 
-  /* Tabla de firmas - MÁS COMPACTA */
+  /* Tabla de firmas */
   .tabla-firmas { 
     width: 100%; 
     border-collapse: collapse; 
-    margin-top: auto;
-    position: absolute;
-    bottom: 3mm;
-    left: 3mm;
-    right: 3mm;
+    margin-top: 3mm;
     font-size: 7pt;
   }
-  .tabla-firmas td { border: 0.5pt solid #000; padding: 0.5mm; vertical-align: top; }
-  .firma-header { text-align: center; font-weight: bold; height: 5mm; }
-  .firma-campo { height: 10mm; }
-
-  /* Recuadro inferior (2/3 de la hoja) */
-  .recuadro-inferior { 
+  .tabla-firmas td { 
     border: 1pt solid #000; 
-    padding: 3mm; 
-    height: 135mm;
-    position: relative;
+    padding: 1mm; 
+    vertical-align: top; 
+    text-align: center;
+  }
+  .firma-header { font-weight: bold; height: 6mm; }
+  .firma-campo { height: 12mm; }
+
+  /* CA-19 al final */
+  .ca-number {
+    text-align: center;
+    font-weight: bold;
+    margin-top: 2mm;
+    font-size: 9pt;
   }
 
-  .valor-campo { min-height: 3mm; font-size: 8pt; }
+  /* Recuadro inferior con borde doble */
+  .recuadro-inferior { 
+    border: 3pt double #000; 
+    padding: 4mm; 
+    height: 120mm;
+    position: relative;
+    margin-top: 5mm;
+  }
+
+  .valor-campo { min-height: 4mm; font-size: 8pt; }
 </style>
 </head>
 <body>
 
-<!-- Fecha -->
+<!-- Fecha AFUERA de los recuadros -->
 <div class="fecha">Fecha: ${escapeHTML(fmtUY(new Date()))}</div>
 
 <!-- RECUADRO SUPERIOR -->
 <div class="recuadro-superior">
-  <!-- Logo y textos -->
+  <!-- Logo y textos centrados -->
   <div class="logo-section">
     ${logoData ? `<img src="${logoData}">` : ''}
     <div class="celcol-title">CELCOL AVIATION</div>
@@ -482,10 +510,10 @@ export const descargarConformidadPDF = async (req, res) => {
     </div>
   </div>
 
-  <!-- Tablas de datos al lado del logo - MÁS COMPACTAS -->
-  <div class="tabla-datos-container">
+  <!-- Tablas a los lados del logo -->
+  <div class="tablas-container">
     <!-- Tabla izquierda -->
-    <table class="tabla-datos">
+    <table class="tabla-izquierda">
       <tr><td><span class="campo-label">Matrícula:</span><div class="valor-campo"></div></td></tr>
       <tr><td><span class="campo-label">Marca:</span><div class="valor-campo"></div></td></tr>
       <tr><td><span class="campo-label">Modelo:</span><div class="valor-campo"></div></td></tr>
@@ -493,7 +521,7 @@ export const descargarConformidadPDF = async (req, res) => {
     </table>
 
     <!-- Tabla derecha -->
-    <table class="tabla-datos">
+    <table class="tabla-derecha">
       <tr><td><span class="campo-label">Fecha:</span><div class="valor-campo"></div></td></tr>
       <tr><td><span class="campo-label">Lugar:</span><div class="valor-campo"></div></td></tr>
       <tr><td><span class="campo-label">HorasTT:</span><div class="valor-campo"></div></td></tr>
@@ -504,12 +532,20 @@ export const descargarConformidadPDF = async (req, res) => {
   <!-- Certificado -->
   <div class="certificado">CERTIFICADO DE CONFORMIDAD DE MANTENIMIENTO</div>
 
+  <!-- Descripción de trabajos -->
+  <div class="descripcion-trabajos">
+    <div class="titulo-descripcion">A la aeronave se le efectuaron los trabajos que a continuación se describen:</div>
+    <div style="margin-top: 2mm; min-height: 15mm;">
+      <!-- Espacio para descripción de trabajos -->
+    </div>
+  </div>
+
   <!-- Texto de certificación -->
   <div class="texto-certificacion">
     Certifico que esta aeronave ha sido inspeccionada y los trabajos arriba descritos, han sido completados de manera satisfactoria, por lo que se encuentra en condiciones seguras y aeronavegable por concepto de los trabajos realizados. Los detalles de estos mantenimientos se encuentran bajo la Orden de Trabajo arriba descrita.
   </div>
 
-  <!-- Tabla de firmas - MÁS COMPACTA -->
+  <!-- Tabla de firmas -->
   <table class="tabla-firmas">
     <tr>
       <td class="firma-header">Nombre Certificador</td>
@@ -522,11 +558,14 @@ export const descargarConformidadPDF = async (req, res) => {
       <td class="firma-campo"></td>
     </tr>
   </table>
+
+  <!-- CA-19 -->
+  <div class="ca-number">CA-19</div>
 </div>
 
-<!-- RECUADRO INFERIOR -->
+<!-- RECUADRO INFERIOR (más abajo) -->
 <div class="recuadro-inferior">
-  <!-- Logo y textos -->
+  <!-- Logo y textos centrados -->
   <div class="logo-section">
     ${logoData ? `<img src="${logoData}">` : ''}
     <div class="celcol-title">CELCOL AVIATION</div>
@@ -536,10 +575,10 @@ export const descargarConformidadPDF = async (req, res) => {
     </div>
   </div>
 
-  <!-- Tablas de datos al lado del logo - MÁS COMPACTAS -->
-  <div class="tabla-datos-container">
+  <!-- Tablas a los lados del logo -->
+  <div class="tablas-container">
     <!-- Tabla izquierda -->
-    <table class="tabla-datos">
+    <table class="tabla-izquierda">
       <tr><td><span class="campo-label">Matrícula:</span><div class="valor-campo"></div></td></tr>
       <tr><td><span class="campo-label">Marca:</span><div class="valor-campo"></div></td></tr>
       <tr><td><span class="campo-label">Modelo:</span><div class="valor-campo"></div></td></tr>
@@ -547,7 +586,7 @@ export const descargarConformidadPDF = async (req, res) => {
     </table>
 
     <!-- Tabla derecha -->
-    <table class="tabla-datos">
+    <table class="tabla-derecha">
       <tr><td><span class="campo-label">Fecha:</span><div class="valor-campo"></div></td></tr>
       <tr><td><span class="campo-label">Lugar:</span><div class="valor-campo"></div></td></tr>
       <tr><td><span class="campo-label">HorasTT:</span><div class="valor-campo"></div></td></tr>
@@ -558,12 +597,20 @@ export const descargarConformidadPDF = async (req, res) => {
   <!-- Certificado -->
   <div class="certificado">CERTIFICADO DE CONFORMIDAD DE MANTENIMIENTO</div>
 
+  <!-- Descripción de trabajos -->
+  <div class="descripcion-trabajos">
+    <div class="titulo-descripcion">Al motor se le efectuaron los trabajos que a continuación se describen:</div>
+    <div style="margin-top: 2mm; min-height: 25mm;">
+      <!-- Espacio para descripción de trabajos del motor -->
+    </div>
+  </div>
+
   <!-- Texto de certificación -->
   <div class="texto-certificacion">
     Certifico que esta aeronave ha sido inspeccionada y los trabajos arriba descritos, han sido completados de manera satisfactoria, por lo que se encuentra en condiciones seguras y aeronavegable por concepto de los trabajos realizados. Los detalles de estos mantenimientos se encuentran bajo la Orden de Trabajo arriba descrita.
   </div>
 
-  <!-- Tabla de firmas - MÁS COMPACTA -->
+  <!-- Tabla de firmas -->
   <table class="tabla-firmas">
     <tr>
       <td class="firma-header">Nombre Certificador</td>
@@ -576,6 +623,9 @@ export const descargarConformidadPDF = async (req, res) => {
       <td class="firma-campo"></td>
     </tr>
   </table>
+
+  <!-- CA-19 -->
+  <div class="ca-number">CA-19</div>
 </div>
 
 </body>
