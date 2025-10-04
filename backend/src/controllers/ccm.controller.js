@@ -328,7 +328,6 @@ export const descargarConformidadPDF = async (req, res) => {
 
 
 
-
 // src/controllers/conformidadMantenimiento.controller.js (ESM)
 import { PrismaClient } from '@prisma/client';
 import path from 'path';
@@ -379,91 +378,91 @@ export const descargarConformidadPDF = async (req, res) => {
       }
     } catch {}
 
-    // HTML/CSS - FORMULARIO SIMPLIFICADO
+    // HTML/CSS - FORMULARIO COMPACTO
     const html = `<!doctype html>
 <html>
 <head>
 <meta charset="utf-8"/>
 <title>Conformidad de Mantenimiento</title>
 <style>
-  @page { size: A4; margin: 15mm; }
+  @page { size: A4; margin: 12mm; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: Arial, Helvetica, sans-serif; font-size: 10pt; color: #000; line-height: 1.2; background: white; }
+  body { font-family: Arial, Helvetica, sans-serif; font-size: 9pt; color: #000; line-height: 1.1; background: white; }
 
   /* Fecha arriba a la derecha */
-  .fecha { position: absolute; top: 0; right: 0; font-size: 10pt; }
+  .fecha { position: absolute; top: 0; right: 0; font-size: 9pt; }
 
   /* Recuadro superior (1/3 de la hoja) */
   .recuadro-superior { 
-    border: 1.5pt solid #000; 
-    padding: 5mm; 
-    height: 95mm; 
-    margin-bottom: 5mm;
+    border: 1pt solid #000; 
+    padding: 3mm; 
+    height: 90mm; 
+    margin-bottom: 3mm;
     position: relative;
   }
 
   /* Logo y textos centrados arriba */
   .logo-section { 
     text-align: center; 
-    margin-bottom: 4mm;
-    padding-bottom: 3mm;
-    border-bottom: 1pt solid #000;
+    margin-bottom: 2mm;
+    padding-bottom: 2mm;
+    border-bottom: 0.5pt solid #000;
   }
-  .logo-section img { height: 20mm; margin-bottom: 2mm; }
-  .celcol-title { font-weight: bold; font-size: 11pt; }
-  .celcol-address { font-size: 9pt; line-height: 1.3; }
+  .logo-section img { height: 18mm; margin-bottom: 1mm; }
+  .celcol-title { font-weight: bold; font-size: 10pt; }
+  .celcol-address { font-size: 8pt; line-height: 1.2; }
 
-  /* Tabla de datos al lado del logo */
+  /* Tabla de datos al lado del logo - MÁS COMPACTA */
   .tabla-datos-container {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 5mm;
-    margin-bottom: 4mm;
+    gap: 3mm;
+    margin-bottom: 2mm;
   }
-  .tabla-datos { width: 100%; border-collapse: collapse; }
-  .tabla-datos td { border: 1pt solid #000; padding: 2mm; vertical-align: top; }
-  .campo-label { font-weight: bold; margin-bottom: 1mm; display: block; }
+  .tabla-datos { width: 100%; border-collapse: collapse; font-size: 8pt; }
+  .tabla-datos td { border: 0.5pt solid #000; padding: 1mm; vertical-align: top; height: 6mm; }
+  .campo-label { font-weight: bold; font-size: 7pt; display: block; }
 
   /* Certificado */
   .certificado { 
     text-align: center; 
-    font-size: 12pt; 
+    font-size: 10pt; 
     font-weight: bold; 
-    margin: 3mm 0;
+    margin: 2mm 0;
   }
 
-  /* Texto de certificación */
+  /* Texto de certificación - MÁS PEQUEÑO */
   .texto-certificacion { 
-    font-size: 9pt; 
-    line-height: 1.4; 
-    margin-bottom: 4mm;
+    font-size: 7.5pt; 
+    line-height: 1.3; 
+    margin-bottom: 2mm;
     text-align: justify;
   }
 
-  /* Tabla de firmas */
+  /* Tabla de firmas - MÁS COMPACTA */
   .tabla-firmas { 
     width: 100%; 
     border-collapse: collapse; 
     margin-top: auto;
     position: absolute;
-    bottom: 5mm;
-    left: 5mm;
-    right: 5mm;
+    bottom: 3mm;
+    left: 3mm;
+    right: 3mm;
+    font-size: 7pt;
   }
-  .tabla-firmas td { border: 1pt solid #000; padding: 1mm; vertical-align: top; }
-  .firma-header { font-size: 8pt; text-align: center; font-weight: bold; height: 8mm; }
-  .firma-campo { height: 15mm; }
+  .tabla-firmas td { border: 0.5pt solid #000; padding: 0.5mm; vertical-align: top; }
+  .firma-header { text-align: center; font-weight: bold; height: 5mm; }
+  .firma-campo { height: 10mm; }
 
   /* Recuadro inferior (2/3 de la hoja) */
   .recuadro-inferior { 
-    border: 1.5pt solid #000; 
-    padding: 5mm; 
-    height: 140mm;
+    border: 1pt solid #000; 
+    padding: 3mm; 
+    height: 135mm;
     position: relative;
   }
 
-  .valor-campo { min-height: 5mm; }
-  .campo-vacio { min-height: 8mm; }
+  .valor-campo { min-height: 3mm; font-size: 8pt; }
 </style>
 </head>
 <body>
@@ -483,7 +482,7 @@ export const descargarConformidadPDF = async (req, res) => {
     </div>
   </div>
 
-  <!-- Tablas de datos al lado del logo -->
+  <!-- Tablas de datos al lado del logo - MÁS COMPACTAS -->
   <div class="tabla-datos-container">
     <!-- Tabla izquierda -->
     <table class="tabla-datos">
@@ -510,7 +509,7 @@ export const descargarConformidadPDF = async (req, res) => {
     Certifico que esta aeronave ha sido inspeccionada y los trabajos arriba descritos, han sido completados de manera satisfactoria, por lo que se encuentra en condiciones seguras y aeronavegable por concepto de los trabajos realizados. Los detalles de estos mantenimientos se encuentran bajo la Orden de Trabajo arriba descrita.
   </div>
 
-  <!-- Tabla de firmas -->
+  <!-- Tabla de firmas - MÁS COMPACTA -->
   <table class="tabla-firmas">
     <tr>
       <td class="firma-header">Nombre Certificador</td>
@@ -537,7 +536,7 @@ export const descargarConformidadPDF = async (req, res) => {
     </div>
   </div>
 
-  <!-- Tablas de datos al lado del logo -->
+  <!-- Tablas de datos al lado del logo - MÁS COMPACTAS -->
   <div class="tabla-datos-container">
     <!-- Tabla izquierda -->
     <table class="tabla-datos">
@@ -564,7 +563,7 @@ export const descargarConformidadPDF = async (req, res) => {
     Certifico que esta aeronave ha sido inspeccionada y los trabajos arriba descritos, han sido completados de manera satisfactoria, por lo que se encuentra en condiciones seguras y aeronavegable por concepto de los trabajos realizados. Los detalles de estos mantenimientos se encuentran bajo la Orden de Trabajo arriba descrita.
   </div>
 
-  <!-- Tabla de firmas -->
+  <!-- Tabla de firmas - MÁS COMPACTA -->
   <table class="tabla-firmas">
     <tr>
       <td class="firma-header">Nombre Certificador</td>
