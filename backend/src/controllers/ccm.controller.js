@@ -317,7 +317,6 @@ const prisma = new PrismaClient();
 
 
 
-// src/controllers/conformidadMantenimiento.controller.js (ESM)
 import { PrismaClient } from '@prisma/client';
 import path from 'path';
 import fs from 'fs';
@@ -325,11 +324,6 @@ import puppeteer from 'puppeteer';
 
 const prisma = new PrismaClient();
 
-/**
- * Descarga el PDF de Conformidad de Mantenimiento.
- * Permite pasar variables mediante query o body (e.g. matricula, marca, modelo, lugar, certificador, etc.).
- * Si no se indican, se toman de la orden de trabajo o se dejan en blanco.
- */
 export const descargarConformidadPDF = async (req, res) => {
   const id = Number.parseInt(req.params.id, 10);
 
@@ -352,13 +346,9 @@ export const descargarConformidadPDF = async (req, res) => {
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#39;');
 
-  // Intenta elegir un certificador de los empleados asignados
+  // Selecciona al empleado con rol "Certificador"
   const pickCertificador = (empleadosAsignados = []) => {
-    const cert = empleadosAsignados.find(
-      (e) =>
-        (e.rol && String(e.rol).toUpperCase().includes('CERT')) ||
-        e.empleado?.esCertificador === true
-    );
+    const cert = empleadosAsignados.find((e) => e.rol && /certificador/i.test(e.rol));
     return cert?.empleado ?? null;
   };
 
@@ -375,7 +365,7 @@ export const descargarConformidadPDF = async (req, res) => {
     });
     if (!orden) return res.status(404).json({ error: 'Orden no encontrada' });
 
-    // Logo embebido (si existe en public/)
+    // Logo embebido (si existe en "public/celcol-logo.jpeg")
     let logoData = '';
     try {
       const logoPath = path.join(process.cwd(), 'public', 'celcol-logo.jpeg');
@@ -383,16 +373,21 @@ export const descargarConformidadPDF = async (req, res) => {
         const buf = fs.readFileSync(logoPath);
         logoData = `data:image/jpeg;base64,${buf.toString('base64')}`;
       }
-    } catch {
-      /* Ignorar error de lectura del logo */
-    }
+    } catch {}
 
-    // Combinar variables de query, body, orden y defaults
     const body = req.method === 'POST' ? req.body || {} : {};
     const q = req.query || {};
     const avion = orden.avion ?? null;
-    const comp = orden.componente ?? null;
+    const compOrden = orden.componente ?? null;
+
+    // Seleccionar certificador
     const cert = pickCertificador(orden.empleadosAsignados);
+
+    // Si la orden incluye un componente con tipo "motor", usarlo para rellenar la tabla Motor
+    let motorComp = null;
+    if (compOrden && compOrden.tipo && /motor/i.test(compOrden.tipo)) {
+      motorComp = compOrden;
+    }
 
     const vars = {
       fechaEmision: q.fechaEmision ?? body.fechaEmision ?? fmtUY(new Date()),
@@ -401,15 +396,17 @@ export const descargarConformidadPDF = async (req, res) => {
       empresaLinea2: q.empresaLinea2 ?? body.empresaLinea2 ?? 'Sector CAMES – Hangar Nº 2 · OMA IR-158',
 
       matricula: q.matricula ?? body.matricula ?? (avion?.matricula ?? ''),
-      marca: q.marca ?? body.marca ?? (avion?.marca ?? comp?.marca ?? ''),
-      modelo: q.modelo ?? body.modelo ?? (avion?.modelo ?? comp?.modelo ?? ''),
-      serial: q.serial ?? body.serial ?? (avion?.numeroSerie ?? comp?.numeroSerie ?? ''),
+      marca: q.marca ?? body.marca ?? (avion?.marca ?? ''),
+      modelo: q.modelo ?? body.modelo ?? (avion?.modelo ?? ''),
+      serial: q.serial ?? body.serial ?? (avion?.numeroSerie ?? ''),
 
-      fecha: q.fecha ?? body.fecha ?? fmtUY(new Date()),
+      // Campo "Fecha" en blanco en la tabla derecha
+      fecha: '',
       lugar: q.lugar ?? body.lugar ?? '',
       horasTT: q.horasTT ?? body.horasTT ?? '',
       ot: q.ot ?? body.ot ?? (orden.numero ?? orden.id),
 
+      // Texto de certificación
       textoCertificacion:
         q.textoCertificacion ??
         body.textoCertificacion ??
@@ -419,17 +416,22 @@ export const descargarConformidadPDF = async (req, res) => {
         q.certificadorNombre ??
         body.certificadorNombre ??
         [cert?.nombre, cert?.apellido].filter(Boolean).join(' '),
-      certificadorLic:
-        q.certificadorLic ?? body.certificadorLic ?? (cert?.numeroLicencia ?? ''),
-      certificadorTipo:
-        q.certificadorTipo ??
-        body.certificadorTipo ??
-        (Array.isArray(cert?.tipoLicencia) && cert.tipoLicencia.length
-          ? cert.tipoLicencia.join(', ')
-          : '')
+
+      // Segunda columna de firmas: "MMA. {numeroLicencia}"
+      certificadorLicString:
+        q.certificadorLicString ??
+        body.certificadorLicString ??
+        (cert?.numeroLicencia ? `MMA. ${cert.numeroLicencia}` : ''),
+
+      // Datos del motor (si existe)
+      motorMarca: q.motorMarca ?? body.motorMarca ?? (motorComp?.marca ?? ''),
+      motorModelo: q.motorModelo ?? body.motorModelo ?? (motorComp?.modelo ?? ''),
+      motorSerial: q.motorSerial ?? body.motorSerial ?? (motorComp?.numeroSerie ?? ''),
+      motorTSO: q.motorTSO ?? body.motorTSO ?? (motorComp?.tso ?? ''),
+      motorTBO: q.motorTBO ?? body.motorTBO ?? (motorComp?.tbo ?? '')
     };
 
-    // Plantilla HTML/CSS con recuadros alineados y bordes dobles
+    // Estructura HTML del PDF
     const html = `<!doctype html>
 <html>
 <head>
@@ -444,17 +446,15 @@ export const descargarConformidadPDF = async (req, res) => {
 
   .wrap { display: flex; flex-direction: column; gap: 4mm; }
 
-  /* Recuadros principales */
   .box { border: 2pt double #000; padding: 3mm; }
-  .box-top { min-height: 100mm; }
-  .box-bottom { min-height: 120mm; }
+  .box-top { min-height: 120mm; }
+  .box-bottom { min-height: 110mm; }
 
-  /* Cabecera con tablas a la misma altura que el logo y textos */
   .header-grid {
     display: grid;
-    grid-template-columns: 1fr 1.5fr 1fr;
-    gap: 3mm;
+    grid-template-columns: 1fr 2fr 1fr;
     align-items: flex-start;
+    gap: 3mm;
   }
   .center {
     text-align: center;
@@ -466,29 +466,38 @@ export const descargarConformidadPDF = async (req, res) => {
   .center img { height: 18mm; margin-bottom: 1mm; }
   .title { font-weight: bold; font-size: 11pt; }
   .address { font-size: 8pt; line-height: 1.2; }
-  .cert-title { font-weight: bold; font-size: 9.5pt; margin-top: 1mm; }
+  .cert-title {
+    font-size: 9.5pt;
+    font-weight: bold;
+    margin-top: 1mm;
+    white-space: nowrap;
+  }
 
   .sheet { width: 100%; border-collapse: collapse; font-size: 7.5pt; }
   .sheet td { border: 0.5pt solid #000; padding: 1mm; vertical-align: top; }
 
-  /* Bloque de descripción de trabajos (3 líneas) */
-  .trabajos { margin-top: 3mm; font-size: 8pt; }
-  .trabajo-label { margin-bottom: 1mm; }
-  .linea { border-bottom: 0.4pt solid #000; height: 5mm; margin-bottom: 1mm; }
+  /* Tablas Motor y Hélice en el segundo recuadro */
+  .motor-helice-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 3mm;
+    margin-top: 3mm;
+  }
 
-  /* Tabla de certificación */
+  .trabajos { margin-top: 3mm; font-size: 8pt; }
+
   .cert-table { width: 100%; border-collapse: collapse; margin-top: 3mm; font-size: 8pt; }
   .cert-table td { border: 0.5pt solid #000; padding: 1mm; vertical-align: top; }
   .cert-table .hdr { font-weight: bold; text-align: center; }
+  .cert-table tr:last-child td { height: 8mm; }
 </style>
 </head>
 <body>
 <div class="fecha-emision">Fecha: ${escapeHTML(vars.fechaEmision)}</div>
 <div class="wrap">
-  <!-- PRIMER RECUADRO -->
+  <!-- Primer recuadro -->
   <div class="box box-top">
     <div class="header-grid">
-      <!-- Tabla izquierda -->
       <div>
         <table class="sheet">
           <tr><td><strong>Matrícula:</strong> ${escapeHTML(vars.matricula)}</td></tr>
@@ -497,35 +506,29 @@ export const descargarConformidadPDF = async (req, res) => {
           <tr><td><strong>Serial:</strong> ${escapeHTML(vars.serial)}</td></tr>
         </table>
       </div>
-      <!-- Logo y textos centrados -->
       <div class="center">
         ${logoData ? `<img src="${logoData}" alt="logo">` : ''}
         <div class="title">${escapeHTML(vars.empresaTitulo)}</div>
         <div class="address">${escapeHTML(vars.empresaLinea1)}<br>${escapeHTML(vars.empresaLinea2)}</div>
         <div class="cert-title">CERTIFICADO DE CONFORMIDAD DE MANTENIMIENTO</div>
       </div>
-      <!-- Tabla derecha -->
       <div>
         <table class="sheet">
-          <tr><td><strong>Fecha:</strong> ${escapeHTML(vars.fecha)}</td></tr>
+          <tr><td><strong>Fecha:</strong> </td></tr>
           <tr><td><strong>Lugar:</strong> ${escapeHTML(vars.lugar)}</td></tr>
           <tr><td><strong>Horas TT:</strong> ${escapeHTML(vars.horasTT)}</td></tr>
           <tr><td><strong>OT:</strong> ${escapeHTML(String(vars.ot))}</td></tr>
         </table>
       </div>
     </div>
-    <!-- Área de trabajos con tres líneas -->
+    <!-- Texto y espacio para trabajos de aeronave -->
     <div class="trabajos">
-      <div class="trabajo-label">A la aeronave se le efectuaron los trabajos que a continuación se describen:</div>
-      <div class="linea"></div>
-      <div class="linea"></div>
-      <div class="linea"></div>
+      <p style="font-weight:bold; text-align:center;">A la aeronave se le efectuaron los trabajos que a continuación se describen:</p>
+      <div style="height:15mm;"></div>
     </div>
-    <!-- Tabla de certificación: texto amplio y firma -->
+    <!-- Texto de certificación y tabla de firmas -->
     <table class="cert-table">
-      <tr>
-        <td colspan="3">${escapeHTML(vars.textoCertificacion)}</td>
-      </tr>
+      <tr><td colspan="3">${escapeHTML(vars.textoCertificacion)}</td></tr>
       <tr>
         <td class="hdr">Nombre Certificador</td>
         <td class="hdr">Lic. Nº y Tipo</td>
@@ -533,17 +536,15 @@ export const descargarConformidadPDF = async (req, res) => {
       </tr>
       <tr>
         <td>${escapeHTML(vars.certificadorNombre)}</td>
-        <td>${escapeHTML(
-          [vars.certificadorLic, vars.certificadorTipo].filter(Boolean).join(' · ')
-        )}</td>
+        <td>${escapeHTML(vars.certificadorLicString)}</td>
         <td></td>
       </tr>
     </table>
   </div>
-  <!-- SEGUNDO RECUADRO -->
+
+  <!-- Segundo recuadro -->
   <div class="box box-bottom">
     <div class="header-grid">
-      <!-- Tabla izquierda -->
       <div>
         <table class="sheet">
           <tr><td><strong>Matrícula:</strong> ${escapeHTML(vars.matricula)}</td></tr>
@@ -552,38 +553,52 @@ export const descargarConformidadPDF = async (req, res) => {
           <tr><td><strong>Serial:</strong> ${escapeHTML(vars.serial)}</td></tr>
         </table>
       </div>
-      <!-- Logo y textos centrados -->
       <div class="center">
         ${logoData ? `<img src="${logoData}" alt="logo">` : ''}
         <div class="title">${escapeHTML(vars.empresaTitulo)}</div>
         <div class="address">${escapeHTML(vars.empresaLinea1)}<br>${escapeHTML(vars.empresaLinea2)}</div>
         <div class="cert-title">CERTIFICADO DE CONFORMIDAD DE MANTENIMIENTO</div>
       </div>
-      <!-- Tabla derecha -->
       <div>
         <table class="sheet">
-          <tr><td><strong>Fecha:</strong> ${escapeHTML(vars.fecha)}</td></tr>
+          <tr><td><strong>Fecha:</strong> </td></tr>
           <tr><td><strong>Lugar:</strong> ${escapeHTML(vars.lugar)}</td></tr>
           <tr><td><strong>Horas TT:</strong> ${escapeHTML(vars.horasTT)}</td></tr>
           <tr><td><strong>OT:</strong> ${escapeHTML(String(vars.ot))}</td></tr>
         </table>
       </div>
     </div>
-    <!-- Tabla de certificación (sin líneas de trabajos) -->
+    <!-- Tablas Motor y Hélice -->
+    <div class="motor-helice-grid">
+      <table class="sheet">
+        <tr><td colspan="2"><strong>Motor</strong></td></tr>
+        <tr><td><strong>Marca:</strong> ${escapeHTML(vars.motorMarca)}</td><td><strong>TSO:</strong> ${escapeHTML(vars.motorTSO)}</td></tr>
+        <tr><td><strong>Modelo:</strong> ${escapeHTML(vars.motorModelo)}</td><td><strong>TBO:</strong> ${escapeHTML(vars.motorTBO)}</td></tr>
+        <tr><td><strong>Serial:</strong> ${escapeHTML(vars.motorSerial)}</td><td></td></tr>
+      </table>
+      <table class="sheet">
+        <tr><td colspan="2"><strong>Helice</strong></td></tr>
+        <tr><td><strong>Marca:</strong></td><td><strong>TSO:</strong></td></tr>
+        <tr><td><strong>Modelo:</strong></td><td><strong>TBO:</strong></td></tr>
+        <tr><td><strong>Serial:</strong></td><td></td></tr>
+      </table>
+    </div>
+    <!-- Texto y espacio para trabajos del motor -->
+    <div class="trabajos">
+      <p style="font-weight:bold; text-align:center;">Al motor se le efectuaron los trabajos que a continuación se describen:</p>
+      <div style="height:15mm;"></div>
+    </div>
+    <!-- Texto de certificación y tabla de firmas -->
     <table class="cert-table">
-      <tr>
-        <td colspan="3">${escapeHTML(vars.textoCertificacion)}</td>
-      </tr>
+      <tr><td colspan="3">${escapeHTML(vars.textoCertificacion)}</td></tr>
       <tr>
         <td class="hdr">Nombre Certificador</td>
         <td class="hdr">Lic. Nº y Tipo</td>
-        <td class="hdr">Firma y Sello</td>
+        <td class "hdr">Firma y Sello</td>
       </tr>
       <tr>
         <td>${escapeHTML(vars.certificadorNombre)}</td>
-        <td>${escapeHTML(
-          [vars.certificadorLic, vars.certificadorTipo].filter(Boolean).join(' · ')
-        )}</td>
+        <td>${escapeHTML(vars.certificadorLicString)}</td>
         <td></td>
       </tr>
     </table>
@@ -592,27 +607,25 @@ export const descargarConformidadPDF = async (req, res) => {
 </body>
 </html>`;
 
-    // Renderizar con Puppeteer
+    // Generación del PDF con Puppeteer
     const browser = await puppeteer.launch({
       headless: 'new',
       args: ['--no-sandbox', '--disable-setuid-sandbox']
     });
     const page = await browser.newPage();
     await page.setContent(html, { waitUntil: 'networkidle0' });
-
-    const pdf = await page.pdf({
+    const pdfBuffer = await page.pdf({
       format: 'A4',
       printBackground: true,
       margin: { top: '0mm', bottom: '0mm', left: '0mm', right: '0mm' }
     });
-
     await page.close();
     await browser.close();
 
     const filename = `Conformidad-Mantenimiento-${orden.numero ?? orden.id}.pdf`;
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `inline; filename=\"${filename}\"`);
-    return res.send(pdf);
+    return res.send(pdfBuffer);
   } catch (error) {
     console.error('Error al generar PDF de Conformidad:', error);
     if (!res.headersSent) {
