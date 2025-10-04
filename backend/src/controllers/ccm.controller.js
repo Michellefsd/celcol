@@ -324,7 +324,6 @@ export const descargarConformidadPDF = async (req, res) => {
 
 
 
-
 // src/controllers/conformidadMantenimiento.controller.js (ESM)
 import { PrismaClient } from '@prisma/client';
 import path from 'path';
@@ -333,6 +332,11 @@ import puppeteer from 'puppeteer';
 
 const prisma = new PrismaClient();
 
+/**
+ * Descarga el PDF de Conformidad de Mantenimiento.
+ * Permite pasar variables mediante query o body (e.g. matricula, marca, modelo, lugar, certificador, etc.).
+ * Si no se indican, se toman de la orden de trabajo o se dejan en blanco.
+ */
 export const descargarConformidadPDF = async (req, res) => {
   const id = Number.parseInt(req.params.id, 10);
 
@@ -346,11 +350,24 @@ export const descargarConformidadPDF = async (req, res) => {
     const yyyy = dt.getFullYear();
     return `${dd}/${mm}/${yyyy}`;
   };
-  
+
   const escapeHTML = (s) =>
     String(s ?? '')
-      .replace(/&/g, '&amp;').replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+
+  // Intenta elegir un certificador de los empleados asignados
+  const pickCertificador = (empleadosAsignados = []) => {
+    const cert = empleadosAsignados.find(
+      (e) =>
+        (e.rol && String(e.rol).toUpperCase().includes('CERT')) ||
+        e.empleado?.esCertificador === true
+    );
+    return cert?.empleado ?? null;
+  };
 
   try {
     if (!id) return res.status(400).json({ error: 'ID inválido' });
@@ -365,7 +382,7 @@ export const descargarConformidadPDF = async (req, res) => {
     });
     if (!orden) return res.status(404).json({ error: 'Orden no encontrada' });
 
-    // Logo embebido
+    // Logo embebido (si existe en public/)
     let logoData = '';
     try {
       const logoPath = path.join(process.cwd(), 'public', 'celcol-logo.jpeg');
@@ -373,9 +390,53 @@ export const descargarConformidadPDF = async (req, res) => {
         const buf = fs.readFileSync(logoPath);
         logoData = `data:image/jpeg;base64,${buf.toString('base64')}`;
       }
-    } catch {}
+    } catch {
+      /* Ignorar error de lectura del logo */
+    }
 
-    // HTML/CSS - FORMULARIO COMPACTO
+    // Combinar variables de query, body, orden y defaults
+    const body = req.method === 'POST' ? req.body || {} : {};
+    const q = req.query || {};
+    const avion = orden.avion ?? null;
+    const comp = orden.componente ?? null;
+    const cert = pickCertificador(orden.empleadosAsignados);
+
+    const vars = {
+      fechaEmision: q.fechaEmision ?? body.fechaEmision ?? fmtUY(new Date()),
+      empresaTitulo: q.empresaTitulo ?? body.empresaTitulo ?? 'CELCOL AVIATION',
+      empresaLinea1: q.empresaLinea1 ?? body.empresaLinea1 ?? 'Camino Melilla Aeropuerto Ángel Adami',
+      empresaLinea2: q.empresaLinea2 ?? body.empresaLinea2 ?? 'Sector CAMES – Hangar Nº 2 · OMA IR-158',
+
+      matricula: q.matricula ?? body.matricula ?? (avion?.matricula ?? ''),
+      marca: q.marca ?? body.marca ?? (avion?.marca ?? comp?.marca ?? ''),
+      modelo: q.modelo ?? body.modelo ?? (avion?.modelo ?? comp?.modelo ?? ''),
+      serial: q.serial ?? body.serial ?? (avion?.numeroSerie ?? comp?.numeroSerie ?? ''),
+
+      fecha: q.fecha ?? body.fecha ?? fmtUY(new Date()),
+      lugar: q.lugar ?? body.lugar ?? '',
+      horasTT: q.horasTT ?? body.horasTT ?? '',
+      ot: q.ot ?? body.ot ?? (orden.numero ?? orden.id),
+
+      textoCertificacion:
+        q.textoCertificacion ??
+        body.textoCertificacion ??
+        'Certifico que esta aeronave ha sido inspeccionada y los trabajos arriba descritos han sido completados de manera satisfactoria, por lo que se encuentra en condiciones seguras y aeronavegable por concepto de los trabajos realizados. Los detalles de estos mantenimientos se encuentran bajo la Orden de Trabajo arriba descrita.',
+
+      certificadorNombre:
+        q.certificadorNombre ??
+        body.certificadorNombre ??
+        [cert?.nombre, cert?.apellido].filter(Boolean).join(' '),
+      certificadorLic:
+        q.certificadorLic ?? body.certificadorLic ?? (cert?.numeroLicencia ?? ''),
+      certificadorTipo:
+        q.certificadorTipo ??
+        body.certificadorTipo ??
+        (Array.isArray(cert?.tipoLicencia) && cert.tipoLicencia.length
+          ? cert.tipoLicencia.join(', ')
+          : '')
+    };
+
+    // Plantilla HTML/CSS con recuadros alineados y bordes dobles
     const html = `<!doctype html>
 <html>
 <head>
@@ -384,201 +445,161 @@ export const descargarConformidadPDF = async (req, res) => {
 <style>
   @page { size: A4; margin: 12mm; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: Arial, Helvetica, sans-serif; font-size: 9pt; color: #000; line-height: 1.1; background: white; }
+  body { font-family: Arial, Helvetica, sans-serif; font-size: 9pt; color: #000; background: #fff; line-height: 1.15; }
 
-  /* Fecha arriba a la derecha */
-  .fecha { position: absolute; top: 0; right: 0; font-size: 9pt; }
+  .fecha-emision { position: absolute; top: 0; right: 0; font-size: 9pt; }
 
-  /* Recuadro superior (1/3 de la hoja) */
-  .recuadro-superior { 
-    border: 1pt solid #000; 
-    padding: 3mm; 
-    height: 90mm; 
-    margin-bottom: 3mm;
-    position: relative;
-  }
+  .wrap { display: flex; flex-direction: column; gap: 4mm; }
 
-  /* Logo y textos centrados arriba */
-  .logo-section { 
-    text-align: center; 
-    margin-bottom: 2mm;
-    padding-bottom: 2mm;
-    border-bottom: 0.5pt solid #000;
-  }
-  .logo-section img { height: 18mm; margin-bottom: 1mm; }
-  .celcol-title { font-weight: bold; font-size: 10pt; }
-  .celcol-address { font-size: 8pt; line-height: 1.2; }
+  /* Recuadros principales */
+  .box { border: 2pt double #000; padding: 3mm; }
+  .box-top { min-height: 100mm; }
+  .box-bottom { min-height: 120mm; }
 
-  /* Tabla de datos al lado del logo - MÁS COMPACTA */
-  .tabla-datos-container {
+  /* Cabecera con tablas a la misma altura que el logo y textos */
+  .header-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr 1.5fr 1fr;
     gap: 3mm;
-    margin-bottom: 2mm;
+    align-items: flex-start;
   }
-  .tabla-datos { width: 100%; border-collapse: collapse; font-size: 8pt; }
-  .tabla-datos td { border: 0.5pt solid #000; padding: 1mm; vertical-align: top; height: 6mm; }
-  .campo-label { font-weight: bold; font-size: 7pt; display: block; }
-
-  /* Certificado */
-  .certificado { 
-    text-align: center; 
-    font-size: 10pt; 
-    font-weight: bold; 
-    margin: 2mm 0;
+  .center {
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
   }
+  .center img { height: 18mm; margin-bottom: 1mm; }
+  .title { font-weight: bold; font-size: 11pt; }
+  .address { font-size: 8pt; line-height: 1.2; }
+  .cert-title { font-weight: bold; font-size: 9.5pt; margin-top: 1mm; }
 
-  /* Texto de certificación - MÁS PEQUEÑO */
-  .texto-certificacion { 
-    font-size: 7.5pt; 
-    line-height: 1.3; 
-    margin-bottom: 2mm;
-    text-align: justify;
-  }
+  .sheet { width: 100%; border-collapse: collapse; font-size: 7.5pt; }
+  .sheet td { border: 0.5pt solid #000; padding: 1mm; vertical-align: top; }
 
-  /* Tabla de firmas - MÁS COMPACTA */
-  .tabla-firmas { 
-    width: 100%; 
-    border-collapse: collapse; 
-    margin-top: auto;
-    position: absolute;
-    bottom: 3mm;
-    left: 3mm;
-    right: 3mm;
-    font-size: 7pt;
-  }
-  .tabla-firmas td { border: 0.5pt solid #000; padding: 0.5mm; vertical-align: top; }
-  .firma-header { text-align: center; font-weight: bold; height: 5mm; }
-  .firma-campo { height: 10mm; }
+  /* Bloque de descripción de trabajos (3 líneas) */
+  .trabajos { margin-top: 3mm; font-size: 8pt; }
+  .trabajo-label { margin-bottom: 1mm; }
+  .linea { border-bottom: 0.4pt solid #000; height: 5mm; margin-bottom: 1mm; }
 
-  /* Recuadro inferior (2/3 de la hoja) */
-  .recuadro-inferior { 
-    border: 1pt solid #000; 
-    padding: 3mm; 
-    height: 135mm;
-    position: relative;
-  }
-
-  .valor-campo { min-height: 3mm; font-size: 8pt; }
+  /* Tabla de certificación */
+  .cert-table { width: 100%; border-collapse: collapse; margin-top: 3mm; font-size: 8pt; }
+  .cert-table td { border: 0.5pt solid #000; padding: 1mm; vertical-align: top; }
+  .cert-table .hdr { font-weight: bold; text-align: center; }
 </style>
 </head>
 <body>
-
-<!-- Fecha -->
-<div class="fecha">Fecha: ${escapeHTML(fmtUY(new Date()))}</div>
-
-<!-- RECUADRO SUPERIOR -->
-<div class="recuadro-superior">
-  <!-- Logo y textos -->
-  <div class="logo-section">
-    ${logoData ? `<img src="${logoData}">` : ''}
-    <div class="celcol-title">CELCOL AVIATION</div>
-    <div class="celcol-address">
-      Camino Melilla Aeropuerto Ángel Adami<br>
-      Sector Carnes Hangar No. 2 - OMA IR-158
+<div class="fecha-emision">Fecha: ${escapeHTML(vars.fechaEmision)}</div>
+<div class="wrap">
+  <!-- PRIMER RECUADRO -->
+  <div class="box box-top">
+    <div class="header-grid">
+      <!-- Tabla izquierda -->
+      <div>
+        <table class="sheet">
+          <tr><td><strong>Matrícula:</strong> ${escapeHTML(vars.matricula)}</td></tr>
+          <tr><td><strong>Marca:</strong> ${escapeHTML(vars.marca)}</td></tr>
+          <tr><td><strong>Modelo:</strong> ${escapeHTML(vars.modelo)}</td></tr>
+          <tr><td><strong>Serial:</strong> ${escapeHTML(vars.serial)}</td></tr>
+        </table>
+      </div>
+      <!-- Logo y textos centrados -->
+      <div class="center">
+        ${logoData ? `<img src="${logoData}" alt="logo">` : ''}
+        <div class="title">${escapeHTML(vars.empresaTitulo)}</div>
+        <div class="address">${escapeHTML(vars.empresaLinea1)}<br>${escapeHTML(vars.empresaLinea2)}</div>
+        <div class="cert-title">CERTIFICADO DE CONFORMIDAD DE MANTENIMIENTO</div>
+      </div>
+      <!-- Tabla derecha -->
+      <div>
+        <table class="sheet">
+          <tr><td><strong>Fecha:</strong> ${escapeHTML(vars.fecha)}</td></tr>
+          <tr><td><strong>Lugar:</strong> ${escapeHTML(vars.lugar)}</td></tr>
+          <tr><td><strong>Horas TT:</strong> ${escapeHTML(vars.horasTT)}</td></tr>
+          <tr><td><strong>OT:</strong> ${escapeHTML(String(vars.ot))}</td></tr>
+        </table>
+      </div>
     </div>
-  </div>
-
-  <!-- Tablas de datos al lado del logo - MÁS COMPACTAS -->
-  <div class="tabla-datos-container">
-    <!-- Tabla izquierda -->
-    <table class="tabla-datos">
-      <tr><td><span class="campo-label">Matrícula:</span><div class="valor-campo"></div></td></tr>
-      <tr><td><span class="campo-label">Marca:</span><div class="valor-campo"></div></td></tr>
-      <tr><td><span class="campo-label">Modelo:</span><div class="valor-campo"></div></td></tr>
-      <tr><td><span class="campo-label">Serial:</span><div class="valor-campo"></div></td></tr>
-    </table>
-
-    <!-- Tabla derecha -->
-    <table class="tabla-datos">
-      <tr><td><span class="campo-label">Fecha:</span><div class="valor-campo"></div></td></tr>
-      <tr><td><span class="campo-label">Lugar:</span><div class="valor-campo"></div></td></tr>
-      <tr><td><span class="campo-label">HorasTT:</span><div class="valor-campo"></div></td></tr>
-      <tr><td><span class="campo-label">OT:</span><div class="valor-campo"></div></td></tr>
-    </table>
-  </div>
-
-  <!-- Certificado -->
-  <div class="certificado">CERTIFICADO DE CONFORMIDAD DE MANTENIMIENTO</div>
-
-  <!-- Texto de certificación -->
-  <div class="texto-certificacion">
-    Certifico que esta aeronave ha sido inspeccionada y los trabajos arriba descritos, han sido completados de manera satisfactoria, por lo que se encuentra en condiciones seguras y aeronavegable por concepto de los trabajos realizados. Los detalles de estos mantenimientos se encuentran bajo la Orden de Trabajo arriba descrita.
-  </div>
-
-  <!-- Tabla de firmas - MÁS COMPACTA -->
-  <table class="tabla-firmas">
-    <tr>
-      <td class="firma-header">Nombre Certificador</td>
-      <td class="firma-header">Lic. No y Tipo</td>
-      <td class="firma-header">Firma y Sello</td>
-    </tr>
-    <tr>
-      <td class="firma-campo"></td>
-      <td class="firma-campo"></td>
-      <td class="firma-campo"></td>
-    </tr>
-  </table>
-</div>
-
-<!-- RECUADRO INFERIOR -->
-<div class="recuadro-inferior">
-  <!-- Logo y textos -->
-  <div class="logo-section">
-    ${logoData ? `<img src="${logoData}">` : ''}
-    <div class="celcol-title">CELCOL AVIATION</div>
-    <div class="celcol-address">
-      Camino Melilla Aeropuerto Ángel Adami<br>
-      Sector Carnes Hangar No. 2 - OMA IR-158
+    <!-- Área de trabajos con tres líneas -->
+    <div class="trabajos">
+      <div class="trabajo-label">A la aeronave se le efectuaron los trabajos que a continuación se describen:</div>
+      <div class="linea"></div>
+      <div class="linea"></div>
+      <div class="linea"></div>
     </div>
-  </div>
-
-  <!-- Tablas de datos al lado del logo - MÁS COMPACTAS -->
-  <div class="tabla-datos-container">
-    <!-- Tabla izquierda -->
-    <table class="tabla-datos">
-      <tr><td><span class="campo-label">Matrícula:</span><div class="valor-campo"></div></td></tr>
-      <tr><td><span class="campo-label">Marca:</span><div class="valor-campo"></div></td></tr>
-      <tr><td><span class="campo-label">Modelo:</span><div class="valor-campo"></div></td></tr>
-      <tr><td><span class="campo-label">Serial:</span><div class="valor-campo"></div></td></tr>
+    <!-- Tabla de certificación: texto amplio y firma -->
+    <table class="cert-table">
+      <tr>
+        <td colspan="3">${escapeHTML(vars.textoCertificacion)}</td>
+      </tr>
+      <tr>
+        <td class="hdr">Nombre Certificador</td>
+        <td class="hdr">Lic. Nº y Tipo</td>
+        <td class="hdr">Firma y Sello</td>
+      </tr>
+      <tr>
+        <td>${escapeHTML(vars.certificadorNombre)}</td>
+        <td>${escapeHTML(
+          [vars.certificadorLic, vars.certificadorTipo].filter(Boolean).join(' · ')
+        )}</td>
+        <td></td>
+      </tr>
     </table>
-
-    <!-- Tabla derecha -->
-    <table class="tabla-datos">
-      <tr><td><span class="campo-label">Fecha:</span><div class="valor-campo"></div></td></tr>
-      <tr><td><span class="campo-label">Lugar:</span><div class="valor-campo"></div></td></tr>
-      <tr><td><span class="campo-label">HorasTT:</span><div class="valor-campo"></div></td></tr>
-      <tr><td><span class="campo-label">OT:</span><div class="valor-campo"></div></td></tr>
+  </div>
+  <!-- SEGUNDO RECUADRO -->
+  <div class="box box-bottom">
+    <div class="header-grid">
+      <!-- Tabla izquierda -->
+      <div>
+        <table class="sheet">
+          <tr><td><strong>Matrícula:</strong> ${escapeHTML(vars.matricula)}</td></tr>
+          <tr><td><strong>Marca:</strong> ${escapeHTML(vars.marca)}</td></tr>
+          <tr><td><strong>Modelo:</strong> ${escapeHTML(vars.modelo)}</td></tr>
+          <tr><td><strong>Serial:</strong> ${escapeHTML(vars.serial)}</td></tr>
+        </table>
+      </div>
+      <!-- Logo y textos centrados -->
+      <div class="center">
+        ${logoData ? `<img src="${logoData}" alt="logo">` : ''}
+        <div class="title">${escapeHTML(vars.empresaTitulo)}</div>
+        <div class="address">${escapeHTML(vars.empresaLinea1)}<br>${escapeHTML(vars.empresaLinea2)}</div>
+        <div class="cert-title">CERTIFICADO DE CONFORMIDAD DE MANTENIMIENTO</div>
+      </div>
+      <!-- Tabla derecha -->
+      <div>
+        <table class="sheet">
+          <tr><td><strong>Fecha:</strong> ${escapeHTML(vars.fecha)}</td></tr>
+          <tr><td><strong>Lugar:</strong> ${escapeHTML(vars.lugar)}</td></tr>
+          <tr><td><strong>Horas TT:</strong> ${escapeHTML(vars.horasTT)}</td></tr>
+          <tr><td><strong>OT:</strong> ${escapeHTML(String(vars.ot))}</td></tr>
+        </table>
+      </div>
+    </div>
+    <!-- Tabla de certificación (sin líneas de trabajos) -->
+    <table class="cert-table">
+      <tr>
+        <td colspan="3">${escapeHTML(vars.textoCertificacion)}</td>
+      </tr>
+      <tr>
+        <td class="hdr">Nombre Certificador</td>
+        <td class="hdr">Lic. Nº y Tipo</td>
+        <td class="hdr">Firma y Sello</td>
+      </tr>
+      <tr>
+        <td>${escapeHTML(vars.certificadorNombre)}</td>
+        <td>${escapeHTML(
+          [vars.certificadorLic, vars.certificadorTipo].filter(Boolean).join(' · ')
+        )}</td>
+        <td></td>
+      </tr>
     </table>
   </div>
-
-  <!-- Certificado -->
-  <div class="certificado">CERTIFICADO DE CONFORMIDAD DE MANTENIMIENTO</div>
-
-  <!-- Texto de certificación -->
-  <div class="texto-certificacion">
-    Certifico que esta aeronave ha sido inspeccionada y los trabajos arriba descritos, han sido completados de manera satisfactoria, por lo que se encuentra en condiciones seguras y aeronavegable por concepto de los trabajos realizados. Los detalles de estos mantenimientos se encuentran bajo la Orden de Trabajo arriba descrita.
-  </div>
-
-  <!-- Tabla de firmas - MÁS COMPACTA -->
-  <table class="tabla-firmas">
-    <tr>
-      <td class="firma-header">Nombre Certificador</td>
-      <td class="firma-header">Lic. No y Tipo</td>
-      <td class="firma-header">Firma y Sello</td>
-    </tr>
-    <tr>
-      <td class="firma-campo"></td>
-      <td class="firma-campo"></td>
-      <td class="firma-campo"></td>
-    </tr>
-  </table>
 </div>
-
 </body>
 </html>`;
 
-    // Render
+    // Renderizar con Puppeteer
     const browser = await puppeteer.launch({
       headless: 'new',
       args: ['--no-sandbox', '--disable-setuid-sandbox']
@@ -597,10 +618,12 @@ export const descargarConformidadPDF = async (req, res) => {
 
     const filename = `Conformidad-Mantenimiento-${orden.numero ?? orden.id}.pdf`;
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+    res.setHeader('Content-Disposition', `inline; filename=\"${filename}\"`);
     return res.send(pdf);
   } catch (error) {
     console.error('Error al generar PDF de Conformidad:', error);
-    if (!res.headersSent) return res.status(500).json({ error: 'Error al generar el PDF' });
+    if (!res.headersSent) {
+      return res.status(500).json({ error: 'Error al generar el PDF' });
+    }
   }
 };
