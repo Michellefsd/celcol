@@ -48,6 +48,7 @@ app.set('trust proxy', 1);
 
 // === CONFIG ARCHIVOS / URLS PÚBLICAS ===
 const PUBLIC_BASE = process.env.API_PUBLIC_URL || process.env.PUBLIC_BASE || '';
+const FRONTEND = process.env.APP_PUBLIC_URL ||  'https://celcol-administradores.vercel.app' || '';
 const UPLOADS_DIR = path.join(__dirname, 'uploads');
 try { fs.mkdirSync(UPLOADS_DIR, { recursive: true }); } catch {}
 
@@ -57,8 +58,8 @@ app.use(cookieParser());
 
 // === CORS (ANTES de rutas) ===
 const ALLOWED_ORIGINS = [
-  'https://dev-celcol-dev.vercel.app', // PROD
-  'http://localhost:3000',                     // DEV
+  FRONTEND, 
+  'http://localhost:3000',                     
 ];
 
 const corsOptions = {
