@@ -149,7 +149,7 @@ export default function AvionDetallePage() {
         <VolverAtras texto=" " />
       </div>
 
-      <h1 className="text-2xl font-semibold text-slate-900 mb-6">Detalles del la Aeronave</h1>
+      <h1 className="text-2xl font-semibold text-slate-900 mb-6">Detalles de la Aeronave</h1>
 
       <div className="space-y-8">
         {/* CARD de presentación */}

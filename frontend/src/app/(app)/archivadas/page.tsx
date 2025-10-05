@@ -6,6 +6,8 @@ import BaseCard from '@/components/BaseCard';
 import BaseHeading from '@/components/BaseHeading';
 import TrabajoCard from '@/components/Home/TrabajoCard';
 import Link from 'next/link';
+import { titleFor } from '@/lib/labels';
+
 
 
 export default function ArchivadosPage() {
@@ -131,24 +133,24 @@ const renderContenido = () => {
       );
 
     case 'aviones':
-      return (
-        <ul className="mt-4 text-sm">
-          {data.aviones?.length ? (
-            data.aviones.map((a: any) => (
-              <li key={a.id}>
-                <Link
-                  href={`/archivadas/aviones/${a.id}`}
-                  className="underline hover:no-underline"
-                >
-                  {a.matricula} – {a.marca} {a.modelo}
-                </Link>
-              </li>
-            ))
-          ) : (
-            <li className="text-slate-500">No hay aviones archivados.</li>
-          )}
-        </ul>
-      );
+  return (
+    <ul className="mt-4 text-sm">
+      {data.aviones?.length ? (
+        data.aviones.map((a: { id: number; matricula?: string; marca?: string; modelo?: string }) => (
+          <li key={a.id}>
+            <Link
+              href={`/archivadas/aviones/${a.id}`}
+              className="underline hover:no-underline"
+            >
+              {a.matricula} – {a.marca} {a.modelo}
+            </Link>
+          </li>
+        ))
+      ) : (
+        <li className="text-slate-500">No hay {titleFor('avion').toLowerCase()} archivadas.</li>
+      )}
+    </ul>
+  );
 
     default:
       return null;

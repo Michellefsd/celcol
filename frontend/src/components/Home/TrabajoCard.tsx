@@ -7,6 +7,8 @@ import BaseHeading from '../BaseHeading';
 import { api, fetchJson } from '@/services/api';
 import IconButton from '../IconButton';
 import { IconVer, IconArchivar, IconDescargar } from '../ui/Icons';
+import { entityLabel } from '@/lib/labels';
+
 
 type SnapshotAvion = {
   matricula?: string | null;
@@ -259,7 +261,9 @@ export default function TrabajoCard({ soloArchivadas = false }: { soloArchivadas
                   {(() => {
                     if (esDeAvion(orden)) {
                       const avionMat = getDisplayAvionMatricula(orden);
-                      return avionMat ? `– Avión ${avionMat}` : '– Avión';
+                      return avionMat
+                        ? `– ${entityLabel('avion')} ${avionMat}`
+                        : `– ${entityLabel('avion')}`;
                     }
                     if (esDeComponente(orden)) {
                       const compTxt = getDisplayComponente(orden);
