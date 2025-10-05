@@ -268,7 +268,7 @@ return (
   {esAvion && orden.datosAvionSnapshot && (
   <div className="mt-4 rounded-xl border border-slate-200 bg-white p-4 text-[15px] leading-7">
     <h3 className="font-semibold text-slate-900 mb-1.5">
-      Datos del avión al momento del cierre
+      Datos de la aeronave al momento del cierre
     </h3>
     {orden.datosAvionSnapshot.matricula && (
       <p><span className="text-slate-500">Matrícula:</span> {orden.datosAvionSnapshot.matricula}</p>

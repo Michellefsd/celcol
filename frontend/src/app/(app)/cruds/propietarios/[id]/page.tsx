@@ -203,7 +203,7 @@ async function descargar8130(input?: string | ArchivoRef | null) {
 {/* AVIONES DEL PROPIETARIO */}
 <section className="rounded-2xl border border-slate-200 bg-white shadow-sm p-4 md:p-6">
   <div className="flex items-center justify-between mb-3">
-    <h2 className="text-lg font-semibold text-slate-900">Aviones</h2>
+    <h2 className="text-lg font-semibold text-slate-900">Aeronaves</h2>
   </div>
 
   {aviones.filter(a => !a.archivado).length > 0 ? (
@@ -220,7 +220,7 @@ async function descargar8130(input?: string | ArchivoRef | null) {
               href={`/cruds/aviones/${a.id}`}
               className="inline-flex items-center gap-2 text-cyan-600 hover:text-cyan-800 underline underline-offset-2"
             >
-              ✈️ Ver avión
+              ✈️ Ver aeronaves
             </Link>
           </div>
         </div>
@@ -228,7 +228,7 @@ async function descargar8130(input?: string | ArchivoRef | null) {
     </div>
   ) : (
     <p className="text-slate-600 text-sm mt-2">
-      Este propietario no tiene aviones vinculados.
+      Este propietario no tiene aeronaves vinculadas.
     </p>
   )}
 </section>

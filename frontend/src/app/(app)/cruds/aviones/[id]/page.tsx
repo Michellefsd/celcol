@@ -6,8 +6,11 @@ import AsignarAvionComponente from '@/components/Asignaciones/AsignarAvionCompon
 import EditarAvionComponente from '@/components/Asignaciones/EditarAvionComponente';
 import AccionBoton from '@/components/base/Boton';
 import SubirArchivo from '@/components/Asignaciones/SubirArchivo';
-import { api, fetchJson } from '@/services/api'; // 👈 sin apiUrl
+import { api, fetchJson } from '@/services/api'; 
 import VolverAtras from '@/components/Arrow';
+import { titleFor, entityLabel } from '@/lib/labels';  
+
+
 
 type ArchivoRef = {
   id: number;
@@ -134,7 +137,8 @@ export default function AvionDetallePage() {
   };
 
   if (loading) return <div className="p-4">Cargando...</div>;
-  if (!avion) return <div className="p-4">Avión no encontrado</div>;
+  if (!avion) return <div className="p-4">Aeronave no encontrada</div>;
+  
 
 
   return (
@@ -145,7 +149,7 @@ export default function AvionDetallePage() {
         <VolverAtras texto=" " />
       </div>
 
-      <h1 className="text-2xl font-semibold text-slate-900 mb-6">Detalles del avión</h1>
+      <h1 className="text-2xl font-semibold text-slate-900 mb-6">Detalles del la Aeronave</h1>
 
       <div className="space-y-8">
         {/* CARD de presentación */}
@@ -241,7 +245,7 @@ export default function AvionDetallePage() {
         {/* COMPONENTES DEL AVIÓN */}
         <section className="rounded-2xl border border-slate-200 bg-white shadow-sm p-4 md:p-6">
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-lg font-semibold text-slate-900">Componentes del avión</h2>
+            <h2 className="text-lg font-semibold text-slate-900">Componentes de la aeronave</h2>
             <button
               className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-[#597BFF] to-[#4a6ee0] text-white font-semibold px-4 py-2 shadow-sm hover:from-[#4a6ee0] hover:to-[#3658d4] hover:shadow-lg hover:brightness-110 transform hover:scale-[1.03] transition-all duration-300"
               onClick={() => setMostrarAgregarComponente(true)}

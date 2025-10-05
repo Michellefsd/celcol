@@ -68,12 +68,12 @@ export async function crearAvisoPorAvionSinPropietario(avion, prisma) {
       where: { tipo: 'avion_sin_propietario', avionId: avion.id },
     });
     console.log(
-      `🧹 Aviso removido: Avión ${avion.matricula ?? `(ID ${avion.id})`} ahora tiene propietario.`
+      `🧹 Aviso removido: Aeronave ${avion.matricula ?? `(ID ${avion.id})`} ahora tiene propietario.`
     );
     return;
   }
 
-  const mensaje = `El avión ${
+  const mensaje = `La Aeronave ${
     avion.matricula ?? `(ID ${avion.id})`
   } no tiene propietarios asignados.`;
 
@@ -90,12 +90,12 @@ export async function crearAvisoPorAvionSinPropietario(avion, prisma) {
 
 /// Revisa todos los aviones y genera/limpia avisos según tengan o no propietarios
 export async function revisarAvionesSinPropietario(prisma) {
-  console.log('✈️ Revisando aviones sin propietarios...');
+  console.log('✈️ Revisando aeronaves sin propietarios...');
   const aviones = await prisma.avion.findMany({ include: { propietarios: true } });
 
   for (const avion of aviones) {
     await crearAvisoPorAvionSinPropietario(avion, prisma);
   }
 
-  console.log('✅ Revisión de aviones completada.');
+  console.log('✅ Revisión de aeronaves completada.');
 }

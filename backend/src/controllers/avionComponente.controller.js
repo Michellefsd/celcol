@@ -9,7 +9,7 @@ export async function listarComponentes(req, res) {
     });
     res.json(componentes);
   } catch (error) {
-    console.error('Error al listar componentes de avión:', error);
+    console.error('Error al listar componentes de aeronave', error);
     res.status(500).json({ error: 'Error al obtener los componentes' });
   }
 };

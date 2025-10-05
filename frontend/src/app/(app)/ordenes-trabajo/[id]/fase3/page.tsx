@@ -318,7 +318,7 @@ async function descargarSolicitudArchivo(key?: string) {
             {orden.avion && (
               <>
                 <p>
-                  <span className="text-slate-500">Avión:</span>{' '}
+                  <span className="text-slate-500">Aeronave:</span>{' '}
                   <a
                     href={`/cruds/aviones/${orden.avion.id}`}
                     className="text-cyan-600 hover:text-cyan-800 underline underline-offset-2"

@@ -40,8 +40,8 @@ export const crearAvion = async (req, res) => {
 
     return res.status(201).json(avion);
   } catch (error) {
-    console.error('Error al crear avión:', error);
-    return res.status(500).json({ error: 'Error al crear el avión' });
+    console.error('Error al crear aeronave:', error);
+    return res.status(500).json({ error: 'Error al crear el aeronave' });
   }
 };
 
@@ -59,8 +59,8 @@ const aviones = await prisma.avion.findMany({
 
     res.json(aviones);
   } catch (error) {
-    console.error('Error al listar aviones:', error);
-    res.status(500).json({ error: 'Error al obtener aviones' });
+    console.error('Error al listar aeronaves:', error);
+    res.status(500).json({ error: 'Error al obtener aeronaves' });
   }
 };
 
@@ -95,7 +95,7 @@ export const obtenerAvion = async (req, res) => {
     });
 
     if (!avion) {
-      return res.status(404).json({ error: 'Avión no encontrado' });
+      return res.status(404).json({ error: 'Aeronave no encontrada' });
     }
 
     const avionTransformado = {
@@ -106,8 +106,8 @@ export const obtenerAvion = async (req, res) => {
 
     res.json(avionTransformado);
   } catch (error) {
-    console.error('Error al obtener avión:', error);
-    res.status(500).json({ error: 'Error al obtener el avión' });
+    console.error('Error al obtener aeronave:', error);
+    res.status(500).json({ error: 'Error al obtener la aeronave' });
   }
 };
 
@@ -120,10 +120,10 @@ export const actualizarAvion = async (req, res) => {
 
     // 1) Verificar existencia y estado (primero existencia)
     if (!avionActual) {
-      return res.status(404).json({ error: 'Avión no encontrado' });
+      return res.status(404).json({ error: 'Aeronave no encontrada' });
     }
     if (avionActual.archivado) {
-      return res.status(400).json({ error: 'No se puede modificar un avión archivado' });
+      return res.status(400).json({ error: 'No se puede modificar una aeronave archivada' });
     }
 
     const {
@@ -185,17 +185,17 @@ export const actualizarAvion = async (req, res) => {
       await prisma.avionPropietario.createMany({ data: relaciones });
     }
 
-    // 6) Aviso por avión sin propietario
+    // 6) Aviso por aeronave sin propietario
     const avionConPropietarios = await prisma.avion.findUnique({
       where: { id },
       include: { propietarios: true },
     });
     await crearAvisoPorAvionSinPropietario(avionConPropietarios, prisma);
 
-    return res.json({ mensaje: 'Avión actualizado correctamente' });
+    return res.json({ mensaje: 'Aeronave actualizada correctamente' });
   } catch (error) {
-    console.error('Error al actualizar avión:', error);
-    return res.status(500).json({ error: 'Error al actualizar el avión' });
+    console.error('Error al actualizar aeronave', error);
+    return res.status(500).json({ error: 'Error al actualizar la aeronave' });
   }
 };
 
@@ -206,11 +206,11 @@ export const archivarAvion = async (req, res) => {
     const avion = await prisma.avion.findUnique({ where: { id } });
 
     if (!avion) {
-      return res.status(404).json({ error: 'Avión no encontrado' });
+      return res.status(404).json({ error: 'Aeronave no encontrado' });
     }
 
     if (avion.archivado) {
-      return res.status(400).json({ error: 'El avión ya está archivado.' });
+      return res.status(400).json({ error: 'La aeronave ya está archivado.' });
     }
 
     // Verificar si está en una OT abierta
@@ -223,7 +223,7 @@ export const archivarAvion = async (req, res) => {
 
     if (ordenAbierta) {
       return res.status(400).json({
-        error: `No se puede archivar: el avión está en uso en la orden de trabajo ID ${ordenAbierta.id}.`,
+        error: `No se puede archivar: la aeronave está en uso en la orden de trabajo ID ${ordenAbierta.id}.`,
       });
     }
 
@@ -232,10 +232,10 @@ export const archivarAvion = async (req, res) => {
       data: { archivado: true },
     });
 
-    res.json({ mensaje: 'Avión archivado correctamente.' });
+    res.json({ mensaje: 'Aeronave archivado correctamente.' });
   } catch (error) {
-    console.error('Error al archivar avión:', error);
-    res.status(500).json({ error: 'Error al archivar el avión' });
+    console.error('Error al archivar aeronave:', error);
+    res.status(500).json({ error: 'Error al archivar la aeronave' });
   }
 };
 
@@ -250,7 +250,7 @@ export const asignarPropietarios = async (req, res) => {
 
   try {
     const avion = await prisma.avion.findUnique({ where: { id: avionId } });
-    if (!avion) return res.status(404).json({ error: 'Avión no encontrado' });
+    if (!avion) return res.status(404).json({ error: 'Aeronave no encontrada' });
 
     const propietarios = await prisma.propietario.findMany({
       where: { id: { in: propietariosIds } }

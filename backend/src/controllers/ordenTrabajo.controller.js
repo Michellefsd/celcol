@@ -806,7 +806,7 @@ export const cancelarOrden = async (req, res) => {
         fechaCancelacion: new Date(),
         datosAvionSnapshot,
         datosComponenteSnapshot,
-        datosPropietarioSnapshot, // ← null si era OT de avión
+        datosPropietarioSnapshot, 
       },
     });
 

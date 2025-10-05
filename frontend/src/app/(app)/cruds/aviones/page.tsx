@@ -7,7 +7,8 @@ import { useRouter } from 'next/navigation';
 import { fetchJson, api } from '@/services/api'; 
 import IconButton from '@/components/IconButton';
 import { IconVer } from '@/components/ui/Icons';
-import { asArray } from '@/utils/isArray';       
+import { asArray } from '@/utils/isArray'; 
+import { titleFor } from '@/lib/labels';      
 
 type Avion = {
   id: number;
@@ -85,8 +86,8 @@ export default function AvionesPage() {
     }
   };
 
-  const config: CrudConfig<Avion> = {
-    title: 'Aviones',
+  const config: CrudConfig<Avion> = { 
+    title: titleFor('avion'),
     // 👇 CrudManager usa su propio fetch interno; le seguimos pasando URL absoluta:
     endpoint: api('/aviones'),
     columns: [

@@ -40,11 +40,11 @@ interface RegistroTrabajo {
     nombre: string;
     apellido: string;
   };
-  horas?: number | string | null;            // ← NUEVO: puede venir como string/decimal
-  horasTrabajadas?: number | string | null;  // ← compat
+  horas?: number | string | null;            
+  horasTrabajadas?: number | string | null; 
   fecha: string;
   trabajoRealizado?: string | null;
-  rol?: 'TECNICO' | 'CERTIFICADOR';          // lo dejamos opcional por compat
+  rol?: 'TECNICO' | 'CERTIFICADOR';         
 }
 
   interface Avion {
@@ -83,8 +83,8 @@ interface RegistroTrabajo {
     apellido?: string;
     cedula?: string;
     // empresa:
-    razonSocial?: string;     // ← así viene del backend
-    nombreEmpresa?: string;   // ← compat viejo si lo hubiese
+    razonSocial?: string;     
+    nombreEmpresa?: string;   
     rut?: string;
     telefono?: string;
     email?: string;
@@ -104,8 +104,8 @@ interface RegistroTrabajo {
     estadoFactura?: 'NO_ENVIADA' | 'ENVIADA' | 'PAGA' | 'PENDIENTE' | '';
     numeroFactura?: string | null;
     fechaApertura?: string;
-    fechaCierre?: string;         // posible fallback si backend no expone fechaCancelacion
-    fechaCancelacion?: string;    // ⬅️ agregado para canceladas
+    fechaCierre?: string;         
+    fechaCancelacion?: string;   
 
     datosAvionSnapshot?: {
       matricula?: string;
@@ -243,7 +243,7 @@ interface RegistroTrabajo {
         {esAvion && orden.datosAvionSnapshot && (
           <div className="mt-4 rounded-xl border border-slate-200 bg-white p-4 text-[15px] leading-7">
             <h3 className="font-semibold text-slate-900 mb-1.5">
-              Datos del avión al momento de la cancelación
+              Datos de la aeronave al momento de la cancelación
             </h3>
             {orden.datosAvionSnapshot.matricula && (
               <p><span className="text-slate-500">Matrícula:</span> {orden.datosAvionSnapshot.matricula}</p>

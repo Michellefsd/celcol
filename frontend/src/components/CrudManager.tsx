@@ -420,7 +420,7 @@ return (
       {/* Tabla */}
 
       <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <table className="w-full text-sm">
+       <table className="w-full min-w-max text-sm">
        <thead className="sticky top-0 z-10 bg-slate-50">
   <tr>
     {columns.map((col) => (
@@ -439,18 +439,21 @@ return (
         </div>
       </th>
     ))}
-    <th className="px-3 py-2 text-left font-semibold text-slate-700 border-b border-slate-200">
-      Acciones
-    </th>
+    <th
+   className="px-3 py-2 text-left font-semibold text-slate-700 border-b border-slate-200
+              sticky right-0 z-20 bg-slate-50 border-l border-slate-200"
+ >
+   Acciones
+ </th>
   </tr>
 </thead>
 
 <tbody className="divide-y divide-slate-200">
   {sortedData.map((item, idx) => (
-    <tr
-      key={item.id}
-      className={`${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'} hover:bg-slate-50 transition-colors ${rowClassName?.(item) || ''}`}
-    >
+<tr
+   key={item.id}
+   className={`group ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'} hover:bg-slate-50 transition-colors ${rowClassName?.(item) || ''}`}
+ >
       {columns.map((col) => {
         const custom = renderCell?.(col as any, item);
         return (
@@ -460,8 +463,11 @@ return (
         );
       })}
 
-      <td className="px-3 py-2">
-        <div className="flex flex-wrap gap-2">
+      <td
+   className={`px-3 py-2 sticky right-0 z-10 border-l border-slate-200
+               ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'} group-hover:bg-slate-50`}
+ >
+   <div className="flex flex-wrap gap-2">
           <IconButton
             icon={IconEditar}
             title="Editar"
