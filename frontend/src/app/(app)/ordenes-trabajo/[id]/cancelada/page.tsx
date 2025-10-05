@@ -415,7 +415,7 @@ interface RegistroTrabajo {
 
             {orden.accionTomada && (
               <p>
-                <span className="text-slate-500">Acción tomada:</span> {orden.accionTomada}
+                <span className="text-slate-500">Reporte:</span> {orden.accionTomada}
               </p>
             )}
 
