@@ -1,100 +1,44 @@
-// src/utils/avisos.js (ESM)
+/**
+ * Helpers de fecha / formato
+ */
+const toMidnight = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
 
-/// Crea un aviso si la herramienta está próxima a vencerse (<= 30 días)
-export async function crearAvisoPorVencimientoHerramienta(herramienta, prisma) {
-  console.log(`🔍 Revisando herramienta ${herramienta.nombre}`);
-  if (!herramienta.fechaVencimiento) return;
+const diffDays = (from, to) =>
+  Math.floor((toMidnight(to).getTime() - toMidnight(from).getTime()) / (1000 * 60 * 60 * 24));
 
-  const truncarHora = (fecha) =>
-    new Date(fecha.getFullYear(), fecha.getMonth(), fecha.getDate());
+const fmtUY = (d) => {
+  if (!d) return '';
+  const dt = new Date(d);
+  if (Number.isNaN(dt.getTime())) return '';
+  const dd = String(dt.getDate()).padStart(2, '0');
+  const mm = String(dt.getMonth() + 1).padStart(2, '0');
+  const yyyy = dt.getFullYear();
+  return `${dd}/${mm}/${yyyy}`;
+};
 
-  const hoy = truncarHora(new Date());
-  const vencimiento = truncarHora(new Date(herramienta.fechaVencimiento));
-  const diasRestantes = Math.ceil((vencimiento - hoy) / (1000 * 60 * 60 * 24));
-
-  // ✅ Mensaje según estado:
-  //  - vencida (hoy o pasado): "Herramienta vencida"
-  //  - a <=30 días: "La herramienta "X" está a N día(s) de vencerse."
-  if (diasRestantes <= 30) {
-    const mensaje =
-      diasRestantes <= 0
-        ? 'Herramienta vencida'
-        : `La herramienta "${herramienta.nombre}" está a ${diasRestantes} día(s) de vencerse.`;
-
-    // Si agregás @@unique([tipo, herramientaId]) en Aviso, podés upsertear directo.
-    const existe = await prisma.aviso.findFirst({
-      where: { herramientaId: herramienta.id, tipo: 'herramienta' },
-    });
-
-    if (!existe) {
-      await prisma.aviso.create({
-        data: { tipo: 'herramienta', mensaje, herramientaId: herramienta.id },
-      });
-      console.log(`📣 Aviso creado: ${mensaje}`);
-    } else {
-      await prisma.aviso.update({
-        where: { id: existe.id },
-        data: { mensaje, creadoEn: new Date() },
-      });
-      console.log(`♻️ Aviso actualizado: ${mensaje}`);
-    }
-  }
-}
-
-
- // revisarTodasLasHerramientas)
-for (const h of herramientas) {
-  const fechaVence =
-    h.vencimientoCalibracion ?? h.proximaCalibracion ?? null;
-  if (!fechaVence) continue;
+/**
+ * Crea o actualiza el aviso correspondiente a una herramienta
+ * según su vencimiento (por vencer / vencida).
+ */
+async function crearOActualizarAvisoHerramienta(h, prisma) {
+  const fechaVence = h.vencimientoCalibracion ?? h.proximaCalibracion ?? null;
+  if (!fechaVence) return;
 
   const hoy = new Date();
-  const vence = new Date(fechaVence);
-  const dias = Math.floor(
-    (vence.setHours(0,0,0,0) - hoy.setHours(0,0,0,0)) / (1000*60*60*24)
-  );
+  const dias = diffDays(hoy, new Date(fechaVence));
 
-  if (dias >= 0 && dias <= 30) {
-    const titulo = `Herramienta por vencer (${dias} día${dias===1?'':'s'})`;
-    const descripcion =
-      `La herramienta ${h.nombre ?? h.codigo ?? `#${h.id}`} ` +
-      `vence el ${vence.toLocaleDateString('es-UY')}.`;
-
-    const yaExiste = await prisma.aviso.findFirst({
-      where: { tipo: 'HERRAMIENTA_POR_VENCER', leido: false, herramientaId: h.id },
-      select: { id: true },
-    });
-
-    if (!yaExiste) {
-      await prisma.aviso.create({
-        data: {
-          tipo: 'HERRAMIENTA_POR_VENCER',
-          titulo,
-          descripcion,
-          leido: false,
-          prioridad: dias <= 7 ? 'ALTA' : 'MEDIA',
-          herramienta: { connect: { id: h.id } },
-          metadata: { diasRestantes: dias, vencimiento: fechaVence },
-        },
-      });
-    } else {
-      await prisma.aviso.update({
-        where: { id: yaExiste.id },
-        data: { titulo, descripcion, metadata: { diasRestantes: dias, vencimiento: fechaVence } },
-      });
-    }
-  } else if (dias < 0) {
-    // 🔴 HERRAMIENTA VENCIDA
+  if (dias < 0) {
+    // 🔴 VENCIDA
     const titulo = `Herramienta vencida`;
-    const descripcion =
-      `La herramienta ${h.nombre ?? h.codigo ?? `#${h.id}`} ` +
-      `venció el ${vence.toLocaleDateString('es-UY')}.`;
+    const descripcion = `La herramienta ${h.nombre ?? h.codigo ?? `#${h.id}`} venció el ${fmtUY(fechaVence)}.`;
 
+    // Marcar como leído cualquier "por vencer"
     await prisma.aviso.updateMany({
       where: { tipo: 'HERRAMIENTA_POR_VENCER', leido: false, herramientaId: h.id },
       data: { leido: true },
     });
 
+    // Crear/actualizar "vencida"
     const yaExiste = await prisma.aviso.findFirst({
       where: { tipo: 'HERRAMIENTA_VENCIDA', leido: false, herramientaId: h.id },
       select: { id: true },
@@ -115,11 +59,95 @@ for (const h of herramientas) {
     } else {
       await prisma.aviso.update({
         where: { id: yaExiste.id },
-        data: { titulo, descripcion, metadata: { vencimiento: fechaVence } },
+        data: {
+          titulo,
+          descripcion,
+          prioridad: 'ALTA',
+          metadata: { vencimiento: fechaVence },
+        },
       });
     }
+    return;
   }
+
+  if (dias <= 30) {
+    // 🟡 POR VENCER (0–30 días)
+    const titulo = `Herramienta por vencer (${dias} día${dias === 1 ? '' : 's'})`;
+    const descripcion = `La herramienta ${h.nombre ?? h.codigo ?? `#${h.id}`} vence el ${fmtUY(fechaVence)}.`;
+    const prioridad = dias <= 7 ? 'ALTA' : 'MEDIA';
+
+    const yaExiste = await prisma.aviso.findFirst({
+      where: { tipo: 'HERRAMIENTA_POR_VENCER', leido: false, herramientaId: h.id },
+      select: { id: true },
+    });
+
+    if (!yaExiste) {
+      await prisma.aviso.create({
+        data: {
+          tipo: 'HERRAMIENTA_POR_VENCER',
+          titulo,
+          descripcion,
+          leido: false,
+          prioridad,
+          herramienta: { connect: { id: h.id } },
+          metadata: { diasRestantes: dias, vencimiento: fechaVence },
+        },
+      });
+    } else {
+      await prisma.aviso.update({
+        where: { id: yaExiste.id },
+        data: {
+          titulo,
+          descripcion,
+          prioridad,
+          metadata: { diasRestantes: dias, vencimiento: fechaVence },
+        },
+      });
+    }
+    return;
+  }
+
+  // ✅ Falta más de 30 días: cerrar avisos abiertos (opcional, mantiene limpio)
+  await prisma.aviso.updateMany({
+    where: {
+      herramientaId: h.id,
+      leido: false,
+      tipo: { in: ['HERRAMIENTA_POR_VENCER', 'HERRAMIENTA_VENCIDA'] },
+    },
+    data: { leido: true },
+  });
 }
+
+/**
+ * Revisa todas las herramientas y genera avisos si están próximas a vencer
+ */
+export async function revisarTodasLasHerramientas(prisma) {
+  console.log('🔎 Buscando herramientas próximas a vencimiento...');
+
+  const herramientas = await prisma.herramienta.findMany({
+    // Si tu modelo tiene archivado lógico, destapá esto:
+    // where: { archivado: false },
+    select: {
+      id: true,
+      nombre: true,
+      codigo: true,
+      vencimientoCalibracion: true,
+      proximaCalibracion: true,
+      // archivado: true,
+    },
+  });
+
+  for (const h of herramientas) {
+    try {
+      await crearOActualizarAvisoHerramienta(h, prisma);
+    } catch (e) {
+      console.error(`⚠️ Error procesando herramienta #${h.id}:`, e);
+    }
+  }
+
+  console.log('✅ Revisión de herramientas completada.');
+}
+
 
 
 /// Crea/actualiza/elimina el aviso si el avión no tiene propietarios
