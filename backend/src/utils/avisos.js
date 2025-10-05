@@ -30,7 +30,7 @@ async function crearOActualizarAvisoHerramienta(h, prisma) {
   if (dias < 0) {
     // 🔴 VENCIDA
     const titulo = `Herramienta vencida`;
-    const descripcion = `La herramienta ${h.nombre ?? h.codigo ?? `#${h.id}`} venció el ${fmtUY(fechaVence)}.`;
+    const descripcion = `La herramienta ${h.nombre ?? h.numeroSerie ?? `#${h.id}`} venció el ${fmtUY(fechaVence)}.`;
 
     // Marcar como leído cualquier "por vencer"
     await prisma.aviso.updateMany({
@@ -73,7 +73,7 @@ async function crearOActualizarAvisoHerramienta(h, prisma) {
   if (dias <= 30) {
     // 🟡 POR VENCER (0–30 días)
     const titulo = `Herramienta por vencer (${dias} día${dias === 1 ? '' : 's'})`;
-    const descripcion = `La herramienta ${h.nombre ?? h.codigo ?? `#${h.id}`} vence el ${fmtUY(fechaVence)}.`;
+    const descripcion = `La herramienta ${h.nombre ?? h.numeroSerie ?? `#${h.id}`} vence el ${fmtUY(fechaVence)}.`;
     const prioridad = dias <= 7 ? 'ALTA' : 'MEDIA';
 
     const yaExiste = await prisma.aviso.findFirst({
@@ -130,7 +130,7 @@ export async function revisarTodasLasHerramientas(prisma) {
     select: {
       id: true,
       nombre: true,
-      codigo: true,
+      numeroserie: true,
       vencimientoCalibracion: true,
       proximaCalibracion: true,
       // archivado: true,
