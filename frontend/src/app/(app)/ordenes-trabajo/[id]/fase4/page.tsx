@@ -579,7 +579,7 @@ return (
 
     {renderCampo('Inspección al recibir', orden.inspeccionRecibida ? 'Sí' : 'No')}
     {renderCampo('Daños previos', orden.danosPrevios)}
-    {renderCampo('Acción tomada', orden.accionTomada)}
+    {renderCampo('Reporte', orden.accionTomada)}
     {renderCampo('Observaciones', orden.observaciones)}
 
     {!!herramientasUnicas.length && (
