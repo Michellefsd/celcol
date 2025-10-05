@@ -18,6 +18,7 @@ import { requireAuth } from './middleware/authz.js'
 import {
   revisarTodasLasHerramientas,
   revisarAvionesSinPropietario,
+  revisarLicenciasPersonal,
 } from './src/utils/avisos.js';
 
 // Rutas públicas/archivos
@@ -145,6 +146,7 @@ app.use('/archivos', archivosRoutes);
     try {
       await revisarTodasLasHerramientas(prisma);
       await revisarAvionesSinPropietario(prisma);
+      await revisarLicenciasPersonal(prisma);
       console.log('✅ Revisión inicial completada.');
     } catch (err) {
       console.error('❌ Error en revisión inicial:', err);
@@ -158,6 +160,7 @@ cron.schedule('0 8 * * *', async () => {
   try {
     await revisarTodasLasHerramientas(prisma);
     await revisarAvionesSinPropietario(prisma);
+    await revisarLicenciasPersonal(prisma);
     console.log('✅ Revisión diaria completada.');
   } catch (err) {
     console.error('❌ Error al revisar avisos diarios:', err);
