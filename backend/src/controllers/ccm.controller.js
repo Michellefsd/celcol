@@ -335,7 +335,8 @@ import path from 'path';
 import fs from 'fs';
 import puppeteer from 'puppeteer';
 
-export const descargarOrdenPDF = async (req, res) => {
+
+ export const descargarConformidadPDF = async (req, res) => {
   const id = Number.parseInt(req.params.id, 10);
 
   const fmtUY = (d) => {
@@ -592,5 +593,3 @@ export const descargarOrdenPDF = async (req, res) => {
     if (!res.headersSent) return res.status(500).json({ error: 'Error al generar el PDF' });
   }
 };
-
-3
