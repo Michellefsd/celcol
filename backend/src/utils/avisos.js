@@ -130,7 +130,6 @@ export async function revisarTodasLasHerramientas(prisma) {
 select: {
   id: true,
   nombre: true,
-  numeroSerie: true,
   fechaVencimiento: true,
       // archivado: true,
     },
