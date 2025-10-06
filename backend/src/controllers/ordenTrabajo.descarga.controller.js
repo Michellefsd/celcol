@@ -100,19 +100,34 @@ export const descargarOrdenPDF = async (req, res) => {
       const a = emp?.apellido ?? emp?.empleado?.apellido;
       return [n, a].filter(Boolean).join(' ').trim();
     };
-    // Obtener acciones tomadas de registros de trabajo
-    const regs = Array.isArray(orden.registrosTrabajo) ? orden.registrosTrabajo : [];
-    const accionesTomadas = [];
-    for (let i = 0; i < Math.min(4, regs.length); i++) {
-      const r = regs[i];
-      const accion = r?.trabajoRealizado || r?.detalle || r?.descripcion || '';
-      const empleadoNombre = [r?.empleado?.nombre, r?.empleado?.apellido].filter(Boolean).join(' ').trim();
-      const rolEmpleado = r?.empleado?.rol || 'TÉCNICO';
-      const hh = String(r?.horas ?? r?.cantidadHoras ?? '');
-      if (accion) {
-        accionesTomadas.push({ descripcion: accion, empleado: empleadoNombre, rol: rolEmpleado, horas: hh });
-      }
-    }
+// === Acciones por rol, usando el ROL DEL REGISTRO ===
+const regs = Array.isArray(orden.registrosTrabajo) ? orden.registrosTrabajo : [];
+
+const mapAccion = (r) => {
+  const empleadoNombre = [r?.empleado?.nombre, r?.empleado?.apellido].filter(Boolean).join(' ').trim();
+  return {
+    descripcion: r?.trabajoRealizado || r?.detalle || r?.descripcion || '',
+    empleado: empleadoNombre,
+    rol: String(r?.rol || ''),           // <- rol del registro, no del empleado
+    horas: (r?.horas ?? r?.cantidadHoras ?? '') + ''
+  };
+};
+
+const accionesTecnico = regs
+  .filter(r => String(r?.rol || '').toUpperCase() === 'TECNICO')
+  .map(mapAccion);
+
+const accionesCertificador = regs
+  .filter(r => String(r?.rol || '').toUpperCase() === 'CERTIFICADOR')
+  .map(mapAccion);
+
+// Fallback: si no hay técnicos, usar bullets de solicitud (máx. 4) como acciones "técnicas" vacías
+if (accionesTecnico.length === 0 && solicitudBullets.length > 0) {
+  solicitudBullets.slice(0, 4).forEach((bullet) => {
+    accionesTecnico.push({ descripcion: bullet, empleado: '', rol: 'TECNICO', horas: '' });
+  });
+}
+
     // Si no hay registros, usar datos de solicitud
     if (accionesTomadas.length === 0 && solicitudBullets.length > 0) {
       const tecnicos = (orden.empleadosAsignados || [])
@@ -135,8 +150,7 @@ export const descargarOrdenPDF = async (req, res) => {
         logoData = `data:image/jpeg;base64,${buf.toString('base64')}`;
       }
     } catch {}
-    // Filtrar acciones de certificadores
-    const accionesCertificador = accionesTomadas.filter(a => String(a.rol || '').toUpperCase().includes('CERTIFICADOR'));
+
     // Construcción de HTML
     const html = `<!doctype html>
 <html>
@@ -233,13 +247,13 @@ export const descargarOrdenPDF = async (req, res) => {
 <div class="seccion page-break">
   <div class="seccion-label">1 Reporte</div>
   <div class="mono seccion-contenido">
-    ${accionesTomadas.map(a => escapeHTML(a.descripcion)).join('<br>') || escapeHTML(solicitudBruta || '')}
+     ${escapeHTML(orden.accionTomada || '')}
   </div>
 </div>
 <div class="seccion page-break">
   <div class="seccion-label">2 Acciones tomadas</div>
   <div class="lista-acciones">
-    ${accionesTomadas.map((accion) => `
+    ${accionesTecnico.map((accion) => `
       <div class="accion-item">
         <div class="accion-desc">${escapeHTML(accion.descripcion)}</div>
         <div class="accion-datos">
@@ -249,11 +263,11 @@ export const descargarOrdenPDF = async (req, res) => {
         </div>
       </div>
     `).join('')}
-    ${accionesTomadas.length === 0 ? `
+    ${accionesTecnico.length === 0 ? `
       <div class="accion-item">
         <div class="accion-desc"></div>
         <div class="accion-datos">
-          <div class="dato-box">TÉCNICO</div>
+          <div class="dato-box">TECNICO</div>
           <div class="dato-box"></div>
           <div class="dato-box">H.H:</div>
         </div>
@@ -261,6 +275,7 @@ export const descargarOrdenPDF = async (req, res) => {
     ` : ''}
   </div>
 </div>
+
 <div class="cierre-cert-row page-break">
   <div class="cert-section">
     <div class="cert-section-label">3 Certificado</div>
@@ -282,6 +297,7 @@ export const descargarOrdenPDF = async (req, res) => {
     <div class="mono bold" style="margin-top: 1mm; text-align: center;">${escapeHTML(fechaCierreTexto || '')}</div>
   </div>
 </div>
+
 <div class="footer">
   <div>Manual de la Organización de Mantenimiento – MOM</div>
   <div>Aprobado por: CELCOL AVIATION</div>
