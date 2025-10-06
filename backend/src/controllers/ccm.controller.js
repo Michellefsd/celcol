@@ -432,10 +432,20 @@ export const descargarConformidadPDF = async (req, res) => {
     return val;
   };
 
-  // Selecciona al empleado con rol "Certificador"
-  const pickCertificador = (empleadosAsignados = []) => {
-    const cert = empleadosAsignados.find((e) => e.rol && /certificador/i.test(e.rol));
-    return cert?.empleado ?? null;
+  // Certificador: empleadosAsignados -> registrosTrabajo -> esCertificador
+  const pickCertificadorEmpleado = (orden) => {
+    const ea = (orden.empleadosAsignados || []).find(
+      (e) => String(e?.rol || '').toUpperCase() === 'CERTIFICADOR'
+    );
+    if (ea?.empleado) return ea.empleado;
+
+    const rt = (orden.registrosTrabajo || []).find(
+      (r) => String(r?.rol || '').toUpperCase() === 'CERTIFICADOR'
+    );
+    if (rt?.empleado) return rt.empleado;
+
+    const ea2 = (orden.empleadosAsignados || []).find((e) => e?.empleado?.esCertificador);
+    return ea2?.empleado ?? null;
   };
 
   try {
@@ -445,6 +455,7 @@ export const descargarConformidadPDF = async (req, res) => {
       where: { id },
       include: {
         empleadosAsignados: { include: { empleado: true } },
+        registrosTrabajo: { include: { empleado: true } }, // <- para fallback de certificador
         avion: true,
         componente: true
       }
@@ -464,26 +475,37 @@ export const descargarConformidadPDF = async (req, res) => {
     const body = req.method === 'POST' ? (req.body || {}) : {};
     const q = req.query || {};
 
-    // Snapshots
+    // Snapshot de avión
     const avSnap = normalizeSnap(orden.datosAvionSnapshot) ?? {};
     const componentesSnap = Array.isArray(avSnap.componentes) ? avSnap.componentes : [];
 
-    // TSN del avión (para "Horas TT" en ambos recuadros)
+    // TSN del avión → "Horas TT"
     const avionTSN = avSnap.TSN ?? '';
 
-    // Motor desde snapshot (tipo === 'motor', case-insensitive)
-    const motor =
-      componentesSnap.find((c) => (c?.tipo ?? '').toString().toLowerCase() === 'motor') || null;
+    // Motor (snapshot, tipo === 'motor')
+    const motor = componentesSnap.find(
+      (c) => (c?.tipo ?? '').toString().toLowerCase() === 'motor'
+    ) || null;
 
-    // TBOHoras del motor (si existe)
-    const motorTBOHoras =
-      motor?.TBOHoras ?? motor?.tboHoras ?? '';
+    // TBOHoras del motor
+    const motorTBOHoras = motor?.TBOHoras ?? motor?.tboHoras ?? '';
 
-    // Certificador
-    const cert = pickCertificador(orden.empleadosAsignados);
+    // Certificador (empleado)
+    const certEmp = pickCertificadorEmpleado(orden);
 
+    // Avión/componente de DB (solo como fallback de datos básicos del encabezado)
     const avion = orden.avion ?? null;
-    const compOrden = orden.componente ?? null; // no lo usamos para motor (pedido: snapshot)
+
+    // Variables a imprimir
+    const motorTBOBase = q.motorTBO ?? body.motorTBO ?? (motor?.TBO ?? motor?.tbo ?? '');
+    const motorTBODisplay =
+      motorTBOBase
+        ? (motorTBOHoras
+            ? `${motorTBOBase} (TBOHoras ${motorTBOHoras})`
+            : `${motorTBOBase} ?TBOHoras`)
+        : (motorTBOHoras
+            ? `(TBOHoras ${motorTBOHoras})`
+            : '');
 
     const vars = {
       // Encabezado
@@ -498,13 +520,13 @@ export const descargarConformidadPDF = async (req, res) => {
       modelo:    q.modelo    ?? body.modelo    ?? (avSnap.modelo    ?? avion?.modelo    ?? ''),
       serial:    q.serial    ?? body.serial    ?? (avSnap.numeroSerie ?? avion?.numeroSerie ?? ''),
 
-      // Tabla derecha (en ambos recuadros)
-      fecha:  '', // queda en blanco
+      // Tabla derecha (ambos recuadros)
+      fecha:  '', // en blanco
       lugar:  q.lugar   ?? body.lugar   ?? '',
-      horasTT: String(q.horasTT ?? body.horasTT ?? avionTSN ?? ''), // TSN del avión
+      horasTT: String(q.horasTT ?? body.horasTT ?? avionTSN ?? ''), // TSN
       ot:     q.ot      ?? body.ot      ?? (orden.numero ?? orden.id),
 
-      // Texto de certificación
+      // Certificación
       textoCertificacion:
         q.textoCertificacion ??
         body.textoCertificacion ??
@@ -513,23 +535,19 @@ export const descargarConformidadPDF = async (req, res) => {
       certificadorNombre:
         q.certificadorNombre ??
         body.certificadorNombre ??
-        [cert?.nombre, cert?.apellido].filter(Boolean).join(' '),
+        [certEmp?.nombre, certEmp?.apellido].filter(Boolean).join(' '),
 
       certificadorLicString:
         q.certificadorLicString ??
         body.certificadorLicString ??
-        (cert?.numeroLicencia ? `MMA. ${cert.numeroLicencia}` : ''),
+        (certEmp?.numeroLicencia ? `MMA. ${certEmp.numeroLicencia}` : ''),
 
-      // Motor (del snapshot)
+      // Motor (snapshot)
       motorMarca:  q.motorMarca  ?? body.motorMarca  ?? (motor?.marca       ?? ''),
       motorModelo: q.motorModelo ?? body.motorModelo ?? (motor?.modelo      ?? ''),
       motorSerial: q.motorSerial ?? body.motorSerial ?? (motor?.numeroSerie ?? ''),
-      motorTSO:    q.motorTSO    ?? body.motorTSO    ?? (motor?.TSO         ?? ''),
-      // TBO + ?TBOHoras
-      motorTBO:    (() => {
-        const base = q.motorTBO ?? body.motorTBO ?? (motor?.TBO ?? '');
-        return [base, motorTBOHoras ? `?${motorTBOHoras}` : ''].join(' ').trim();
-      })()
+      motorTSO:    q.motorTSO    ?? body.motorTSO    ?? (motor?.TSO         ?? motor?.tso ?? ''),
+      motorTBO:    motorTBODisplay
     };
 
     // HTML del PDF
@@ -543,13 +561,15 @@ export const descargarConformidadPDF = async (req, res) => {
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: Arial, Helvetica, sans-serif; font-size: 9pt; color: #000; background: #fff; line-height: 1.15; }
 
-  /* Fecha fuera del recuadro (fijo al margen superior derecho) */
-  .fecha-emision { position: fixed; top: 6mm; right: 12mm; font-size: 9pt; }
+  /* Fecha fuera del recuadro (más arriba) */
+  .fecha-emision { position: fixed; top: 3mm; right: 12mm; font-size: 9pt; }
 
-  .wrap { display: flex; flex-direction: column; gap: 4mm; }
+  /* Bajar el contenido para que no se encime con la fecha fija */
+  .wrap { display: flex; flex-direction: column; gap: 4mm; margin-top: 10mm; }
 
   .box { border: 2pt double #000; padding: 3mm; }
-  .box-top { min-height: 120mm; }
+  /* Primer recuadro más bajo para evitar hueco */
+  .box-top { min-height: 100mm; }
   .box-bottom { min-height: 110mm; }
 
   .header-grid {
