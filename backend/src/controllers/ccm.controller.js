@@ -1,4 +1,4 @@
-import prisma from '../lib/prisma.js';
+/*import prisma from '../lib/prisma.js';
 import path from 'path';
 import fs from 'fs';
 import puppeteer from 'puppeteer';
@@ -156,7 +156,7 @@ export const descargarConformidadPDF = async (req, res) => {
   .sheet { width: 100%; border-collapse: collapse; font-size: 7.5pt; }
   .sheet td { border: 0.5pt solid #000; padding: 1mm; vertical-align: top; }
 
-  /* Tablas Motor y Hélice en el segundo recuadro */
+  // Tablas Motor y Hélice en el segundo recuadro //
   .motor-helice-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -313,3 +313,284 @@ export const descargarConformidadPDF = async (req, res) => {
     }
   }
 };
+*/
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+import prisma from '../lib/prisma.js';
+import path from 'path';
+import fs from 'fs';
+import puppeteer from 'puppeteer';
+
+export const descargarOrdenPDF = async (req, res) => {
+  const id = Number.parseInt(req.params.id, 10);
+
+  const fmtUY = (d) => {
+    if (!d) return '';
+    const dt = new Date(d);
+    if (isNaN(dt)) return '';
+    const dd = String(dt.getDate()).padStart(2, '0');
+    const mm = String(dt.getMonth() + 1).padStart(2, '0');
+    const yyyy = dt.getFullYear();
+    return `${dd}/${mm}/${yyyy}`;
+  };
+  const normalizeSnap = (val) => {
+    if (!val) return null;
+    if (typeof val === 'string') {
+      try { return JSON.parse(val) ?? null; } catch { return null; }
+    }
+    return val;
+  };
+  const escapeHTML = (s) =>
+    String(s ?? '')
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+
+  try {
+    if (!id) return res.status(400).json({ error: 'ID inválido' });
+
+    const orden = await prisma.ordenTrabajo.findUnique({
+      where: { id },
+      include: {
+        registrosTrabajo: { orderBy: { fecha: 'asc' }, include: { empleado: true } },
+        avion: { include: { propietarios: { include: { propietario: true } } } },
+        componente: { include: { propietario: true } }
+      }
+    });
+
+    if (!orden) return res.status(404).json({ error: 'Orden no encontrada' });
+
+    const estado = orden.estadoOrden || '';
+    if (!['CERRADA', 'CANCELADA'].includes(estado)) {
+      return res.status(400).json({ error: 'La OT debe estar CERRADA o CANCELADA para generar PDF.' });
+    }
+
+    // Snapshots
+    const avSnap   = normalizeSnap(orden.datosAvionSnapshot);
+    const compSnap = normalizeSnap(orden.datosComponenteSnapshot);
+    const propSnap = normalizeSnap(orden.datosPropietarioSnapshot);
+
+    const matricula = (avSnap?.matricula) || (orden.avion?.matricula) || (compSnap?.matricula) || '';
+    const fechaSolicitud = fmtUY(orden.fechaApertura);
+    const otNro = String(orden.numero ?? orden.id);
+
+    // Observaciones (respaldo para “discrepancias” si querés dejar algo)
+    const observaciones = String(orden.observaciones ?? '').trim();
+
+    // REPORTE: ahora viene 100% de accionTomada
+    const reporteTexto = String(orden.accionTomada ?? '').trim();
+
+    // Acciones tomadas (todos los registros)
+    const regs = Array.isArray(orden.registrosTrabajo) ? orden.registrosTrabajo : [];
+    const accionesTomadas = regs.map((r) => ({
+      descripcion: String(r?.trabajoRealizado ?? '').trim(),
+      empleado: [r?.empleado?.nombre, r?.empleado?.apellido].filter(Boolean).join(' ').trim(),
+      rol: String(r?.rol ?? '').toUpperCase(), // toma del RegistroDeTrabajo.rol
+      horas: (r?.horas ?? null) === null ? '' : String(r.horas)
+    })).filter(a => a.descripcion || a.empleado || a.horas);
+
+    // Certificado: solo CERTIFICADOR
+    const accionesCertificador = accionesTomadas.filter(a => a.rol === 'CERTIFICADOR');
+
+    // Fecha de cierre/cancelación
+    const fechaCierreTexto = estado === 'CERRADA' ? fmtUY(orden.fechaCierre) : fmtUY(orden.fechaCancelacion);
+
+    // Logo
+    let logoData = '';
+    try {
+      const logoPath = path.join(process.cwd(), 'public', 'celcol-logo.jpeg');
+      if (fs.existsSync(logoPath)) {
+        const buf = fs.readFileSync(logoPath);
+        logoData = `data:image/jpeg;base64,${buf.toString('base64')}`;
+      }
+    } catch {}
+
+    const html = `<!doctype html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<title>CA-29 OT ${escapeHTML(otNro)}</title>
+<style>
+  @page { size: A4; margin: 12mm; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Arial, Helvetica, sans-serif; color: #000; line-height: 1.25; position: relative; min-height: 270mm; font-size: 9.5pt; }
+  .header { position: relative; margin-bottom: 6mm; height: 28mm; }
+  .logo { position: absolute; left: 0; top: 0; width: 40mm; height: auto; }
+  .header-content { margin-left: 45mm; text-align: center; }
+  .header h1 { font-size: 14pt; font-weight: bold; margin-bottom: 2mm; }
+  .header-fecha { position: absolute; top: 12mm; right: 0; font-size: 9pt; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 2.5mm; margin-bottom: 2.5mm; }
+  .field { border: 0.5pt solid #000; padding: 2mm; position: relative; min-height: 12mm; }
+  .field-label { position: absolute; top: -3mm; left: 2mm; background: #fff; padding: 0 2mm; font-size: 7.5pt; font-weight: bold; }
+  .section-45 { display: grid; grid-template-columns: 1fr 40mm; gap: 2.5mm; margin-bottom: 2.5mm; }
+  .solicitud, .firma { border: 0.5pt solid #000; padding: 2mm; position: relative; min-height: 25mm; }
+  .discrepancias { border: 0.5pt solid #000; padding: 2mm; margin-bottom: 2.5mm; position: relative; min-height: 15mm; }
+  .discrepancias-label { position: absolute; top: -3mm; left: 2mm; background: #fff; padding: 0 2mm; font-size: 7.5pt; font-weight: bold; }
+  .autorizacion { text-align: center; font-size: 8.5pt; margin: 3mm 0; padding: 0 5mm; }
+  .autorizacion strong { font-weight: bold; }
+  .seccion { border: 0.5pt solid #000; padding: 2mm; margin-bottom: 2.5mm; position: relative; }
+  .seccion-label { position: absolute; top: -3mm; left: 2mm; background: #fff; padding: 0 2mm; font-size: 7.5pt; font-weight: bold; }
+  .seccion-contenido { margin-top: 2mm; }
+  .page-break { page-break-inside: avoid; }
+  .lista-acciones { margin-top: 1.5mm; }
+  .accion-item { margin-bottom: 2.5mm; padding-bottom: 2mm; border-bottom: 0.3pt solid #ccc; page-break-inside: avoid; }
+  .accion-desc { margin-bottom: 1.5mm; }
+  .accion-datos { display: flex; gap: 2.5mm; font-size: 8pt; }
+  .dato-box { border: 0.5pt solid #000; padding: 1mm 2mm; min-width: 28mm; }
+  .cierre-cert-row { display: grid; grid-template-columns: 3fr 1fr; gap: 2.5mm; margin-top: 4mm; }
+  .cert-section { border: 0.5pt solid #000; padding: 2mm; position: relative; min-height: 20mm; }
+  .cert-section-label { position: absolute; top: -3mm; left: 2mm; background: #fff; padding: 0 2mm; font-size: 7.5pt; font-weight: bold; }
+  .fecha-cierre { border: 0.5pt solid #000; padding: 2mm; position: relative; min-height: 20mm; }
+  .footer { position: absolute; bottom: 5mm; left: 0; right: 0; display: flex; justify-content: space-between; font-size: 7.5pt; border-top: 0.5pt solid #000; padding-top: 2mm; margin-top: 8mm; }
+  .mono { white-space: pre-wrap; font-family: monospace; }
+  .bold { font-weight: bold; }
+</style>
+</head>
+<body>
+<div class="header">
+  ${logoData ? `<img class="logo" src="${logoData}">` : ''}
+  <div class="header-fecha">Fecha: ${escapeHTML(fmtUY(new Date()))}</div>
+  <div class="header-content">
+    <h1>SOLICITUD - ORDEN DE TRABAJO DISCREPANCIAS</h1>
+  </div>
+</div>
+
+<div class="grid">
+  <div class="field">
+    <div class="field-label">1 Matrícula</div>
+    <div class="mono">${escapeHTML(matricula)}</div>
+  </div>
+  <div class="field">
+    <div class="field-label">2 Fecha solicitud</div>
+    <div class="mono">${escapeHTML(fechaSolicitud)}</div>
+  </div>
+  <div class="field">
+    <div class="field-label">3 O/T Nro.</div>
+    <div class="mono">${escapeHTML(otNro)}</div>
+  </div>
+</div>
+
+<div class="section-45">
+  <div class="solicitud">
+    <div class="field-label">4 Solicitud (descripción del trabajo)</div>
+    <div class="mono" style="margin-top: 1mm;">${escapeHTML(String(orden.OTsolicitud ?? orden.solicitud ?? ''))}</div>
+  </div>
+  <div class="firma">
+    <div class="field-label">5 Firma o email</div>
+    <div style="margin-top: 1mm;">
+      <div class="bold">Solicitó:</div>
+      <div>${escapeHTML(String(orden.solicitadoPor ?? ''))}</div>
+      <div style="margin-top: 8mm; border-top: 0.5pt solid #000; text-align: center; padding-top: 1mm;">Firma</div>
+    </div>
+  </div>
+</div>
+
+<div class="discrepancias">
+  <div class="discrepancias-label">6 Discrepancias encontradas</div>
+  <div class="mono" style="margin-top: 1mm;">${escapeHTML(observaciones)}</div>
+</div>
+
+<div class="autorizacion"><strong>Autorizo a la OMA, la realización en la aeronave o componente de los trabajos detallados en la siguiente orden</strong></div>
+
+<div class="seccion page-break">
+  <div class="seccion-label">1 Reporte</div>
+  <div class="mono seccion-contenido">
+    ${escapeHTML(reporteTexto)}
+  </div>
+</div>
+
+<div class="seccion page-break">
+  <div class="seccion-label">2 Acciones tomadas</div>
+  <div class="lista-acciones">
+    ${
+      accionesTomadas.length > 0
+        ? accionesTomadas.map((a) => `
+      <div class="accion-item">
+        <div class="accion-desc">${escapeHTML(a.descripcion)}</div>
+        <div class="accion-datos">
+          <div class="dato-box">${escapeHTML(a.rol)}</div>
+          <div class="dato-box">${escapeHTML(a.empleado)}</div>
+          <div class="dato-box">H.H: ${escapeHTML(a.horas)}</div>
+        </div>
+      </div>`).join('')
+        : `
+      <div class="accion-item">
+        <div class="accion-desc"></div>
+        <div class="accion-datos">
+          <div class="dato-box">TÉCNICO</div>
+          <div class="dato-box"></div>
+          <div class="dato-box">H.H:</div>
+        </div>
+      </div>`
+    }
+  </div>
+</div>
+
+<div class="cierre-cert-row page-break">
+  <div class="cert-section">
+    <div class="cert-section-label">3 Certificado</div>
+    <div class="lista-acciones">
+      ${
+        accionesCertificador.length > 0
+          ? accionesCertificador.map((a) => `
+        <div class="accion-item">
+          <div class="accion-desc">${escapeHTML(a.descripcion || '-')}</div>
+          <div class="accion-datos">
+            <div class="dato-box">${escapeHTML(a.rol)}</div>
+            <div class="dato-box">${escapeHTML(a.empleado)}</div>
+            <div class="dato-box">H.H: ${escapeHTML(a.horas)}</div>
+          </div>
+        </div>`).join('')
+          : '<div class="accion-item"><div class="accion-desc">-</div></div>'
+      }
+    </div>
+  </div>
+  <div class="fecha-cierre">
+    <div class="field-label">4 Fecha de cierre</div>
+    <div class="mono bold" style="margin-top: 1mm; text-align: center;">${escapeHTML(fechaCierreTexto || '')}</div>
+  </div>
+</div>
+
+<div class="footer">
+  <div>Manual de la Organización de Mantenimiento – MOM</div>
+  <div>Aprobado por: CELCOL AVIATION</div>
+</div>
+</body>
+</html>`;
+
+    const browser = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox', '--disable-setuid-sandbox'] });
+    const page = await browser.newPage();
+    await page.setContent(html, { waitUntil: 'networkidle0' });
+    const pdfBuffer = await page.pdf({
+      format: 'A4',
+      printBackground: true,
+      margin: { top: '0mm', bottom: '0mm', left: '0mm', right: '0mm' }
+    });
+    await page.close();
+    await browser.close();
+
+    const baseName = `OT-${orden.numero ?? orden.id}`;
+    const filename = `${baseName}.pdf`;
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+    return res.send(pdfBuffer);
+  } catch (error) {
+    console.error('Error al generar PDF de OT (Puppeteer):', error);
+    if (!res.headersSent) return res.status(500).json({ error: 'Error al generar el PDF' });
+  }
+};
+
+3
