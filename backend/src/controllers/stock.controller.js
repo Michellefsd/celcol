@@ -1,15 +1,12 @@
 // src/controllers/stock.controller.js (ESM)
 import fs from 'fs';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../lib/prisma.js';
 import { subirArchivoGenerico } from '../utils/archivoupload.js';
 import { archivoStorage } from '../services/archivo.service.js';
 import { createHash } from 'node:crypto';
 import { crearArchivoDesdeFile } from '../services/archivo.service.js';
 
 
-const prisma = new PrismaClient({
-  log: ['query', 'info', 'warn', 'error'],
-});
 
 // Helper para crear/actualizar aviso de stock bajo (upsert)
 async function upsertAvisoStockBajo(prisma, stockId, nombre, cantidad) {

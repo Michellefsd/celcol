@@ -1,6 +1,4 @@
-import { PrismaClient } from '@prisma/client';
-const prisma = new PrismaClient();
-
+import prisma from '../lib/prisma.js';  
 // CREATE
 export async function crearPropietario(req, res) {
   try {

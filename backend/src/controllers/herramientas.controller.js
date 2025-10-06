@@ -1,8 +1,7 @@
-import { PrismaClient } from '@prisma/client';
+import prisma from '../lib/prisma.js';
 import { subirArchivoGenerico } from '../utils/archivoupload.js';
 
 
-const prisma = new PrismaClient();
 
 // LISTAR TODAS
 export const listarHerramientas = async (req, res) => {

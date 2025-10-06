@@ -1,11 +1,10 @@
 import { subirArchivoGenerico } from '../utils/archivoupload.js';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../prisma.js';
 import { empleadoEnOtAbierta } from '../services/archiveGuards.js';
 import PDFDocument from 'pdfkit';
 import path from 'path';
 import fs from 'fs';
 
-const prisma = new PrismaClient();
 const ALLOWED_LIC = ['MOTOR', 'CELULA', 'AVIONICA'];
 
 const aliasLic = {

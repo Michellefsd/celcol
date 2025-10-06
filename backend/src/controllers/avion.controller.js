@@ -1,11 +1,9 @@
-// ESM controller — backend/src/controllers/avion.controller.js
-import { PrismaClient } from '@prisma/client';
+import prisma from '../lib/prisma.js';
 import fs from 'fs';
 import { archivoStorage } from '../services/archivo.service.js';
 import { subirArchivoGenerico } from '../utils/archivoupload.js';
 import { crearAvisoPorAvionSinPropietario } from '../utils/avisos.js';
 
-const prisma = new PrismaClient();
 
 
 // CREATE

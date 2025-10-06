@@ -1,6 +1,4 @@
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import prisma from '../lib/prisma.js';
 
 // GET /avisos – Listar todos los avisos
 export const listarAvisos = async (_req, res) => {

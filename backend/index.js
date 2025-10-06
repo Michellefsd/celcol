@@ -8,7 +8,7 @@ import path from 'path';
 import fs from 'fs';
 import cookieParser from 'cookie-parser';
 import cron from 'node-cron';
-import { PrismaClient } from '@prisma/client';
+import prisma from './src/lib/prisma.js';
 import { fileURLToPath } from 'url';
 
 // Rutas y middlewares (ESM)
@@ -36,7 +36,18 @@ import ordenTrabajoRoutes from './src/routes/ordenTrabajo.routes.js';
 import avisosRoutes from './src/routes/avisos.routes.js';
 import archivadosRoutes from './src/routes/archivados.routes.js';
 
-const prisma = new PrismaClient({ log: ['query', 'info', 'warn', 'error'] });
+// Manejo de cierre para desconectar Prisma
+const shutdown = async (signal) => {
+  try {
+    console.log(`${signal} recibido. Cerrando Prisma…`);
+    await prisma.$disconnect();
+  } finally {
+    process.exit(0);
+  }
+};
+
+process.on('SIGINT', () => shutdown('SIGINT'));
+process.on('SIGTERM', () => shutdown('SIGTERM'));
 
 // __dirname en ESM
 const __filename = fileURLToPath(import.meta.url);

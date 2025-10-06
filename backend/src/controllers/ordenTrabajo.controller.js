@@ -1,8 +1,6 @@
-// src/controllers/ordenTrabajo.controller.js — Parte 1/3 (ESM)
-import { PrismaClient } from '@prisma/client';
+import prisma from '../lib/prisma.js';
 import { subirArchivoGenerico } from '../utils/archivoupload.js';
 
-const prisma = new PrismaClient();
 
 // 1. Listar todas las órdenes
 export const getAllOrdenes = async (req, res) => {
