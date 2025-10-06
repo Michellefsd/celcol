@@ -767,7 +767,7 @@ export const cancelarOrden = async (req, res) => {
         matricula: a.matricula,
         marca: a.marca,
         modelo: a.modelo,
-        numeroSerie: a.numeroSerie,
+        numeroSerie: a.,
         TSN: a.TSN,
         vencimientoMatricula: a.vencimientoMatricula,
         vencimientoSeguro: a.vencimientoSeguro,
