@@ -209,8 +209,16 @@ app.use((err, _req, res, _next) => {
   res.status(500).json({ error: 'Internal server error' });
 });
 
-// === LISTEN ===
-const PORT = process.env.PORT || 3001;
+/*// === LISTEN ===
+const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {
   console.log(`✅ Backend escuchando en puerto ${PORT}`);
+});
+*/
+
+
+
+const PORT = Number(process.env.PORT || 8080);
+app.listen(PORT, '0.0.0.0', () => {
+  console.log('API up on :' + PORT);
 });
