@@ -94,31 +94,29 @@ export const descargarOrdenPDF = async (req, res) => {
     const solicitudBruta = orden.OTsolicitud || orden.solicitud || orden.descripcionTrabajo || orden.descripcion || '';
     const solicitudBullets = splitBullets(solicitudBruta);
     const observBullets = splitBullets(orden.observaciones || '');
-    // Helpers de personal
-    const toNombre = (emp) => {
-      const n = emp?.nombre ?? emp?.empleado?.nombre;
-      const a = emp?.apellido ?? emp?.empleado?.apellido;
-      return [n, a].filter(Boolean).join(' ').trim();
-    };
-/// === Acciones por rol, usando el ROL DEL REGISTRO ===
+
+// === Acciones por rol, usando el ROL DEL REGISTRO ===
 const regs = Array.isArray(orden.registrosTrabajo) ? orden.registrosTrabajo : [];
 
 const mapAccion = (r) => {
-  const empleadoNombre = [r?.empleado?.nombre, r?.empleado?.apellido].filter(Boolean).join(' ').trim();
+  const empleadoNombre = [r?.empleado?.nombre, r?.empleado?.apellido]
+    .filter(Boolean)
+    .join(' ')
+    .trim();
   return {
     descripcion: r?.trabajoRealizado || r?.detalle || r?.descripcion || '',
     empleado: empleadoNombre,
     rol: String(r?.rol || ''),           // <- rol del registro, no del empleado
-    horas: (r?.horas ?? r?.cantidadHoras ?? '') + ''
+    horas: (r?.horas ?? r?.cantidadHoras ?? '') + '',
   };
 };
 
 const accionesTecnico = regs
-  .filter(r => String(r?.rol || '').toUpperCase() === 'TECNICO')
+  .filter((r) => String(r?.rol || '').toUpperCase() === 'TECNICO')
   .map(mapAccion);
 
 const accionesCertificador = regs
-  .filter(r => String(r?.rol || '').toUpperCase() === 'CERTIFICADOR')
+  .filter((r) => String(r?.rol || '').toUpperCase() === 'CERTIFICADOR')
   .map(mapAccion);
 
 // Fallback: si no hay técnicos, usar bullets de solicitud (máx. 4) como acciones "técnicas" vacías
@@ -128,18 +126,6 @@ if (accionesTecnico.length === 0 && solicitudBullets.length > 0) {
   });
 }
 
-
-    // Si no hay registros, usar datos de solicitud
-    if (accionesTomadas.length === 0 && solicitudBullets.length > 0) {
-      const tecnicos = (orden.empleadosAsignados || [])
-        .filter(e => (e?.rol || '').toUpperCase() === 'TECNICO')
-        .map(toNombre);
-      solicitudBullets.forEach((bullet, index) => {
-        if (index < 4) {
-          accionesTomadas.push({ descripcion: bullet, empleado: tecnicos[0] || '', rol: 'TÉCNICO', horas: '' });
-        }
-      });
-    }
     const discrepanciaTexto = discrep?.A?.texto || discrep?.B?.texto || observBullets[0] || '';
     const fechaCierreTexto = estado === 'CERRADA' ? fmtUY(orden.fechaCierre) : fmtUY(orden.fechaCancelacion);
     // Logo embebido
