@@ -327,18 +327,15 @@ export const descargarConformidadPDF = async (req, res) => {
 
 
 
-
-
-
 import prisma from '../lib/prisma.js';
 import path from 'path';
 import fs from 'fs';
 import puppeteer from 'puppeteer';
 
-
- export const descargarConformidadPDF = async (req, res) => {
+export const descargarConformidadPDF = async (req, res) => {
   const id = Number.parseInt(req.params.id, 10);
 
+  // Helpers
   const fmtUY = (d) => {
     if (!d) return '';
     const dt = new Date(d);
@@ -348,17 +345,63 @@ import puppeteer from 'puppeteer';
     const yyyy = dt.getFullYear();
     return `${dd}/${mm}/${yyyy}`;
   };
+
+  const escapeHTML = (s) =>
+    String(s ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+
+  // Busca un item cuyo tipo sea "motor" dentro de estructuras comunes del snapshot
+  const pickMotorFromAvionSnapshot = (avSnap) => {
+    if (!avSnap || typeof avSnap !== 'object') return null;
+
+    const pools = [
+      avSnap.componentes,
+      avSnap.componentesInstalados,
+      avSnap.componentesAvion,
+      avSnap.items,
+      Array.isArray(avSnap) ? avSnap : null
+    ].filter(Boolean);
+
+    for (const list of pools) {
+      try {
+        const found = (Array.isArray(list) ? list : []).find((c) => {
+          const tipo = (c?.tipo ?? c?.type ?? '').toString();
+          return /motor/i.test(tipo);
+        });
+        if (found) return found;
+      } catch {}
+    }
+
+    // A veces viene anidado en claves por id/posiciones
+    for (const k of Object.keys(avSnap)) {
+      const v = avSnap[k];
+      if (v && typeof v === 'object') {
+        const maybe = pickMotorFromAvionSnapshot(v);
+        if (maybe) return maybe;
+      }
+    }
+
+    return null;
+  };
+
+  // Selecciona al empleado con rol "Certificador"
+  const pickCertificador = (empleadosAsignados = []) => {
+    const cert = empleadosAsignados.find((e) => e.rol && /certificador/i.test(e.rol));
+    return cert?.empleado ?? null;
+  };
+
+  // Normaliza JSON en snapshot (puede venir como string)
   const normalizeSnap = (val) => {
     if (!val) return null;
     if (typeof val === 'string') {
-      try { return JSON.parse(val) ?? null; } catch { return null; }
+      try { return JSON.parse(val); } catch { return null; }
     }
     return val;
   };
-  const escapeHTML = (s) =>
-    String(s ?? '')
-      .replace(/&/g, '&amp;').replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 
   try {
     if (!id) return res.status(400).json({ error: 'ID inválido' });
@@ -366,50 +409,14 @@ import puppeteer from 'puppeteer';
     const orden = await prisma.ordenTrabajo.findUnique({
       where: { id },
       include: {
-        registrosTrabajo: { orderBy: { fecha: 'asc' }, include: { empleado: true } },
-        avion: { include: { propietarios: { include: { propietario: true } } } },
-        componente: { include: { propietario: true } }
+        empleadosAsignados: { include: { empleado: true } },
+        avion: true,
+        componente: true
       }
     });
-
     if (!orden) return res.status(404).json({ error: 'Orden no encontrada' });
 
-    const estado = orden.estadoOrden || '';
-    if (!['CERRADA', 'CANCELADA'].includes(estado)) {
-      return res.status(400).json({ error: 'La OT debe estar CERRADA o CANCELADA para generar PDF.' });
-    }
-
-    // Snapshots
-    const avSnap   = normalizeSnap(orden.datosAvionSnapshot);
-    const compSnap = normalizeSnap(orden.datosComponenteSnapshot);
-    const propSnap = normalizeSnap(orden.datosPropietarioSnapshot);
-
-    const matricula = (avSnap?.matricula) || (orden.avion?.matricula) || (compSnap?.matricula) || '';
-    const fechaSolicitud = fmtUY(orden.fechaApertura);
-    const otNro = String(orden.numero ?? orden.id);
-
-    // Observaciones (respaldo para “discrepancias” si querés dejar algo)
-    const observaciones = String(orden.observaciones ?? '').trim();
-
-    // REPORTE: ahora viene 100% de accionTomada
-    const reporteTexto = String(orden.accionTomada ?? '').trim();
-
-    // Acciones tomadas (todos los registros)
-    const regs = Array.isArray(orden.registrosTrabajo) ? orden.registrosTrabajo : [];
-    const accionesTomadas = regs.map((r) => ({
-      descripcion: String(r?.trabajoRealizado ?? '').trim(),
-      empleado: [r?.empleado?.nombre, r?.empleado?.apellido].filter(Boolean).join(' ').trim(),
-      rol: String(r?.rol ?? '').toUpperCase(), // toma del RegistroDeTrabajo.rol
-      horas: (r?.horas ?? null) === null ? '' : String(r.horas)
-    })).filter(a => a.descripcion || a.empleado || a.horas);
-
-    // Certificado: solo CERTIFICADOR
-    const accionesCertificador = accionesTomadas.filter(a => a.rol === 'CERTIFICADOR');
-
-    // Fecha de cierre/cancelación
-    const fechaCierreTexto = estado === 'CERRADA' ? fmtUY(orden.fechaCierre) : fmtUY(orden.fechaCancelacion);
-
-    // Logo
+    // Logo embebido (si existe en "public/celcol-logo.jpeg")
     let logoData = '';
     try {
       const logoPath = path.join(process.cwd(), 'public', 'celcol-logo.jpeg');
@@ -419,160 +426,254 @@ import puppeteer from 'puppeteer';
       }
     } catch {}
 
+    const body = req.method === 'POST' ? (req.body || {}) : {};
+    const q = req.query || {};
+
+    // Base: avión/componente reales de la OT
+    const avion = orden.avion ?? null;
+    const compOrden = orden.componente ?? null;
+
+    // Snapshots
+    const avSnap = normalizeSnap(orden.datosAvionSnapshot);
+
+    // Motor desde SNAPSHOT del avión (preferente)
+    const motorFromSnap = pickMotorFromAvionSnapshot(avSnap);
+
+    // Fallback: si la OT tiene componente y su tipo es motor
+    const motorFallback = (compOrden && /motor/i.test(compOrden.tipo || '')) ? compOrden : null;
+
+    const motor = motorFromSnap || motorFallback || null;
+
+    // Certificador
+    const cert = pickCertificador(orden.empleadosAsignados);
+
+    const vars = {
+      // Encabezado
+      fechaEmision: q.fechaEmision ?? body.fechaEmision ?? fmtUY(new Date()),
+      empresaTitulo: q.empresaTitulo ?? body.empresaTitulo ?? 'CELCOL AVIATION',
+      empresaLinea1: q.empresaLinea1 ?? body.empresaLinea1 ?? 'Camino Melilla Aeropuerto Ángel Adami',
+      empresaLinea2: q.empresaLinea2 ?? body.empresaLinea2 ?? 'Sector CAMES – Hangar Nº 2 · OMA IR-158',
+
+      // Avión (preferir snapshot si lo tuvieras con esos campos)
+      matricula: q.matricula ?? body.matricula ?? (avSnap?.matricula ?? avion?.matricula ?? ''),
+      marca:     q.marca     ?? body.marca     ?? (avSnap?.marca     ?? avion?.marca     ?? ''),
+      modelo:    q.modelo    ?? body.modelo    ?? (avSnap?.modelo    ?? avion?.modelo    ?? ''),
+      serial:    q.serial    ?? body.serial    ?? (avSnap?.numeroSerie ?? avSnap?.serie ?? avion?.numeroSerie ?? ''),
+
+      // Tabla derecha primer recuadro
+      fecha: '', // queda en blanco como pediste
+      lugar:   q.lugar   ?? body.lugar   ?? '',
+      horasTT: q.horasTT ?? body.horasTT ?? '',
+      ot:      q.ot      ?? body.ot      ?? (orden.numero ?? orden.id),
+
+      // Texto de certificación
+      textoCertificacion:
+        q.textoCertificacion ??
+        body.textoCertificacion ??
+        'Certifico que esta aeronave ha sido inspeccionada y los trabajos arriba descritos han sido completados de manera satisfactoria, por lo que se encuentra en condiciones seguras y aeronavegable por concepto de los trabajos realizados. Los detalles de estos mantenimientos se encuentran bajo la Orden de Trabajo arriba descrita.',
+
+      certificadorNombre:
+        q.certificadorNombre ??
+        body.certificadorNombre ??
+        [cert?.nombre, cert?.apellido].filter(Boolean).join(' '),
+
+      certificadorLicString:
+        q.certificadorLicString ??
+        body.certificadorLicString ??
+        (cert?.numeroLicencia ? `MMA. ${cert.numeroLicencia}` : ''),
+
+      // ==== Variables del MOTOR (desde snapshot del avión, tipo "motor") ====
+      motorMarca:  q.motorMarca  ?? body.motorMarca  ?? (motor?.marca       ?? motor?.manufacturer ?? ''),
+      motorModelo: q.motorModelo ?? body.motorModelo ?? (motor?.modelo      ?? motor?.model       ?? ''),
+      motorSerial: q.motorSerial ?? body.motorSerial ?? (motor?.numeroSerie ?? motor?.serial      ?? ''),
+      motorTSO:    q.motorTSO    ?? body.motorTSO    ?? (motor?.tso         ?? motor?.TSO         ?? ''),
+      motorTBO:    q.motorTBO    ?? body.motorTBO    ?? (motor?.tbo         ?? motor?.TBO         ?? ''),
+
+      // Si quisieras horas del motor específicas en snapshot (opcional, dejo ganchos)
+      // motorHorasTT: q.motorHorasTT ?? body.motorHorasTT ?? (motor?.horasTT ?? ''),
+    };
+
+    // HTML del PDF
     const html = `<!doctype html>
 <html>
 <head>
 <meta charset="utf-8"/>
-<title>CA-29 OT ${escapeHTML(otNro)}</title>
+<title>Conformidad de Mantenimiento</title>
 <style>
   @page { size: A4; margin: 12mm; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: Arial, Helvetica, sans-serif; color: #000; line-height: 1.25; position: relative; min-height: 270mm; font-size: 9.5pt; }
-  .header { position: relative; margin-bottom: 6mm; height: 28mm; }
-  .logo { position: absolute; left: 0; top: 0; width: 40mm; height: auto; }
-  .header-content { margin-left: 45mm; text-align: center; }
-  .header h1 { font-size: 14pt; font-weight: bold; margin-bottom: 2mm; }
-  .header-fecha { position: absolute; top: 12mm; right: 0; font-size: 9pt; }
-  .grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 2.5mm; margin-bottom: 2.5mm; }
-  .field { border: 0.5pt solid #000; padding: 2mm; position: relative; min-height: 12mm; }
-  .field-label { position: absolute; top: -3mm; left: 2mm; background: #fff; padding: 0 2mm; font-size: 7.5pt; font-weight: bold; }
-  .section-45 { display: grid; grid-template-columns: 1fr 40mm; gap: 2.5mm; margin-bottom: 2.5mm; }
-  .solicitud, .firma { border: 0.5pt solid #000; padding: 2mm; position: relative; min-height: 25mm; }
-  .discrepancias { border: 0.5pt solid #000; padding: 2mm; margin-bottom: 2.5mm; position: relative; min-height: 15mm; }
-  .discrepancias-label { position: absolute; top: -3mm; left: 2mm; background: #fff; padding: 0 2mm; font-size: 7.5pt; font-weight: bold; }
-  .autorizacion { text-align: center; font-size: 8.5pt; margin: 3mm 0; padding: 0 5mm; }
-  .autorizacion strong { font-weight: bold; }
-  .seccion { border: 0.5pt solid #000; padding: 2mm; margin-bottom: 2.5mm; position: relative; }
-  .seccion-label { position: absolute; top: -3mm; left: 2mm; background: #fff; padding: 0 2mm; font-size: 7.5pt; font-weight: bold; }
-  .seccion-contenido { margin-top: 2mm; }
-  .page-break { page-break-inside: avoid; }
-  .lista-acciones { margin-top: 1.5mm; }
-  .accion-item { margin-bottom: 2.5mm; padding-bottom: 2mm; border-bottom: 0.3pt solid #ccc; page-break-inside: avoid; }
-  .accion-desc { margin-bottom: 1.5mm; }
-  .accion-datos { display: flex; gap: 2.5mm; font-size: 8pt; }
-  .dato-box { border: 0.5pt solid #000; padding: 1mm 2mm; min-width: 28mm; }
-  .cierre-cert-row { display: grid; grid-template-columns: 3fr 1fr; gap: 2.5mm; margin-top: 4mm; }
-  .cert-section { border: 0.5pt solid #000; padding: 2mm; position: relative; min-height: 20mm; }
-  .cert-section-label { position: absolute; top: -3mm; left: 2mm; background: #fff; padding: 0 2mm; font-size: 7.5pt; font-weight: bold; }
-  .fecha-cierre { border: 0.5pt solid #000; padding: 2mm; position: relative; min-height: 20mm; }
-  .footer { position: absolute; bottom: 5mm; left: 0; right: 0; display: flex; justify-content: space-between; font-size: 7.5pt; border-top: 0.5pt solid #000; padding-top: 2mm; margin-top: 8mm; }
-  .mono { white-space: pre-wrap; font-family: monospace; }
-  .bold { font-weight: bold; }
+  body { font-family: Arial, Helvetica, sans-serif; font-size: 9pt; color: #000; background: #fff; line-height: 1.15; }
+
+  .fecha-emision { position: absolute; top: 0; right: 0; font-size: 9pt; }
+
+  .wrap { display: flex; flex-direction: column; gap: 4mm; }
+
+  .box { border: 2pt double #000; padding: 3mm; }
+  .box-top { min-height: 120mm; }
+  .box-bottom { min-height: 110mm; }
+
+  .header-grid {
+    display: grid;
+    grid-template-columns: 1fr 2fr 1fr;
+    align-items: flex-start;
+    gap: 3mm;
+  }
+  .center {
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+  }
+  .center img { height: 18mm; margin-bottom: 1mm; }
+  .title { font-weight: bold; font-size: 11pt; }
+  .address { font-size: 8pt; line-height: 1.2; }
+  .cert-title {
+    font-size: 9.5pt;
+    font-weight: bold;
+    margin-top: 1mm;
+    white-space: nowrap;
+  }
+
+  .sheet { width: 100%; border-collapse: collapse; font-size: 7.5pt; }
+  .sheet td { border: 0.5pt solid #000; padding: 1mm; vertical-align: top; }
+
+  /* Tablas Motor y Hélice en el segundo recuadro */
+  .motor-helice-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 3mm;
+    margin-top: 3mm;
+  }
+
+  .trabajos { margin-top: 3mm; font-size: 8pt; }
+
+  .cert-table { width: 100%; border-collapse: collapse; margin-top: 3mm; font-size: 8pt; }
+  .cert-table td { border: 0.5pt solid #000; padding: 1mm; vertical-align: top; }
+  .cert-table .hdr { font-weight: bold; text-align: center; }
+  .cert-table tr:last-child td { height: 8mm; }
 </style>
 </head>
 <body>
-<div class="header">
-  ${logoData ? `<img class="logo" src="${logoData}">` : ''}
-  <div class="header-fecha">Fecha: ${escapeHTML(fmtUY(new Date()))}</div>
-  <div class="header-content">
-    <h1>SOLICITUD - ORDEN DE TRABAJO DISCREPANCIAS</h1>
-  </div>
-</div>
-
-<div class="grid">
-  <div class="field">
-    <div class="field-label">1 Matrícula</div>
-    <div class="mono">${escapeHTML(matricula)}</div>
-  </div>
-  <div class="field">
-    <div class="field-label">2 Fecha solicitud</div>
-    <div class="mono">${escapeHTML(fechaSolicitud)}</div>
-  </div>
-  <div class="field">
-    <div class="field-label">3 O/T Nro.</div>
-    <div class="mono">${escapeHTML(otNro)}</div>
-  </div>
-</div>
-
-<div class="section-45">
-  <div class="solicitud">
-    <div class="field-label">4 Solicitud (descripción del trabajo)</div>
-    <div class="mono" style="margin-top: 1mm;">${escapeHTML(String(orden.OTsolicitud ?? orden.solicitud ?? ''))}</div>
-  </div>
-  <div class="firma">
-    <div class="field-label">5 Firma o email</div>
-    <div style="margin-top: 1mm;">
-      <div class="bold">Solicitó:</div>
-      <div>${escapeHTML(String(orden.solicitadoPor ?? ''))}</div>
-      <div style="margin-top: 8mm; border-top: 0.5pt solid #000; text-align: center; padding-top: 1mm;">Firma</div>
+<div class="fecha-emision">Fecha: ${escapeHTML(vars.fechaEmision)}</div>
+<div class="wrap">
+  <!-- Primer recuadro -->
+  <div class="box box-top">
+    <div class="header-grid">
+      <div>
+        <table class="sheet">
+          <tr><td><strong>Matrícula:</strong> ${escapeHTML(vars.matricula)}</td></tr>
+          <tr><td><strong>Marca:</strong> ${escapeHTML(vars.marca)}</td></tr>
+          <tr><td><strong>Modelo:</strong> ${escapeHTML(vars.modelo)}</td></tr>
+          <tr><td><strong>Serial:</strong> ${escapeHTML(vars.serial)}</td></tr>
+        </table>
+      </div>
+      <div class="center">
+        ${logoData ? `<img src="${logoData}" alt="logo">` : ''}
+        <div class="title">${escapeHTML(vars.empresaTitulo)}</div>
+        <div class="address">${escapeHTML(vars.empresaLinea1)}<br>${escapeHTML(vars.empresaLinea2)}</div>
+        <div class="cert-title">CERTIFICADO DE CONFORMIDAD DE MANTENIMIENTO</div>
+      </div>
+      <div>
+        <table class="sheet">
+          <tr><td><strong>Fecha:</strong> </td></tr>
+          <tr><td><strong>Lugar:</strong> ${escapeHTML(vars.lugar)}</td></tr>
+          <tr><td><strong>Horas TT:</strong> ${escapeHTML(vars.horasTT)}</td></tr>
+          <tr><td><strong>OT:</strong> ${escapeHTML(String(vars.ot))}</td></tr>
+        </table>
+      </div>
     </div>
-  </div>
-</div>
-
-<div class="discrepancias">
-  <div class="discrepancias-label">6 Discrepancias encontradas</div>
-  <div class="mono" style="margin-top: 1mm;">${escapeHTML(observaciones)}</div>
-</div>
-
-<div class="autorizacion"><strong>Autorizo a la OMA, la realización en la aeronave o componente de los trabajos detallados en la siguiente orden</strong></div>
-
-<div class="seccion page-break">
-  <div class="seccion-label">1 Reporte</div>
-  <div class="mono seccion-contenido">
-    ${escapeHTML(reporteTexto)}
-  </div>
-</div>
-
-<div class="seccion page-break">
-  <div class="seccion-label">2 Acciones tomadas</div>
-  <div class="lista-acciones">
-    ${
-      accionesTomadas.length > 0
-        ? accionesTomadas.map((a) => `
-      <div class="accion-item">
-        <div class="accion-desc">${escapeHTML(a.descripcion)}</div>
-        <div class="accion-datos">
-          <div class="dato-box">${escapeHTML(a.rol)}</div>
-          <div class="dato-box">${escapeHTML(a.empleado)}</div>
-          <div class="dato-box">H.H: ${escapeHTML(a.horas)}</div>
-        </div>
-      </div>`).join('')
-        : `
-      <div class="accion-item">
-        <div class="accion-desc"></div>
-        <div class="accion-datos">
-          <div class="dato-box">TÉCNICO</div>
-          <div class="dato-box"></div>
-          <div class="dato-box">H.H:</div>
-        </div>
-      </div>`
-    }
-  </div>
-</div>
-
-<div class="cierre-cert-row page-break">
-  <div class="cert-section">
-    <div class="cert-section-label">3 Certificado</div>
-    <div class="lista-acciones">
-      ${
-        accionesCertificador.length > 0
-          ? accionesCertificador.map((a) => `
-        <div class="accion-item">
-          <div class="accion-desc">${escapeHTML(a.descripcion || '-')}</div>
-          <div class="accion-datos">
-            <div class="dato-box">${escapeHTML(a.rol)}</div>
-            <div class="dato-box">${escapeHTML(a.empleado)}</div>
-            <div class="dato-box">H.H: ${escapeHTML(a.horas)}</div>
-          </div>
-        </div>`).join('')
-          : '<div class="accion-item"><div class="accion-desc">-</div></div>'
-      }
+    <!-- Texto y espacio para trabajos de aeronave -->
+    <div class="trabajos">
+      <p style="font-weight:bold; text-align:center;">A la aeronave se le efectuaron los trabajos que a continuación se describen:</p>
+      <div style="height:15mm;"></div>
     </div>
+    <!-- Texto de certificación y tabla de firmas -->
+    <table class="cert-table">
+      <tr><td colspan="3">${escapeHTML(vars.textoCertificacion)}</td></tr>
+      <tr>
+        <td class="hdr">Nombre Certificador</td>
+        <td class="hdr">Lic. Nº y Tipo</td>
+        <td class="hdr">Firma y Sello</td>
+      </tr>
+      <tr>
+        <td>${escapeHTML(vars.certificadorNombre)}</td>
+        <td>${escapeHTML(vars.certificadorLicString)}</td>
+        <td></td>
+      </tr>
+    </table>
   </div>
-  <div class="fecha-cierre">
-    <div class="field-label">4 Fecha de cierre</div>
-    <div class="mono bold" style="margin-top: 1mm; text-align: center;">${escapeHTML(fechaCierreTexto || '')}</div>
-  </div>
-</div>
 
-<div class="footer">
-  <div>Manual de la Organización de Mantenimiento – MOM</div>
-  <div>Aprobado por: CELCOL AVIATION</div>
+  <!-- Segundo recuadro -->
+  <div class="box box-bottom">
+    <div class="header-grid">
+      <div>
+        <table class="sheet">
+          <tr><td><strong>Matrícula:</strong> ${escapeHTML(vars.matricula)}</td></tr>
+          <tr><td><strong>Marca:</strong> ${escapeHTML(vars.marca)}</td></tr>
+          <tr><td><strong>Modelo:</strong> ${escapeHTML(vars.modelo)}</td></tr>
+          <tr><td><strong>Serial:</strong> ${escapeHTML(vars.serial)}</td></tr>
+        </table>
+      </div>
+      <div class="center">
+        ${logoData ? `<img src="${logoData}" alt="logo">` : ''}
+        <div class="title">${escapeHTML(vars.empresaTitulo)}</div>
+        <div class="address">${escapeHTML(vars.empresaLinea1)}<br>${escapeHTML(vars.empresaLinea2)}</div>
+        <div class="cert-title">CERTIFICADO DE CONFORMIDAD DE MANTENIMIENTO</div>
+      </div>
+      <div>
+        <table class="sheet">
+          <tr><td><strong>Fecha:</strong> </td></tr>
+          <tr><td><strong>Lugar:</strong> ${escapeHTML(vars.lugar)}</td></tr>
+          <tr><td><strong>Horas TT:</strong> ${escapeHTML(vars.horasTT)}</td></tr>
+          <tr><td><strong>OT:</strong> ${escapeHTML(String(vars.ot))}</td></tr>
+        </table>
+      </div>
+    </div>
+    <!-- Tablas Motor y Hélice -->
+    <div class="motor-helice-grid">
+      <table class="sheet">
+        <tr><td colspan="2"><strong>Motor</strong></td></tr>
+        <tr><td><strong>Marca:</strong> ${escapeHTML(vars.motorMarca)}</td><td><strong>TSO:</strong> ${escapeHTML(vars.motorTSO)}</td></tr>
+        <tr><td><strong>Modelo:</strong> ${escapeHTML(vars.motorModelo)}</td><td><strong>TBO:</strong> ${escapeHTML(vars.motorTBO)}</td></tr>
+        <tr><td><strong>Serial:</strong> ${escapeHTML(vars.motorSerial)}</td><td></td></tr>
+      </table>
+      <table class="sheet">
+        <tr><td colspan="2"><strong>Hélice</strong></td></tr>
+        <tr><td><strong>Marca:</strong></td><td><strong>TSO:</strong></td></tr>
+        <tr><td><strong>Modelo:</strong></td><td><strong>TBO:</strong></td></tr>
+        <tr><td><strong>Serial:</strong></td><td></td></tr>
+      </table>
+    </div>
+    <!-- Texto y espacio para trabajos del motor -->
+    <div class="trabajos">
+      <p style="font-weight:bold; text-align:center;">Al motor se le efectuaron los trabajos que a continuación se describen:</p>
+      <div style="height:15mm;"></div>
+    </div>
+    <!-- Texto de certificación y tabla de firmas -->
+    <table class="cert-table">
+      <tr><td colspan="3">${escapeHTML(vars.textoCertificacion)}</td></tr>
+      <tr>
+        <td class="hdr">Nombre Certificador</td>
+        <td class="hdr">Lic. Nº y Tipo</td>
+        <td class="hdr">Firma y Sello</td>
+      </tr>
+      <tr>
+        <td>${escapeHTML(vars.certificadorNombre)}</td>
+        <td>${escapeHTML(vars.certificadorLicString)}</td>
+        <td></td>
+      </tr>
+    </table>
+  </div>
 </div>
 </body>
 </html>`;
 
-    const browser = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox', '--disable-setuid-sandbox'] });
+    // Generación del PDF con Puppeteer
+    const browser = await puppeteer.launch({
+      headless: 'new',
+      args: ['--no-sandbox', '--disable-setuid-sandbox']
+    });
     const page = await browser.newPage();
     await page.setContent(html, { waitUntil: 'networkidle0' });
     const pdfBuffer = await page.pdf({
@@ -583,13 +684,14 @@ import puppeteer from 'puppeteer';
     await page.close();
     await browser.close();
 
-    const baseName = `OT-${orden.numero ?? orden.id}`;
-    const filename = `${baseName}.pdf`;
+    const filename = `Conformidad-Mantenimiento-${orden.numero ?? orden.id}.pdf`;
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
     return res.send(pdfBuffer);
   } catch (error) {
-    console.error('Error al generar PDF de OT (Puppeteer):', error);
-    if (!res.headersSent) return res.status(500).json({ error: 'Error al generar el PDF' });
+    console.error('Error al generar PDF de Conformidad:', error);
+    if (!res.headersSent) {
+      return res.status(500).json({ error: 'Error al generar el PDF' });
+    }
   }
 };
