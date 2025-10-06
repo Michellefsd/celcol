@@ -470,7 +470,7 @@ export const descargarOrdenPDF = async (req, res) => {
     if (!orden) return res.status(404).json({ error: 'Orden no encontrada' });
     const estado = orden.estadoOrden || '';
     if (!['CERRADA', 'CANCELADA'].includes(estado)) {
-      return res.status(400).json({ error: 'Solo disponible para órdenes CERRADAS o CANCELADAS' });
+      return res.status(400).json({ error: '' });
     }
     // Snapshots y cabecera
     const avSnap   = normalizeSnap(orden.datosAvionSnapshot);

@@ -21,7 +21,7 @@ const fmtUY = (d) => {
  * según su vencimiento (por vencer / vencida).
  */
 async function crearOActualizarAvisoHerramienta(h, prisma) {
-  const fechaVence = h.vencimientoCalibracion ?? h.proximaCalibracion ?? null;
+const fechaVence = h.fechaVencimiento ?? null;
   if (!fechaVence) return;
 
   const hoy = new Date();
@@ -127,12 +127,11 @@ export async function revisarTodasLasHerramientas(prisma) {
   const herramientas = await prisma.herramienta.findMany({
     // Si tu modelo tiene archivado lógico, destapá esto:
     // where: { archivado: false },
-    select: {
-      id: true,
-      nombre: true,
-      numeroSerie: true,
-      vencimientoCalibracion: true,
-      proximaCalibracion: true,
+select: {
+  id: true,
+  nombre: true,
+  numeroSerie: true,
+  fechaVencimiento: true,
       // archivado: true,
     },
   });
