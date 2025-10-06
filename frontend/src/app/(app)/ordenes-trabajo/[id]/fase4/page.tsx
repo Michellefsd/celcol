@@ -5,6 +5,9 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { api, fetchJson } from '@/services/api';
 import SubirArchivo from '@/components/Asignaciones/SubirArchivo';
+import IconButton from '@/components/IconButton';
+import { IconDescargar } from '@/components/ui/Icons';
+
 
 interface RegistroTrabajo {
   id?: number;
@@ -828,7 +831,21 @@ return (
 
         </div>
       </section>
-
+<section className="flex flex-col sm:flex-row gap-3 justify-between items-center">
+          <IconButton
+    icon={IconDescargar}
+    label="Vista previa"
+    title="Vista previa PDF"
+    onClick={() => window.open(`/ordenes-trabajo/${id}/pdf?preview=1`, '_blank')}
+    className="text-cyan-600 hover:text-cyan-800"
+  />  <IconButton
+    icon={IconDescargar}
+    label="Vista previa"
+    title="Vista previa PDF"
+    onClick={() => window.open(`/ordenes-trabajo/${id}/pdf?preview=1`, '_blank')}
+    className="text-cyan-600 hover:text-cyan-800"
+  />
+</section>
      
       <section className="flex flex-col sm:flex-row gap-3 justify-between items-center">
         <button

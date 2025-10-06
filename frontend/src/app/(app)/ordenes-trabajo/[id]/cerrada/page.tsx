@@ -570,6 +570,7 @@ const registrosEmpleado = registrosTrabajo.filter((r) => {
       icon={IconDescargar}
       title="PDF"
       className="text-slate-700 hover:text-slate-900"
+      label="PDF"
       onClick={() => {
         const url = api(`/ordenes-trabajo/${orden.id}/pdf`);
         const win = window.open('about:blank', '_blank');
@@ -581,6 +582,7 @@ const registrosEmpleado = registrosTrabajo.filter((r) => {
       icon={IconDescargar}
       title="CCM"
       className="text-slate-700 hover:text-slate-900"
+      label="CCM"
       onClick={() => {
         const url = api(`/ordenes-trabajo/${orden.id}/conformidad-pdf`);
         const win = window.open('about:blank', '_blank');
