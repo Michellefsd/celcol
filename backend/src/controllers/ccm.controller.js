@@ -619,7 +619,7 @@ export const descargarConformidadPDF = async (req, res) => {
       </tr>
       <tr>
         <td>${escapeHTML(vars.certificadorNombre)}</td>
-        <td>${escapeHTML(vars.certificadorLicString)}</td>
+        <td>MMA - ${escapeHTML(vars.certificadorLicString)}</td>
         <td></td>
       </tr>
     </table>
