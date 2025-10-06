@@ -73,7 +73,7 @@ export const descargarOrdenPDF = async (req, res) => {
     if (!orden) return res.status(404).json({ error: 'Orden no encontrada' });
     const estado = orden.estadoOrden || '';
     if (!['CERRADA', 'CANCELADA'].includes(estado)) {
-      return res.status(400).json({ error: '' });
+      return res.status(400).json({ error: 'La OT debe estar CERRADA o CANCELADA para generar el PDF.' });
     }
     // Snapshots y cabecera
     const avSnap   = normalizeSnap(orden.datosAvionSnapshot);
@@ -100,7 +100,7 @@ export const descargarOrdenPDF = async (req, res) => {
       const a = emp?.apellido ?? emp?.empleado?.apellido;
       return [n, a].filter(Boolean).join(' ').trim();
     };
-// === Acciones por rol, usando el ROL DEL REGISTRO ===
+/// === Acciones por rol, usando el ROL DEL REGISTRO ===
 const regs = Array.isArray(orden.registrosTrabajo) ? orden.registrosTrabajo : [];
 
 const mapAccion = (r) => {
@@ -127,6 +127,7 @@ if (accionesTecnico.length === 0 && solicitudBullets.length > 0) {
     accionesTecnico.push({ descripcion: bullet, empleado: '', rol: 'TECNICO', horas: '' });
   });
 }
+
 
     // Si no hay registros, usar datos de solicitud
     if (accionesTomadas.length === 0 && solicitudBullets.length > 0) {
