@@ -999,14 +999,12 @@ function safeReadTemplate(filename) {
 
 export const descargarPlantillaEnBlanco = async (req, res) => {
   try {
-    const tipoRaw = String(req.params.tipo || '').toLowerCase(); // 'ccm' | 'conformidad' | 'pdf'
-    const tipo = (tipoRaw === 'pdf') ? 'conformidad' : tipoRaw;
-
-    if (!['ccm', 'conformidad'].includes(tipo)) {
-      return res.status(400).json({ error: 'Parámetro tipo inválido' });
+    const tipo = String(req.params.tipo || '').toLowerCase(); // 'ccm' | 'pdf'
+    if (!['ccm', 'pdf'].includes(tipo)) {
+      return res.status(400).json({ error: 'Parámetro tipo inválido (use ccm|pdf)' });
     }
 
-    const tplName = tipo === 'ccm' ? 'ccm.html' : 'conformidad.html';
+    const tplName = `${tipo}.html`; // ccm.html | pdf.html
     const tplContent = safeReadTemplate(tplName);
     if (!tplContent) {
       return res.status(404).json({ error: `Falta templates/${tplName}` });

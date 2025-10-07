@@ -41,19 +41,22 @@ export default function HomePageContent() {
             <div className="rounded-xl border border-slate-200 p-4">
               <div className="mb-2 text-sm font-medium">Plantillas en blanco</div>
               <div className="flex gap-2">
-                <IconButton
-                  icon={IconDescargar}
-                  title="CCM (en blanco)"
-                  label="CCM (en blanco)"
-                  onClick={() => abrir(api('/ordenes-trabajo/plantilla-en-blanco/ccm'))}
-                />
-                <IconButton
-                  icon={IconDescargar}
-                  title='PDF (en blanco)'
-                  label="PDF (en blanco)"
-                  onClick={() => abrir(api('/ordenes-trabajo/plantilla-en-blanco/conformidad'))}
-                />
-              </div>
+              
+  <IconButton
+    icon={IconDescargar}
+    title="CCM (en blanco)"
+    label="CCM (en blanco)"
+    onClick={() => abrir(api('/ordenes-trabajo/plantilla-en-blanco/ccm'))}
+  />
+  <IconButton
+    icon={IconDescargar}
+    title="PDF (en blanco)"
+    label="PDF (en blanco)"
+    onClick={() => abrir(api('/ordenes-trabajo/plantilla-en-blanco/pdf'))}
+  />
+</div>
+
+        
             </div>
 
           </div>
