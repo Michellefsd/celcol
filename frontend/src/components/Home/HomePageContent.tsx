@@ -57,13 +57,13 @@ export default function HomePageContent() {
     icon={IconDescargar}
     title="CCM"
     label="CCM (en blanco)"
-    onClick={() => abrir('/plantillas/ccm.html')}
+    onClick={() => abrir('/plantilla-en=blanco/pdf.html')}
   />
   <IconButton
     icon={IconDescargar}
     title="PDF"
     label="PDF (en blanco)"
-    onClick={() => abrir('/plantillas/conformidad.html')}
+    onClick={() => abrir('/plantilla-en-blanco/ccm.html')}
   />
 </div>
 

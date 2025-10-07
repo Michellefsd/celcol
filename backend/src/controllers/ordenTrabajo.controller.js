@@ -1002,7 +1002,7 @@ function safeReadTemplate(filename) {
 export const descargarPlantillaEnBlanco = async (req, res) => {
   try {
     const tipo = String(req.params.tipo || '').toLowerCase(); // 'ccm' | 'conformidad'
-    if (!['ccm', 'conformidad'].includes(tipo)) {
+    if (!['ccm', 'pdf'].includes(tipo)) {
       return res.status(400).json({ error: 'Parámetro tipo inválido' });
     }
     const tplName = tipo === 'ccm' ? 'ccm.html' : 'conformidad.html';
