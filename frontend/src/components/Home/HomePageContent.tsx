@@ -67,9 +67,6 @@ export default function HomePageContent() {
   />
 </div>
 
-              <p className="mt-2 text-xs text-slate-500">
-                Se abren como HTML editable. Usá “Imprimir → Guardar como PDF”.
-              </p>
             </div>
           </div>
         </div>
