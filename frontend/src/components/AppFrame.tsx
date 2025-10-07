@@ -81,7 +81,7 @@ const handleLogout = () => {
           <Link href="/privado">
             <Image src="/celcol-logo.webp" alt="Logo Celcol" width={140} height={112} />
           </Link>
-          <h1 className="text-lg font-semibold tracking-tight">Celcol Desarrollo</h1>
+          <h1 className="text-lg font-semibold tracking-tight">Celcol</h1>
         </div>
 
         <div className="flex items-center gap-4">

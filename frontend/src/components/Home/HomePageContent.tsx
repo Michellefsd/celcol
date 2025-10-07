@@ -6,7 +6,7 @@ import BaseButton from '../BaseButton';
 import { useRouter } from 'next/navigation';
 import IconButton from '../IconButton'
 import { IconDescargar } from '../ui/Icons';
-import { api } from '@/services/api'; // asegúrate de tener este helper
+import { api } from '@/services/api'; 
 
 export default function HomePageContent() {
   const router = useRouter();
