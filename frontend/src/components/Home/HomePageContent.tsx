@@ -55,14 +55,14 @@ export default function HomePageContent() {
 <div className="flex gap-2">
   <IconButton
     icon={IconDescargar}
-    title="CCM"
-    label="CCM (en blanco)"
+    title="PDF"
+    label="PDF(en blanco)"
     onClick={() => abrir('/plantilla-en=blanco/pdf.html')}
   />
   <IconButton
     icon={IconDescargar}
-    title="PDF"
-    label="PDF (en blanco)"
+    title="CCM"
+    label="CCM (en blanco)"
     onClick={() => abrir('/plantilla-en-blanco/ccm.html')}
   />
 </div>
