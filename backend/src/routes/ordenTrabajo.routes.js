@@ -68,4 +68,7 @@ router.get('/:id/pdf', descargarOrdenPDF);
 // 13. Descargar PDF de conformidad CCM
 router.post('/:id/conformidad-pdf', descargarConformidadPDF);
 
+//14. Descargar Plantillas Genericas
+router.get('/plantilla-en-blanco/:tipo', descargarPlantillaEnBlanco);
+
 export default router;

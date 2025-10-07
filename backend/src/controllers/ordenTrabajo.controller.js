@@ -1,5 +1,7 @@
 import prisma from '../lib/prisma.js';
 import { subirArchivoGenerico } from '../utils/archivoupload.js';
+import path from 'path';
+import fs from 'fs';  
 
 
 // 1. Listar todas las órdenes
@@ -986,4 +988,37 @@ export const desarchivarOrden = async (req, res) => {
     return res.status(500).json({ error: 'Error al desarchivar orden' });
   }
 };
+function safeReadTemplate(filename) {
+  try {
+    const p = path.join(process.cwd(), 'templates', filename); // backend/templates/<filename>
+    if (!fs.existsSync(p)) return null;
+    return fs.readFileSync(p, 'utf8');
+  } catch {
+    return null;
+  }
+}
 
+export const descargarPlantillaEnBlanco = async (req, res) => {
+  try {
+    const tipo = String(req.params.tipo || '').toLowerCase(); // 'ccm' | 'conformidad'
+    if (!['ccm', 'conformidad'].includes(tipo)) {
+      return res.status(400).json({ error: 'Parámetro tipo inválido' });
+    }
+
+    // Mapeo estricto de nombre de archivo (evita traversal)
+    const tplName = tipo === 'ccm' ? 'ccm.html' : 'conformidad.html';
+    const tplContent = safeReadTemplate(tplName);
+    if (!tplContent) {
+      return res.status(404).json({ error: `Falta templates/${tplName}` });
+    }
+
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="Plantilla-${tipo}.html"`);
+    // si preferís abrir en pestaña sin descargar automáticamente, cambiá a:
+    // res.setHeader('Content-Disposition', 'inline');
+    return res.send(tplContent);
+  } catch (err) {
+    console.error('descargarPlantillaEnBlanco error:', err);
+    return res.status(500).json({ error: 'No se pudo servir la plantilla' });
+  }
+};

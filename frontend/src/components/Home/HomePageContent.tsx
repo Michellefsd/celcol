@@ -38,8 +38,7 @@ export default function HomePageContent() {
             <EntidadMenu />
 
             <div className="rounded-xl border border-slate-200 p-4">
-              <div className="mb-2 text-sm font-medium">Plantillas en blanco</div>
-              <div className="flex gap-2">
+             
                 <IconButton
                   icon={IconDescargar}
                   title="CCM (en blanco)"
@@ -52,7 +51,22 @@ export default function HomePageContent() {
                   label="PDF (en blanco)"
                   onClick={() => abrir('/plantillas/conformidad.html')}
                 />
-              </div>
+              {/* Plantillas en blanco (mínimo) */}
+<div className="flex gap-2">
+  <IconButton
+    icon={IconDescargar}
+    title="CCM"
+    label="CCM (en blanco)"
+    onClick={() => abrir('/plantillas/ccm.html')}
+  />
+  <IconButton
+    icon={IconDescargar}
+    title="PDF"
+    label="PDF (en blanco)"
+    onClick={() => abrir('/plantillas/conformidad.html')}
+  />
+</div>
+
               <p className="mt-2 text-xs text-slate-500">
                 Se abren como HTML editable. Usá “Imprimir → Guardar como PDF”.
               </p>

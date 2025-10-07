@@ -11,6 +11,7 @@ import cron from 'node-cron';
 import prisma from './src/lib/prisma.js';
 import { fileURLToPath } from 'url';
 
+
 // Rutas y middlewares (ESM)
 import authRoutes from './src/routes/auth.routes.js';
 import { requireAuth } from './middleware/authz.js'
@@ -35,6 +36,7 @@ import componentesExtRoutes from './src/routes/componenteExterno.routes.js';
 import ordenTrabajoRoutes from './src/routes/ordenTrabajo.routes.js';
 import avisosRoutes from './src/routes/avisos.routes.js';
 import archivadosRoutes from './src/routes/archivados.routes.js';
+
 
 // Manejo de cierre para desconectar Prisma
 const shutdown = async (signal) => {
