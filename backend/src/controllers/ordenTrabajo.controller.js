@@ -989,8 +989,6 @@ export const desarchivarOrden = async (req, res) => {
   }
 };
 
-
-
 function safeReadTemplate(filename) {
   try {
     const p = path.join(process.cwd(), 'templates', filename);
@@ -1001,15 +999,19 @@ function safeReadTemplate(filename) {
 
 export const descargarPlantillaEnBlanco = async (req, res) => {
   try {
-    const tipo = String(req.params.tipo || '').toLowerCase(); // 'ccm' | 'conformidad'
-    if (!['ccm', 'pdf'].includes(tipo)) {
+    const tipoRaw = String(req.params.tipo || '').toLowerCase(); // 'ccm' | 'conformidad' | 'pdf'
+    const tipo = (tipoRaw === 'pdf') ? 'conformidad' : tipoRaw;
+
+    if (!['ccm', 'conformidad'].includes(tipo)) {
       return res.status(400).json({ error: 'Parámetro tipo inválido' });
     }
+
     const tplName = tipo === 'ccm' ? 'ccm.html' : 'conformidad.html';
     const tplContent = safeReadTemplate(tplName);
     if (!tplContent) {
       return res.status(404).json({ error: `Falta templates/${tplName}` });
     }
+
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="Plantilla-${tipo}.html"`);
     return res.send(tplContent);

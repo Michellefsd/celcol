@@ -4,8 +4,9 @@ import TrabajoCard from './TrabajoCard';
 import EntidadMenu from './EntidadMenu';
 import BaseButton from '../BaseButton';
 import { useRouter } from 'next/navigation';
-import IconButton from '../IconButton';
+import IconButton from '../IconButton'
 import { IconDescargar } from '../ui/Icons';
+import { api } from '@/services/api'; // asegúrate de tener este helper
 
 export default function HomePageContent() {
   const router = useRouter();
@@ -20,7 +21,7 @@ export default function HomePageContent() {
     <div className="min-h-screen bg-slate-100">
       <div className="mx-auto px-4 md:px-6 lg:px-8 py-6">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Columna izquierda (OTs) */}
+          {/* Columna izquierda */}
           <div className="space-y-4 lg:col-span-2">
             <div className="flex flex-col sm:flex-row sm:items-center gap-3">
               <BaseButton variant="primary" onClick={() => router.push('/ordenes-trabajo/nueva')}>
@@ -33,41 +34,28 @@ export default function HomePageContent() {
             <TrabajoCard />
           </div>
 
-          {/* Columna derecha (menú de entidades + plantillas en blanco) */}
+          {/* Columna derecha */}
           <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-4 space-y-4">
             <EntidadMenu />
 
             <div className="rounded-xl border border-slate-200 p-4">
-             
+              <div className="mb-2 text-sm font-medium">Plantillas en blanco</div>
+              <div className="flex gap-2">
                 <IconButton
                   icon={IconDescargar}
                   title="CCM (en blanco)"
                   label="CCM (en blanco)"
-                  onClick={() => abrir('/plantillas/ccm.html')}
+                  onClick={() => abrir(api('/ordenes-trabajo/plantilla-en-blanco/ccm'))}
                 />
                 <IconButton
                   icon={IconDescargar}
-                  title="PDF (en blanco)"
+                  title='PDF (en blanco)'
                   label="PDF (en blanco)"
-                  onClick={() => abrir('/plantillas/conformidad.html')}
+                  onClick={() => abrir(api('/ordenes-trabajo/plantilla-en-blanco/conformidad'))}
                 />
-              {/* Plantillas en blanco (mínimo) */}
-<div className="flex gap-2">
-  <IconButton
-    icon={IconDescargar}
-    title="PDF"
-    label="PDF(en blanco)"
-    onClick={() => abrir('/plantilla-en=blanco/pdf.html')}
-  />
-  <IconButton
-    icon={IconDescargar}
-    title="CCM"
-    label="CCM (en blanco)"
-    onClick={() => abrir('/plantilla-en-blanco/ccm.html')}
-  />
-</div>
-
+              </div>
             </div>
+
           </div>
         </div>
       </div>
