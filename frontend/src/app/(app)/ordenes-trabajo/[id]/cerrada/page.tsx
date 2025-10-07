@@ -6,6 +6,7 @@ import { api, fetchJson } from '@/services/api';
 import SubirArchivo from '@/components/Asignaciones/SubirArchivo';
 import IconButton from '@/components/IconButton';
 import { IconDescargar }  from '../../../../../components/ui/Icons';
+import CCMButton from '@/components/CCMButton';
 
 
 interface Empleado { nombre: string; apellido: string; }
@@ -578,18 +579,7 @@ const registrosEmpleado = registrosTrabajo.filter((r) => {
         else window.open(url, '_blank');
       }}
     />
-    <IconButton
-      icon={IconDescargar}
-      title="CCM"
-      className="text-slate-700 hover:text-slate-900"
-      label="CCM"
-      onClick={() => {
-        const url = api(`/ordenes-trabajo/${orden.id}/conformidad-pdf`);
-        const win = window.open('about:blank', '_blank');
-        if (win) setTimeout(() => (win.location.href = url), 60);
-        else window.open(url, '_blank');
-      }}
-    />
+<CCMButton ordenId={orden.id} />
 
 
 

@@ -11,6 +11,7 @@ import { openPreviewCcm } from '@/lib/pdf';
 import { openPreviewPdf } from '@/lib/pdf';
 
 
+
 interface RegistroTrabajo {
   id?: number;
   empleadoId: number | '';
@@ -840,12 +841,7 @@ return (
       label="Vista previa PDF"
       onClick={() => openPreviewPdf(orden.id)}
     />
-    <IconButton
-      icon={IconVer}
-      title="CCM preview"
-      label="Vista previa CCM"
-      onClick={() => openPreviewCcm(orden.id)}
-    />
+
 </section>
      
       <section className="flex flex-col sm:flex-row gap-3 justify-between items-center">
