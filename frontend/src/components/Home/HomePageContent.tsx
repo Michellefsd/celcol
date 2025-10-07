@@ -1,15 +1,20 @@
 'use client';
 
-import { useState } from 'react';                 // ⬅️ agrega esto
 import TrabajoCard from './TrabajoCard';
 import EntidadMenu from './EntidadMenu';
 import BaseButton from '../BaseButton';
 import { useRouter } from 'next/navigation';
-import BotonesPlantillas from '../DownloadTemplates';
+import IconButton from '../IconButton';
+import { IconDescargar } from '../ui/Icons';
 
 export default function HomePageContent() {
   const router = useRouter();
-  const [otId, setOtId] = useState<string>('');   // ⬅️ ID de OT a usar en las plantillas
+
+  const abrir = (ruta: string) => {
+    const win = window.open('about:blank', '_blank');
+    if (win) setTimeout(() => (win.location.href = ruta), 60);
+    else window.open(ruta, '_blank');
+  };
 
   return (
     <div className="min-h-screen bg-slate-100">
@@ -21,7 +26,6 @@ export default function HomePageContent() {
               <BaseButton variant="primary" onClick={() => router.push('/ordenes-trabajo/nueva')}>
                 Nuevo trabajo
               </BaseButton>
-
               <BaseButton variant="secondary" onClick={() => router.push('/archivadas')}>
                 Archivados
               </BaseButton>
@@ -29,26 +33,28 @@ export default function HomePageContent() {
             <TrabajoCard />
           </div>
 
-          {/* Columna derecha (menú de entidades + plantillas) */}
+          {/* Columna derecha (menú de entidades + plantillas en blanco) */}
           <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-4 space-y-4">
             <EntidadMenu />
 
-            {/* Selector simple de OT + botones */}
             <div className="rounded-xl border border-slate-200 p-4">
-              <div className="mb-2 text-sm font-medium">Descargar plantillas editables</div>
-              <div className="flex items-center gap-2">
-                <input
-                  type="number"
-                  inputMode="numeric"
-                  placeholder="ID de OT…"
-                  value={otId}
-                  onChange={(e) => setOtId(e.target.value)}
-                  className="w-40 rounded-lg border border-slate-300 px-3 py-2 outline-none focus:ring-2 focus:ring-slate-300"
+              <div className="mb-2 text-sm font-medium">Plantillas en blanco</div>
+              <div className="flex gap-2">
+                <IconButton
+                  icon={IconDescargar}
+                  title="CCM (en blanco)"
+                  label="CCM (en blanco)"
+                  onClick={() => abrir('/plantillas/ccm.html')}
                 />
-                <BotonesPlantillas ordenId={otId} disabled={!otId} />
+                <IconButton
+                  icon={IconDescargar}
+                  title="PDF (en blanco)"
+                  label="PDF (en blanco)"
+                  onClick={() => abrir('/plantillas/conformidad.html')}
+                />
               </div>
               <p className="mt-2 text-xs text-slate-500">
-                Ingresá el ID de la OT para pre-rellenar la plantilla (matrícula, marca, etc.).
+                Se abren como HTML editable. Usá “Imprimir → Guardar como PDF”.
               </p>
             </div>
           </div>
