@@ -15,7 +15,6 @@ import {
   cerrarOrden,
   cancelarOrden,
   archivarOrden,
-  descargarPlantillaEnBlanco
 } from '../controllers/ordenTrabajo.controller.js';
 import { descargarOrdenPDF } from '../controllers/ordenTrabajo.descarga.controller.js';
 import { descargarConformidadPDF } from '../controllers/ccm.controller.js'
@@ -69,7 +68,5 @@ router.get('/:id/pdf', descargarOrdenPDF);
 // 13. Descargar PDF de conformidad CCM
 router.post('/:id/conformidad-pdf', descargarConformidadPDF);
 
-//14. Descargar Plantillas Genericas
-router.get('/plantilla-en-blanco/:tipo', descargarPlantillaEnBlanco);
 
 export default router;
