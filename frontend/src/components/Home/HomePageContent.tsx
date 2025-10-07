@@ -46,13 +46,13 @@ export default function HomePageContent() {
     icon={IconDescargar}
     title="CCM (en blanco)"
     label="CCM (en blanco)"
-    onClick={() => abrir(api('/ordenes-trabajo/plantilla-en-blanco/ccm'))}
+    onClick={() => abrir(api('/plantillas/ccm'))}
   />
   <IconButton
     icon={IconDescargar}
     title="PDF (en blanco)"
     label="PDF (en blanco)"
-    onClick={() => abrir(api('/ordenes-trabajo/plantilla-en-blanco/pdf'))}
+    onClick={() => abrir(api('/plantillas/pdf'))}
   />
 </div>
 
