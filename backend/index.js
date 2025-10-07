@@ -36,6 +36,7 @@ import componentesExtRoutes from './src/routes/componenteExterno.routes.js';
 import ordenTrabajoRoutes from './src/routes/ordenTrabajo.routes.js';
 import avisosRoutes from './src/routes/avisos.routes.js';
 import archivadosRoutes from './src/routes/archivados.routes.js';
+import plantillasRoutes from './src/routes/plantillas.routes.js';
 
 
 // Manejo de cierre para desconectar Prisma
@@ -108,6 +109,9 @@ app.use('/uploads', express.static(UPLOADS_DIR, {
   fallthrough: false,
   setHeaders: (res) => { res.setHeader('Cache-Control', 'public, max-age=31536000'); }
 }));
+
+app.use('/plantillas', plantillasRoutes);
+
 
 // === AUTH ===
 app.use('/api/auth', authRoutes);
