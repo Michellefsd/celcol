@@ -1,7 +1,4 @@
-// src/services/archiveGuards.js  (ESM, 3 estados: ABIERTA/CERRADA/CANCELADA)
-import { PrismaClient } from '@prisma/client';
-const prisma = new PrismaClient();
-
+import prisma from '../lib/prisma.js'; 
 // ÚNICO estado abierto
 export const OPEN_STATE = 'ABIERTA';
 

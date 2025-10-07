@@ -66,6 +66,7 @@ router.put('/:id/archivar', archivarOrden);
 router.get('/:id/pdf', descargarOrdenPDF);
 
 // 13. Descargar PDF de conformidad CCM
-router.get('/:id/conformidad-pdf', descargarConformidadPDF);
+router.post('/:id/conformidad-pdf', descargarConformidadPDF);
+
 
 export default router;

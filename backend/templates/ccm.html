@@ -1,0 +1,231 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<title>CCM (Plantilla en blanco)</title>
+<style>
+  @page { size: A4; margin: 12mm; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Arial, Helvetica, sans-serif; font-size: 9pt; color: #000; background: #fff; line-height: 1.15; }
+
+  /* Vista en pantalla: centrar hoja con sombra sutil */
+  .page {
+    width: 210mm;
+    min-height: 297mm;
+    margin: 0 auto;
+    background: #fff;
+    position: relative;
+    padding: 12mm;
+  }
+  @media screen {
+    body { background: #f1f5f9; }
+    .page { box-shadow: 0 0 0 1px #e2e8f0, 0 6px 20px rgba(0,0,0,.08); }
+  }
+  @media print {
+    .no-print { display: none !important; }
+    .page { box-shadow: none; width: auto; min-height: auto; padding: 12mm; }
+  }
+@media print {
+  html, body { width: 210mm; height: 297mm; }
+  .page { padding: 12mm; }
+  /* evita subrayado de los contenteditable en pantalla (ya lo hacés) */
+}
+
+  /* Botonera */
+  .toolbar.no-print {
+    position: sticky; top: 0; z-index: 5;
+    background: #fff; border-bottom: 1px solid #e5e7eb;
+    padding: 8px 12px; margin-bottom: 8px;
+    display: flex; gap: 8px; justify-content: flex-end;
+  }
+  .btn { font: inherit; padding: 6px 10px; border-radius: 8px; border: 1px solid #cbd5e1; background: #fff; cursor: pointer; }
+  .btn:hover { background: #f8fafc; }
+
+  /* Fecha fuera del recuadro (arriba a la derecha) */
+  .fecha-emision { position: absolute; top: 3mm; right: 12mm; font-size: 9pt; }
+
+  .wrap { display: flex; flex-direction: column; gap: 4mm; margin-top: 10mm; }
+
+  .box { border: 2pt double #000; padding: 3mm; }
+  .box-top { min-height: 100mm; }
+  .box-bottom { min-height: 110mm; }
+
+  .header-grid {
+    display: grid;
+    grid-template-columns: 1fr 2fr 1fr;
+    align-items: flex-start;
+    gap: 3mm;
+  }
+  .center {
+    text-align: center;
+    display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
+  }
+  .center img { height: 18mm; margin-bottom: 1mm; }
+  .title { font-weight: bold; font-size: 11pt; }
+  .address { font-size: 8pt; line-height: 1.2; }
+  .cert-title { font-size: 9.5pt; font-weight: bold; margin-top: 1mm; white-space: nowrap; }
+
+  .sheet { width: 100%; border-collapse: collapse; font-size: 7.5pt; }
+  .sheet td { border: 0.5pt solid #000; padding: 1mm; vertical-align: top; }
+
+  .motor-helice-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 3mm; margin-top: 3mm; }
+
+  .trabajos { margin-top: 3mm; font-size: 8pt; }
+  .texto-libre { margin-top: 2mm; min-height: 15mm; white-space: pre-wrap; }
+
+  .cert-table { width: 100%; border-collapse: collapse; margin-top: 3mm; font-size: 8pt; }
+  .cert-table td { border: 0.5pt solid #000; padding: 1mm; vertical-align: top; }
+  .cert-table .hdr { font-weight: bold; text-align: center; }
+  .cert-table tr:last-child td { height: 8mm; }
+
+  /* Campos editables: subrayado leve para guiarlos en pantalla (no afecta impresión) */
+  [contenteditable="true"] { outline: 0; }
+  @media screen {
+    .editable { box-shadow: inset 0 -1px 0 0 #cbd5e1; }
+  }
+</style>
+</head>
+<body>
+  <div class="toolbar no-print">
+    <button class="btn" onclick="window.print()">Imprimir</button>
+  </div>
+
+  <div class="page">
+    <div class="fecha-emision editable" contenteditable="true">Fecha: __/__/____</div>
+
+    <div class="wrap">
+      <!-- Primer recuadro -->
+      <div class="box box-top">
+        <div class="header-grid">
+          <div>
+            <table class="sheet">
+              <tr><td><strong>Matrícula:</strong> <span class="editable" contenteditable="true"></span></td></tr>
+              <tr><td><strong>Marca:</strong> <span class="editable" contenteditable="true"></span></td></tr>
+              <tr><td><strong>Modelo:</strong> <span class="editable" contenteditable="true"></span></td></tr>
+              <tr><td><strong>Serial:</strong> <span class="editable" contenteditable="true"></span></td></tr>
+            </table>
+          </div>
+          <div class="center">
+            <!-- Si querés, poné un <img src="data:image/jpeg;base64,..." /> aquí -->
+            <div class="title editable" contenteditable="true">CELCOL AVIATION</div>
+            <div class="address editable" contenteditable="true">
+              Camino Melilla Aeropuerto Ángel Adami<br/>
+              Sector CAMES – Hangar Nº 2 · OMA IR-158
+            </div>
+            <div class="cert-title">CERTIFICADO DE CONFORMIDAD DE MANTENIMIENTO</div>
+          </div>
+          <div>
+            <table class="sheet">
+              <tr><td><strong>Fecha:</strong> </td></tr>
+              <tr><td><strong>Lugar:</strong> <span class="editable" contenteditable="true"></span></td></tr>
+              <tr><td><strong>Horas TT:</strong> <span class="editable" contenteditable="true"></span></td></tr>
+              <tr><td><strong>OT:</strong> <span class="editable" contenteditable="true"></span></td></tr>
+            </table>
+          </div>
+        </div>
+
+        <div class="trabajos">
+          <p style="font-weight:bold; text-align:center;">A la aeronave se le efectuaron los trabajos que a continuación se describen:</p>
+          <div class="texto-libre editable" contenteditable="true" style="min-height:20mm;"></div>
+        </div>
+
+        <table class="cert-table">
+          <tr><td colspan="3" class="editable" contenteditable="true">
+            Certifico que esta aeronave ha sido inspeccionada y los trabajos arriba descritos han sido completados de manera satisfactoria, por lo que se encuentra en condiciones seguras y aeronavegable por concepto de los trabajos realizados. Los detalles de estos mantenimientos se encuentran bajo la Orden de Trabajo arriba descrita.
+          </td></tr>
+          <tr>
+            <td class="hdr">Nombre Certificador</td>
+            <td class="hdr">Lic. Nº y Tipo</td>
+            <td class="hdr">Firma y Sello</td>
+          </tr>
+          <tr>
+            <td class="editable" contenteditable="true"></td>
+            <td class="editable" contenteditable="true"></td>
+            <td></td>
+          </tr>
+        </table>
+      </div>
+
+      <!-- Segundo recuadro -->
+      <div class="box box-bottom">
+        <div class="header-grid">
+          <div>
+            <table class="sheet">
+              <tr><td><strong>Matrícula:</strong> <span class="editable" contenteditable="true"></span></td></tr>
+              <tr><td><strong>Marca:</strong> <span class="editable" contenteditable="true"></span></td></tr>
+              <tr><td><strong>Modelo:</strong> <span class="editable" contenteditable="true"></span></td></tr>
+              <tr><td><strong>Serial:</strong> <span class="editable" contenteditable="true"></span></td></tr>
+            </table>
+          </div>
+          <div class="center">
+            <div class="title editable" contenteditable="true">CELCOL AVIATION</div>
+            <div class="address editable" contenteditable="true">
+              Camino Melilla Aeropuerto Ángel Adami<br/>
+              Sector CAMES – Hangar Nº 2 · OMA IR-158
+            </div>
+            <div class="cert-title">CERTIFICADO DE CONFORMIDAD DE MANTENIMIENTO</div>
+          </div>
+          <div>
+            <table class="sheet">
+              <tr><td><strong>Fecha:</strong> </td></tr>
+              <tr><td><strong>Lugar:</strong> <span class="editable" contenteditable="true"></span></td></tr>
+              <tr><td><strong>Horas TT:</strong> <span class="editable" contenteditable="true"></span></td></tr>
+              <tr><td><strong>OT:</strong> <span class="editable" contenteditable="true"></span></td></tr>
+            </table>
+          </div>
+        </div>
+
+        <div class="motor-helice-grid">
+          <table class="sheet">
+            <tr><td colspan="2"><strong>Motor</strong></td></tr>
+            <tr><td><strong>Marca:</strong> <span class="editable" contenteditable="true"></span></td><td><strong>TSO:</strong> <span class="editable" contenteditable="true"></span></td></tr>
+            <tr><td><strong>Modelo:</strong> <span class="editable" contenteditable="true"></span></td><td><strong>TBO:</strong> <span class="editable" contenteditable="true"></span></td></tr>
+            <tr><td><strong>Serial:</strong> <span class="editable" contenteditable="true"></span></td><td></td></tr>
+          </table>
+          <table class="sheet">
+            <tr><td colspan="2"><strong>Hélice</strong></td></tr>
+            <tr><td><strong>Marca:</strong></td><td><strong>TSO:</strong></td></tr>
+            <tr><td><strong>Modelo:</strong></td><td><strong>TBO:</strong></td></tr>
+            <tr><td><strong>Serial:</strong></td><td></td></tr>
+          </table>
+        </div>
+
+        <div class="trabajos">
+          <p style="font-weight:bold; text-align:center;">Al motor se le efectuaron los trabajos que a continuación se describen:</p>
+          <div class="texto-libre editable" contenteditable="true" style="min-height:20mm;"></div>
+        </div>
+
+        <table class="cert-table">
+          <tr><td colspan="3" class="editable" contenteditable="true">
+            Certifico que esta aeronave ha sido inspeccionada y los trabajos arriba descritos han sido completados de manera satisfactoria, por lo que se encuentra en condiciones seguras y aeronavegable por concepto de los trabajos realizados. Los detalles de estos mantenimientos se encuentran bajo la Orden de Trabajo arriba descrita.
+          </td></tr>
+          <tr>
+            <td class="hdr">Nombre Certificador</td>
+            <td class="hdr">Lic. Nº y Tipo</td>
+            <td class="hdr">Firma y Sello</td>
+          </tr>
+          <tr>
+            <td class="editable" contenteditable="true"></td>
+            <td class="editable" contenteditable="true"></td>
+            <td></td>
+          </tr>
+        </table>
+      </div>
+    </div>
+  </div>
+  <script>
+  (function () {
+    const params = new URLSearchParams(location.search);
+    const logo = params.get('logo'); // puede ser URL absoluta o data:URL base64
+    const $imgs = document.querySelectorAll('.logo-to-fill');
+    if (!logo) return; // si no hay, quedan ocultos
+
+    $imgs.forEach(img => {
+      img.src = logo;
+      img.style.display = 'block';
+    });
+  })();
+</script>
+</body>
+</html>
+

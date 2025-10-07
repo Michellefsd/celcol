@@ -1,8 +1,6 @@
-// src/controllers/ordenTrabajo.controller.js — Parte 1/3 (ESM)
-import { PrismaClient } from '@prisma/client';
+import prisma from '../lib/prisma.js';
 import { subirArchivoGenerico } from '../utils/archivoupload.js';
 
-const prisma = new PrismaClient();
 
 // 1. Listar todas las órdenes
 export const getAllOrdenes = async (req, res) => {
@@ -230,7 +228,6 @@ export const subirArchivoFactura = (req, res) =>
     borrarAnterior: true,
     prefix: 'orden',
   });
-
 
 
   // FASE 3 
@@ -806,7 +803,7 @@ export const cancelarOrden = async (req, res) => {
         fechaCancelacion: new Date(),
         datosAvionSnapshot,
         datosComponenteSnapshot,
-        datosPropietarioSnapshot, // ← null si era OT de avión
+        datosPropietarioSnapshot, 
       },
     });
 
@@ -989,3 +986,4 @@ export const desarchivarOrden = async (req, res) => {
     return res.status(500).json({ error: 'Error al desarchivar orden' });
   }
 };
+

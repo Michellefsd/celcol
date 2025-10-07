@@ -71,7 +71,7 @@ export default function NuevaOrdenPage() {
       <h1 className="text-2xl font-bold">Crear nueva orden de trabajo</h1>
 
       <div className="flex gap-4">
-        <BaseButton onClick={() => setModo('AVION')}>Avión</BaseButton>
+        <BaseButton onClick={() => setModo('AVION')}>Aeronave</BaseButton>
         <BaseButton onClick={() => setModo('COMPONENTE')}>Componente</BaseButton>
       </div>
 

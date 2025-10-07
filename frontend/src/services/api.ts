@@ -196,3 +196,7 @@ export async function fetchText(
 export async function getAvionPorMatricula(matricula: string) {
   return fetchJson(`/aviones/por-matricula/${encodeURIComponent(matricula)}`);
 }
+export function openInNewTab(url: string) {
+  const win = window.open('about:blank', '_blank');
+  if (win) win.location.replace(url);
+}

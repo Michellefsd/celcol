@@ -1,6 +1,4 @@
-import { PrismaClient } from '@prisma/client';
-const prisma = new PrismaClient();
-
+import prisma from '../lib/prisma.js';  
 // CREATE
 export async function crearPropietario(req, res) {
   try {
@@ -173,7 +171,7 @@ export async function archivarPropietario(req, res) {
         .map(v => `#${v.avion.id}${v.avion.matricula ? ` (${v.avion.matricula})` : ''}`)
         .join(', ');
       return res.status(409).json({
-        error: `No se puede archivar: primero desvinculá estos aviones del propietario: ${listado}.`,
+        error: `No se puede archivar: primero desvinculá estas aeronaves del propietario: ${listado}.`,
       });
     }
 

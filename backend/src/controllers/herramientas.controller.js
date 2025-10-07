@@ -1,13 +1,12 @@
-import { PrismaClient } from '@prisma/client';
+import prisma from '../lib/prisma.js';
 import { subirArchivoGenerico } from '../utils/archivoupload.js';
 
 
-const prisma = new PrismaClient();
 
 // LISTAR TODAS
 export const listarHerramientas = async (req, res) => {
   try {
-    const { q, orderBy = 'nombre', orderDir = 'asc' } = req.query; // q filtra por numeroParte o nombre
+    const { q, orderBy = 'nombre', orderDir = 'asc' } = req.query;
 
     const herramientas = await prisma.herramienta.findMany({
       where: {

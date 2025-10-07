@@ -3,6 +3,8 @@ import 'dotenv/config';
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import prisma from '../lib/prisma.js';
+
 
 // ===== Config común =====
 const STORAGE_DRIVER = process.env.STORAGE_DRIVER || 'local'; // 'local' | 's3'
@@ -86,9 +88,7 @@ if (STORAGE_DRIVER === 's3') {
 // ===== Export del storage seleccionado =====
 export const archivoStorage = (STORAGE_DRIVER === 's3' ? s3Strategy : localDisk);
 
-// ===== Helpers de alto nivel (crear/eliminar Archivo en DB) =====
-import { PrismaClient } from '@prisma/client';
-const prisma = new PrismaClient();
+
 
 // Valida MIME con patrones tipo 'image/*'
 function mimePermitido(mime, allow = []) {

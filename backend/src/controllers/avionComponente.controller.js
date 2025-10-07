@@ -1,5 +1,4 @@
-import { PrismaClient } from '@prisma/client';
-const prisma = new PrismaClient();
+import prisma from '../lib/prisma.js';
 
 // LISTAR
 export async function listarComponentes(req, res) {
@@ -9,7 +8,7 @@ export async function listarComponentes(req, res) {
     });
     res.json(componentes);
   } catch (error) {
-    console.error('Error al listar componentes de avión:', error);
+    console.error('Error al listar componentes de aeronave', error);
     res.status(500).json({ error: 'Error al obtener los componentes' });
   }
 };

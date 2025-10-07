@@ -6,6 +6,7 @@ import { api, fetchJson } from '@/services/api';
 import SubirArchivo from '@/components/Asignaciones/SubirArchivo';
 import IconButton from '@/components/IconButton';
 import { IconDescargar }  from '../../../../../components/ui/Icons';
+import CCMButton from '@/components/CCMButton';
 
 
 interface Empleado { nombre: string; apellido: string; }
@@ -268,7 +269,7 @@ return (
   {esAvion && orden.datosAvionSnapshot && (
   <div className="mt-4 rounded-xl border border-slate-200 bg-white p-4 text-[15px] leading-7">
     <h3 className="font-semibold text-slate-900 mb-1.5">
-      Datos del avión al momento del cierre
+      Datos de la aeronave al momento del cierre
     </h3>
     {orden.datosAvionSnapshot.matricula && (
       <p><span className="text-slate-500">Matrícula:</span> {orden.datosAvionSnapshot.matricula}</p>
@@ -443,7 +444,7 @@ return (
 
     {orden.accionTomada && (
       <p>
-        <span className="text-slate-500">Acción tomada:</span> {orden.accionTomada}
+        <span className="text-slate-500">Reporte:</span> {orden.accionTomada}
       </p>
     )}
 
@@ -564,8 +565,25 @@ const registrosEmpleado = registrosTrabajo.filter((r) => {
   </section>
 )}
 
+      {/* DESCARGAS */}
+
+    <IconButton
+      icon={IconDescargar}
+      title="PDF"
+      className="text-slate-700 hover:text-slate-900"
+      label="PDF"
+      onClick={() => {
+        const url = api(`/ordenes-trabajo/${orden.id}/pdf`);
+        const win = window.open('about:blank', '_blank');
+        if (win) setTimeout(() => (win.location.href = url), 60);
+        else window.open(url, '_blank');
+      }}
+    />
+<CCMButton ordenId={orden.id} />
 
 
+
+      {/* CARD — Factura */} 
      <section className="rounded-2xl border border-slate-200 bg-white shadow-sm p-4 md:p-6">
   <h2 className="text-lg font-semibold text-slate-900">Factura</h2>
 

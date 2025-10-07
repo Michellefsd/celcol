@@ -8,8 +8,9 @@ import path from 'path';
 import fs from 'fs';
 import cookieParser from 'cookie-parser';
 import cron from 'node-cron';
-import { PrismaClient } from '@prisma/client';
+import prisma from './src/lib/prisma.js';
 import { fileURLToPath } from 'url';
+
 
 // Rutas y middlewares (ESM)
 import authRoutes from './src/routes/auth.routes.js';
@@ -18,6 +19,7 @@ import { requireAuth } from './middleware/authz.js'
 import {
   revisarTodasLasHerramientas,
   revisarAvionesSinPropietario,
+  revisarLicenciasPersonal,
 } from './src/utils/avisos.js';
 
 // Rutas públicas/archivos
@@ -34,8 +36,21 @@ import componentesExtRoutes from './src/routes/componenteExterno.routes.js';
 import ordenTrabajoRoutes from './src/routes/ordenTrabajo.routes.js';
 import avisosRoutes from './src/routes/avisos.routes.js';
 import archivadosRoutes from './src/routes/archivados.routes.js';
+import plantillasRoutes from './src/routes/plantillas.routes.js';
 
-const prisma = new PrismaClient({ log: ['query', 'info', 'warn', 'error'] });
+
+// Manejo de cierre para desconectar Prisma
+const shutdown = async (signal) => {
+  try {
+    console.log(`${signal} recibido. Cerrando Prisma…`);
+    await prisma.$disconnect();
+  } finally {
+    process.exit(0);
+  }
+};
+
+process.on('SIGINT', () => shutdown('SIGINT'));
+process.on('SIGTERM', () => shutdown('SIGTERM'));
 
 // __dirname en ESM
 const __filename = fileURLToPath(import.meta.url);
@@ -58,8 +73,8 @@ app.use(cookieParser());
 
 // === CORS (ANTES de rutas) ===
 const ALLOWED_ORIGINS = [
-  FRONTEND, 
-  'http://localhost:3000',                     
+  'https://dev-celcol-dev.vercel.app', // PROD
+  'http://localhost:3000',                     // DEV
 ];
 
 const corsOptions = {
@@ -95,6 +110,9 @@ app.use('/uploads', express.static(UPLOADS_DIR, {
   fallthrough: false,
   setHeaders: (res) => { res.setHeader('Cache-Control', 'public, max-age=31536000'); }
 }));
+
+app.use('/plantillas', plantillasRoutes);
+
 
 // === AUTH ===
 app.use('/api/auth', authRoutes);
@@ -146,6 +164,7 @@ app.use('/archivos', archivosRoutes);
     try {
       await revisarTodasLasHerramientas(prisma);
       await revisarAvionesSinPropietario(prisma);
+      await revisarLicenciasPersonal(prisma);
       console.log('✅ Revisión inicial completada.');
     } catch (err) {
       console.error('❌ Error en revisión inicial:', err);
@@ -159,6 +178,7 @@ cron.schedule('0 8 * * *', async () => {
   try {
     await revisarTodasLasHerramientas(prisma);
     await revisarAvionesSinPropietario(prisma);
+    await revisarLicenciasPersonal(prisma);
     console.log('✅ Revisión diaria completada.');
   } catch (err) {
     console.error('❌ Error al revisar avisos diarios:', err);
@@ -208,7 +228,7 @@ app.use((err, _req, res, _next) => {
 });
 
 // === LISTEN ===
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {
   console.log(`✅ Backend escuchando en puerto ${PORT}`);
 });

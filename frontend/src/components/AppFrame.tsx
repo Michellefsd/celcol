@@ -7,6 +7,7 @@ import { useAuth } from '@/context/AuthContext';
 import AvisosIcon from '@/components/AvisosIcon';
 import { User, KeyRound, LogOut } from 'lucide-react';
 
+
 type Props = { children: React.ReactNode };
 
 export default function AppFrame({ children }: Props) {

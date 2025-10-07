@@ -38,7 +38,7 @@ const singularByTipo: Record<Tipo, string> = {
   stock: 'Producto de stock',
   propietarios: 'Propietario',
   componentes: 'Componente externo',
-  aviones: 'Avión',
+  aviones: 'Aeeronave',
 };
 
 // Endpoints para traer el detalle (incluyendo archivados)

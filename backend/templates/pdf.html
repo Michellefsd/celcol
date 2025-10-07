@@ -1,0 +1,339 @@
+<!--<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8"/>
+<title>Molde – OT Discrepancias (en blanco)</title>
+<style>
+  @page { size: A4; margin: 12mm; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Arial, Helvetica, sans-serif; color: #000; line-height: 1.25; min-height: 270mm; font-size: 9.5pt; }
+  .header { position: relative; margin-bottom: 6mm; height: 28mm; }
+  .logo { position: absolute; left: 0; top: 0; width: 40mm; height: auto; background:#eee; }
+  .header-content { margin-left: 45mm; text-align: center; }
+  .header h1 { font-size: 14pt; font-weight: bold; margin-bottom: 2mm; }
+  .header-fecha { position: absolute; top: 12mm; right: 0; font-size: 9pt; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 2.5mm; margin-bottom: 2.5mm; }
+  .field { border: 0.5pt solid #000; padding: 2mm; position: relative; min-height: 12mm; }
+  .field-label { position: absolute; top: -3mm; left: 2mm; background: #fff; padding: 0 2mm; font-size: 7.5pt; font-weight: bold; }
+  .section-45 { display: grid; grid-template-columns: 1fr 40mm; gap: 2.5mm; margin-bottom: 2.5mm; }
+  .solicitud, .firma { border: 0.5pt solid #000; padding: 2mm; position: relative; min-height: 25mm; }
+  .discrepancias { border: 0.5pt solid #000; padding: 2mm; margin-bottom: 2.5mm; position: relative; min-height: 15mm; }
+  .discrepancias-label { position: absolute; top: -3mm; left: 2mm; background: #fff; padding: 0 2mm; font-size: 7.5pt; font-weight: bold; }
+  .autorizacion { text-align: center; font-size: 8.5pt; margin: 3mm 0; padding: 0 5mm; }
+  .seccion { border: 0.5pt solid #000; padding: 2mm; margin-bottom: 2.5mm; position: relative; min-height: 25mm; }
+  .seccion-label { position: absolute; top: -3mm; left: 2mm; background: #fff; padding: 0 2mm; font-size: 7.5pt; font-weight: bold; }
+  .lista-acciones { margin-top: 1.5mm; }
+  .accion-item { margin-bottom: 2.5mm; padding-bottom: 2mm; border-bottom: 0.3pt solid #ccc; }
+  em[contenteditable]{ background: #ffffc7; padding: 0 2px; outline: 1px dashed #b9b27a; }
+</style>
+</head>
+<body>
+<div class="header"> -->
+
+
+
+  <!-- <img class="logo" src="/celcol-logo.jpeg"> -->
+ <!-- <div class="header-fecha">Fecha: <em contenteditable>___/___/______</em></div>
+  <div class="header-content">
+    <h1>SOLICITUD - ORDEN DE TRABAJO DISCREPANCIAS</h1>
+  </div>
+</div>
+
+<div class="grid">
+  <div class="field">
+    <div class="field-label">1 Matrícula</div>
+    <div><em contenteditable></em></div>
+  </div>
+  <div class="field">
+    <div class="field-label">2 Fecha solicitud</div>
+    <div><em contenteditable></em></div>
+  </div>
+  <div class="field">
+    <div class="field-label">3 O/T Nro.</div>
+    <div><em contenteditable></em></div>
+  </div>
+</div>
+
+<div class="section-45">
+  <div class="solicitud">
+    <div class="field-label">4 Solicitud (descripción del trabajo)</div>
+    <div style="margin-top: 1mm;"><em contenteditable style="display:inline-block; min-width:100%"></em></div>
+  </div>
+  <div class="firma">
+    <div class="field-label">5 Firma o email</div>
+    <div style="margin-top: 1mm;">
+      <div><strong>Solicitó:</strong> <em contenteditable></em></div>
+      <div><strong>Email:</strong> <em contenteditable></em></div>
+      <div style="margin-top: 8mm; border-top: 0.5pt solid #000; text-align: center; padding-top: 1mm;">Firma</div>
+    </div>
+  </div>
+</div>
+
+<div class="discrepancias">
+  <div class="discrepancias-label">6 Discrepancias encontradas</div>
+  <div style="margin-top: 1mm;"><em contenteditable style="display:inline-block; min-width:100%"></em></div>
+</div>
+
+<div class="autorizacion"><strong>Autorizo a la OMA, la realización en la aeronave o componente de los trabajos detallados en la siguiente orden</strong></div>
+
+<div class="seccion">
+  <div class="seccion-label">1 Reporte</div>
+  <div style="margin-top: 2mm;"><em contenteditable style="display:inline-block; min-width:100%"></em></div>
+</div>
+
+<div class="seccion">
+  <div class="seccion-label">2 Acciones tomadas</div>
+  <div class="lista-acciones">
+    <div class="accion-item">
+      <div><em contenteditable>Descripción…</em></div>
+      <div style="display:flex; gap: 2.5mm; font-size: 8pt; margin-top:1mm;">
+        <div style="border:0.5pt solid #000; padding:1mm 2mm; min-width:28mm"><em contenteditable>ROL</em></div>
+        <div style="border:0.5pt solid #000; padding:1mm 2mm; min-width:28mm"><em contenteditable>Nombre</em></div>
+        <div style="border:0.5pt solid #000; padding:1mm 2mm; min-width:28mm"><em contenteditable>H.H</em></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div style="display:grid; grid-template-columns: 3fr 1fr; gap: 2.5mm;">
+  <div style="border:0.5pt solid #000; padding:2mm; position:relative; min-height:20mm;">
+    <div class="seccion-label">3 Certificado</div>
+    <div style="margin-top:6mm;"><em contenteditable style="display:inline-block; min-width:100%"></em></div>
+  </div>
+  <div style="border:0.5pt solid #000; padding:2mm; position:relative; min-height:20mm;">
+    <div class="seccion-label">4 Fecha de cierre</div>
+    <div style="margin-top:6mm; text-align:center; font-weight:bold;"><em contenteditable>___/___/______</em></div>
+  </div>
+</div>
+</body>
+</html>
+-->
+
+
+
+
+
+
+
+
+
+
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8"/>
+<title>Molde – OT Discrepancias (en blanco)</title>
+<style>
+  @page { size: A4; margin: 12mm; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body { font-family: Arial, Helvetica, sans-serif; color: #000; line-height: 1.25; min-height: 270mm; font-size: 9.5pt; background: #fff; }
+
+  /* Hoja A4 centrada en pantalla */
+  .page {
+    width: 210mm;
+    min-height: 297mm;
+    margin: 0 auto;
+    background: #fff;
+    position: relative;
+    padding: 12mm;
+  }
+  @media screen {
+    body { background: #f1f5f9; }
+    .page { box-shadow: 0 0 0 1px #e2e8f0, 0 6px 20px rgba(0,0,0,.08); }
+  }
+  @media print {
+    .no-print { display: none !important; }
+    .page { box-shadow: none; width: auto; min-height: auto; padding: 12mm; }
+  }
+
+  /* Botonera */
+  .toolbar.no-print {
+    position: sticky; top: 0; z-index: 5;
+    background: #fff; border-bottom: 1px solid #e5e7eb;
+    padding: 8px 12px; margin-bottom: 8px;
+    display: flex; gap: 8px; justify-content: flex-end;
+  }
+  .btn { font: inherit; padding: 6px 10px; border-radius: 8px; border: 1px solid #cbd5e1; background: #fff; cursor: pointer; }
+  .btn:hover { background: #f8fafc; }
+
+  /* Header */
+  .header { position: relative; margin-bottom: 6mm; height: 28mm; }
+  .header-row {
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;  /* centra logo + título como bloque */
+    gap: 6mm;
+    padding: 0 36mm; /* deja espacio lateral para la fecha a la derecha */
+    text-align: center;
+  }
+  .logo { height: 14mm; width: auto; display: none; } /* se muestra si llega ?logo= */
+  .header-row h1 { font-size: 14pt; font-weight: bold; line-height: 1.1; }
+  .header-fecha { position: absolute; top: 12mm; right: 0; font-size: 9pt; }
+
+  /* Grid principal */
+  .grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 2.5mm; margin-bottom: 2.5mm; }
+  .field { border: 0.5pt solid #000; padding: 2mm; position: relative; min-height: 12mm; }
+  .field-label { position: absolute; top: -3mm; left: 2mm; background: #fff; padding: 0 2mm; font-size: 7.5pt; font-weight: bold; }
+
+  /* Sección 4-5 */
+  .section-45 { display: grid; grid-template-columns: 1fr 40mm; gap: 2.5mm; margin-bottom: 2.5mm; }
+  .solicitud, .firma { border: 0.5pt solid #000; padding: 2mm; position: relative; min-height: 25mm; }
+
+  /* Discrepancias */
+  .discrepancias { border: 0.5pt solid #000; padding: 2mm; margin-bottom: 2.5mm; position: relative; min-height: 15mm; }
+  .discrepancias-label { position: absolute; top: -3mm; left: 2mm; background: #fff; padding: 0 2mm; font-size: 7.5pt; font-weight: bold; }
+
+  /* Autorización */
+  .autorizacion { text-align: center; font-size: 8.5pt; margin: 3mm 0; padding: 0 5mm; }
+  .autorizacion strong { font-weight: bold; }
+
+  /* Secciones genéricas */
+  .seccion { border: 0.5pt solid #000; padding: 2mm; margin-bottom: 2.5mm; position: relative; }
+  .seccion-label { position: absolute; top: -3mm; left: 2mm; background: #fff; padding: 0 2mm; font-size: 7.5pt; font-weight: bold; }
+  .seccion-contenido { margin-top: 2mm; }
+  .page-break { page-break-inside: avoid; }
+
+  /* Lista de acciones */
+  .lista-acciones { margin-top: 1.5mm; }
+  .accion-item { margin-bottom: 2.5mm; padding-bottom: 2mm; border-bottom: 0.3pt solid #ccc; page-break-inside: avoid; }
+  .accion-desc { margin-bottom: 1.5mm; }
+  .accion-datos { display: flex; gap: 2.5mm; font-size: 8pt; }
+  .dato-box { border: 0.5pt solid #000; padding: 1mm 2mm; min-width: 28mm; }
+
+  /* Fila de certificado y cierre */
+  .cierre-cert-row { display: grid; grid-template-columns: 3fr 1fr; gap: 2.5mm; margin-top: 4mm; }
+  .cert-section { border: 0.5pt solid #000; padding: 2mm; position: relative; min-height: 20mm; }
+  .cert-section-label { position: absolute; top: -3mm; left: 2mm; background: #fff; padding: 0 2mm; font-size: 7.5pt; font-weight: bold; }
+  .fecha-cierre { border: 0.5pt solid #000; padding: 2mm; position: relative; min-height: 20mm; }
+
+  /* Footer pegado abajo con línea divisoria y contenido L/R */
+  .footer {
+    position: absolute;
+    left: 0; right: 0;
+    bottom: 4mm;            /* más cerca del borde inferior */
+    display: flex;
+    justify-content: space-between;
+    gap: 8mm;
+    font-size: 7.5pt;
+    border-top: 0.5pt solid #000; /* línea divisoria */
+    padding-top: 2mm;
+    margin-top: 8mm;
+  }
+
+  /* Ayuda visual para edición en pantalla (no afecta impresión) */
+  [contenteditable="true"] { outline: 0; }
+  @media screen {
+    em[contenteditable],
+    .editable[contenteditable] { background: #ffffc7; padding: 0 2px; outline: 1px dashed #b9b27a; }
+  }
+
+  .mono { white-space: pre-wrap; font-family: monospace; }
+  .bold { font-weight: bold; }
+</style>
+</head>
+<body>
+  <div class="toolbar no-print">
+    <button class="btn" onclick="window.print()">Imprimir</button>
+  </div>
+
+  <div class="page">
+    <div class="header">
+      <div class="header-row">
+        <img class="logo" id="logo-el" alt="logo">
+        <h1>SOLICITUD - ORDEN DE TRABAJO DISCREPANCIAS</h1>
+      </div>
+      <div class="header-fecha">Fecha: <em contenteditable>__/__/____</em></div>
+    </div>
+
+    <div class="grid">
+      <div class="field">
+        <div class="field-label">1 Matrícula</div>
+        <div><em contenteditable></em></div>
+      </div>
+      <div class="field">
+        <div class="field-label">2 Fecha solicitud</div>
+        <div><em contenteditable></em></div>
+      </div>
+      <div class="field">
+        <div class="field-label">3 O/T Nro.</div>
+        <div><em contenteditable></em></div>
+      </div>
+    </div>
+
+    <div class="section-45">
+      <div class="solicitud">
+        <div class="field-label">4 Solicitud (descripción del trabajo)</div>
+        <div style="margin-top: 1mm;"><em contenteditable style="display:inline-block; min-width:100%"></em></div>
+      </div>
+      <div class="firma">
+        <div class="field-label">5 Firma o email</div>
+        <div style="margin-top: 1mm;">
+          <div><strong>Solicitó:</strong> <em contenteditable></em></div>
+          <div><strong>Email:</strong> <em contenteditable></em></div>
+          <div style="margin-top: 8mm; border-top: 0.5pt solid #000; text-align: center; padding-top: 1mm;">Firma</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="discrepancias">
+      <div class="discrepancias-label">6 Discrepancias encontradas</div>
+      <div style="margin-top: 1mm;"><em contenteditable style="display:inline-block; min-width:100%"></em></div>
+    </div>
+
+    <div class="autorizacion"><strong>Autorizo a la OMA, la realización en la aeronave o componente de los trabajos detallados en la siguiente orden</strong></div>
+
+    <div class="seccion page-break">
+      <div class="seccion-label">1 Reporte</div>
+      <div class="seccion-contenido">
+        <em contenteditable style="display:inline-block; min-width:100%"></em>
+      </div>
+    </div>
+
+    <div class="seccion page-break">
+      <div class="seccion-label">2 Acciones tomadas</div>
+      <div class="lista-acciones">
+        <div class="accion-item">
+          <div class="accion-desc"><em contenteditable>Descripción…</em></div>
+          <div class="accion-datos">
+            <div class="dato-box"><em contenteditable>ROL</em></div>
+            <div class="dato-box"><em contenteditable>Nombre</em></div>
+            <div class="dato-box"><em contenteditable>H.H</em></div>
+          </div>
+        </div>
+        <!-- Duplicá .accion-item según necesites -->
+      </div>
+    </div>
+
+    <div class="cierre-cert-row page-break">
+      <div class="cert-section">
+        <div class="cert-section-label">3 Certificado</div>
+        <div style="margin-top: 6mm;"><em contenteditable style="display:inline-block; min-width:100%"></em></div>
+      </div>
+      <div class="fecha-cierre">
+        <div class="seccion-label">4 Fecha de cierre</div>
+        <div class="bold" style="margin-top: 6mm; text-align: center;"><em contenteditable>__/__/____</em></div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <div>Manual de la Organización de Mantenimiento – MOM</div>
+      <div>Aprobado por: CELCOL AVIATION</div>
+    </div>
+  </div>
+
+  <script>
+    // Permite pasar ?logo=/ruta.png o ?logo=data:image/png;base64,AAAA…
+    (function () {
+      const params = new URLSearchParams(location.search);
+      const logo = params.get('logo');
+      const el = document.getElementById('logo-el');
+      if (logo && el) {
+        el.src = logo;
+        el.style.display = 'block';
+      }
+    })();
+  </script>
+</body>
+</html>

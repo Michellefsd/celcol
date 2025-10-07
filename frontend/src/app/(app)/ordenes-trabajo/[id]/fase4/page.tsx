@@ -5,6 +5,12 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { api, fetchJson } from '@/services/api';
 import SubirArchivo from '@/components/Asignaciones/SubirArchivo';
+import IconButton from '@/components/IconButton';
+import { IconVer } from '@/components/ui/Icons';
+import { openPreviewCcm } from '@/lib/pdf';
+import { openPreviewPdf } from '@/lib/pdf';
+
+
 
 interface RegistroTrabajo {
   id?: number;
@@ -440,7 +446,7 @@ return (
     {orden.avion && (
       <>
         <p>
-          <span className="text-slate-500">Avión:</span>{' '}
+          <span className="text-slate-500">Aeronave:</span>{' '}
           <a
             href={`/cruds/aviones/${orden.avion.id}`}
             className="text-cyan-600 hover:text-cyan-800 underline underline-offset-2"
@@ -579,7 +585,7 @@ return (
 
     {renderCampo('Inspección al recibir', orden.inspeccionRecibida ? 'Sí' : 'No')}
     {renderCampo('Daños previos', orden.danosPrevios)}
-    {renderCampo('Acción tomada', orden.accionTomada)}
+    {renderCampo('Reporte', orden.accionTomada)}
     {renderCampo('Observaciones', orden.observaciones)}
 
     {!!herramientasUnicas.length && (
@@ -828,7 +834,15 @@ return (
 
         </div>
       </section>
+<section className="flex flex-col sm:flex-row gap-3 justify-between items-center">
+ <IconButton
+      icon={IconVer}
+      title="PDF prevew"
+      label="Vista previa PDF"
+      onClick={() => openPreviewPdf(orden.id)}
+    />
 
+</section>
      
       <section className="flex flex-col sm:flex-row gap-3 justify-between items-center">
         <button

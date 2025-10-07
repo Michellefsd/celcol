@@ -1,14 +1,26 @@
-// src/controllers/ordenTrabajo.descarga.controller.js (ESM)
-/*import { PrismaClient } from '@prisma/client';
+import prisma from '../lib/prisma.js';
 import path from 'path';
 import fs from 'fs';
 import puppeteer from 'puppeteer';
 
-const prisma = new PrismaClient();
+/*
+ * Controlador descargarOrdenPDF con mejoras adicionales:
+ *
+ *  - «Autorizo a la OMA...» aparece en negrita.
+ *  - Se reemplaza la sección individual de «Trabajo realizado (certificador)» por
+ *    una fila combinada junto a la fecha de cierre: un recuadro etiquetado
+ *    «3 Certificado» ocupa ~3/4 de la fila, mientras que la fecha ocupa 1/4
+ *    y se numera como paso 4.
+ *  - La lógica de detección de acciones de certificadores replica la de técnicos
+ *    y muestra cada una con rol (CERTIFICADOR), nombre y horas dedicadas.
+ *  - La estructura sigue generando múltiples páginas si el contenido excede
+ *    una hoja A4. Las clases `page-break-inside: avoid` ayudan a mantener
+ *    la integridad de los bloques. Para textos aún más largos se podría
+ *    reducir la fuente o dividir en más páginas.
+ */
 
 export const descargarOrdenPDF = async (req, res) => {
   const id = Number.parseInt(req.params.id, 10);
-
   // Helpers
   const fmtUY = (d) => {
     if (!d) return '';
@@ -46,11 +58,9 @@ export const descargarOrdenPDF = async (req, res) => {
       .map(x => String(x).trim())
       .filter(Boolean);
   };
-  const isEmpty = (v) => !v || !String(v).trim();
 
   try {
     if (!id) return res.status(400).json({ error: 'ID inválido' });
-
     const orden = await prisma.ordenTrabajo.findUnique({
       where: { id },
       include: {
@@ -61,22 +71,18 @@ export const descargarOrdenPDF = async (req, res) => {
       }
     });
     if (!orden) return res.status(404).json({ error: 'Orden no encontrada' });
-
     const estado = orden.estadoOrden || '';
     if (!['CERRADA', 'CANCELADA'].includes(estado)) {
-      return res.status(400).json({ error: 'Solo disponible para órdenes CERRADAS o CANCELADAS' });
+      return res.status(400).json({ error: 'La OT debe estar CERRADA o CANCELADA para generar el PDF.' });
     }
-
     // Snapshots y cabecera
     const avSnap   = normalizeSnap(orden.datosAvionSnapshot);
     const compSnap = normalizeSnap(orden.datosComponenteSnapshot);
     const propSnap = normalizeSnap(orden.datosPropietarioSnapshot);
     const discrep  = normalizeSnap(orden.discrepanciasSnapshot) || {};
-
     const matricula = (avSnap?.matricula) || (orden.avion?.matricula) || (compSnap?.matricula) || '';
-    const fechaSolicitud = fmtUY(orden.fechaApertura); // usar apertura
+    const fechaSolicitud = fmtUY(orden.fechaApertura);
     const otNro = String(orden.numero ?? orden.id);
-
     const propName =
       (propSnap ? nombrePropietario(propSnap) : '') ||
       (orden?.componente?.propietario ? nombrePropietario(orden.componente.propietario) : '') ||
@@ -85,516 +91,43 @@ export const descargarOrdenPDF = async (req, res) => {
     const propEmail =
       (propSnap ? emailPropietario(propSnap) : '') ||
       (orden?.componente?.propietario ? emailPropietario(orden.componente.propietario) : '') || '';
-
     const solicitudBruta = orden.OTsolicitud || orden.solicitud || orden.descripcionTrabajo || orden.descripcion || '';
     const solicitudBullets = splitBullets(solicitudBruta);
     const observBullets = splitBullets(orden.observaciones || '');
 
-    // Personal
-    const toNombre = (emp) => {
-      const n = emp?.nombre ?? emp?.empleado?.nombre;
-      const a = emp?.apellido ?? emp?.empleado?.apellido;
-      return [n, a].filter(Boolean).join(' ').trim();
-    };
-    const tecnicos = (orden.empleadosAsignados || [])
-      .filter(e => (e?.rol || '').toUpperCase() === 'TECNICO')
-      .map(toNombre);
-    const certificadores = (orden.empleadosAsignados || [])
-      .filter(e => (e?.rol || '').toUpperCase() === 'CERTIFICADOR')
-      .map(toNombre);
+// === Acciones por rol, usando el ROL DEL REGISTRO ===
+const regs = Array.isArray(orden.registrosTrabajo) ? orden.registrosTrabajo : [];
 
-    // Filas 1–4
-    const regs = Array.isArray(orden.registrosTrabajo) ? orden.registrosTrabajo : [];
-    const filas = [];
-    for (let i = 0; i < Math.min(4, regs.length); i++) {
-      const r = regs[i];
-      const nombre = [r?.empleado?.nombre, r?.empleado?.apellido].filter(Boolean).join(' ').trim();
-      const rep = r?.trabajoRealizado || r?.detalle || r?.descripcion || '';
-      const hh  = String(r?.horas ?? r?.cantidadHoras ?? '');
-      filas.push({
-        num: i + 1,
-        // Acción Tomada = trabajo realizado
-        reporte: rep,
-        accion:  rep,
-        tecnico: nombre || (tecnicos[0] || ''),
-        certificador: certificadores[0] || '',
-        hh
-      });
-    }
-    for (let i = 0; i < 4; i++) {
-      if (!filas[i]) filas[i] = { num: i + 1, reporte: '', accion: '', tecnico: '', certificador: '', hh: '' };
-      if (isEmpty(filas[i].reporte) && solicitudBullets[i]) {
-        const b = solicitudBullets[i];
-        filas[i].reporte = b;
-        filas[i].accion  = b;
-      }
-      // Escapar
-      filas[i].reporte = escapeHTML(filas[i].reporte);
-      filas[i].accion  = escapeHTML(filas[i].accion);
-      filas[i].tecnico = escapeHTML(filas[i].tecnico);
-      filas[i].certificador = escapeHTML(filas[i].certificador);
-      filas[i].hh = escapeHTML(filas[i].hh);
-    }
-
-    // A/B (Discrepancias)
-    const A = Object.assign({ texto: '', accion: '', tecnico: '', certificador: '', hh: '' }, discrep?.A || {});
-    const B = Object.assign({ texto: '', accion: '', tecnico: '', certificador: '', hh: '' }, discrep?.B || {});
-    if (isEmpty(A.texto) && observBullets[0]) A.texto = observBullets[0];
-    if (isEmpty(B.texto) && observBullets[1]) B.texto = observBullets[1];
-    ['texto','accion','tecnico','certificador','hh'].forEach(k => { A[k] = escapeHTML(A[k] || ''); B[k] = escapeHTML(B[k] || ''); });
-
-    const fechaCierreTexto = estado === 'CERRADA' ? fmtUY(orden.fechaCierre) : fmtUY(orden.fechaCancelacion);
-
-    // Logo embebido
-    let logoData = '';
-    try {
-      const logoPath = path.join(process.cwd(), 'public', 'celcol-logo.jpeg');
-      if (fs.existsSync(logoPath)) {
-        const buf = fs.readFileSync(logoPath);
-        logoData = `data:image/jpeg;base64,${buf.toString('base64')}`;
-      }
-    } catch {}
-
-    // HTML/CSS
-    const html = `<!doctype html>
-<html>
-<head>
-<meta charset="utf-8"/>
-<title>CA-29 OT ${escapeHTML(otNro)}</title>
-<style>
-  @page { size: A4; margin: 12mm; }
-  * { box-sizing: border-box; }
-  body { font-family: Arial, Helvetica, sans-serif; font-size: 9.5pt; color: #000; }
-
-  .row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 3mm; }
-  .box { border: 0.35pt solid #000; padding: 2mm; position: relative; }
-  .label { position:absolute; top: -3mm; left: 2mm; background:#fff; padding: 0 1mm; font-size: 8pt; font-weight: 700; }
-  .half .label { top: -1.4mm; }
-
-  // Header //
-  .hdr { position:relative; height: 23mm; margin-bottom: 2mm; }
-  .logo { position:absolute; left:0; top:1mm; width:30mm; }
-  .meta { position: absolute; top: 0; right: 0; width: 55mm; height: 18mm; border: 0.35pt solid #000; padding: 2mm; font-size: 8.5pt; }
-  .meta .ca { position: absolute; top: 2mm; right: 3mm; font-weight: 700; }
-  .h1 { position:absolute; top: 6mm; left: 34mm; right: 58mm; font-weight: 700; font-size: 13.5pt; line-height: 1.05; margin: 0; }
-
-  .topline { border-top: 0.35pt solid #000; margin-top: 3mm; }
-  .mono { white-space: pre-wrap; }
-
-// ======= ESTRUCTURA UNIFICADA PARA TODAS LAS FILAS ======= //
-.items { margin-top: 5mm; }
-.item { 
-  display: grid; 
-  grid-template-columns: 12mm 1fr; 
-  gap: 2mm; 
-  height: 26mm; 
-  margin-bottom: 2mm; 
-}
-.item .num { 
-  border: 0.35pt solid #000; 
-  display:flex; 
-  align-items:center; 
-  justify-content:center; 
-  font-weight:700; 
-}
-
-.half-container {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0;
-  height: 100%;
-}
-
-.half { 
-  border: 0.35pt solid #000;
-  position: relative; 
-  padding: 3mm 2mm 8.5mm 2mm;
-}
-.half:first-child { 
-  border-right: none; 
-}
-
-.half .label { 
-  position:absolute; 
-  top: -3mm; 
-  left: 2mm; 
-  background:#fff; 
-  padding: 0 1mm; 
-  font-size: 8pt; 
-  font-weight: 700; 
-}
-
-.mini-wrap { 
-  position:absolute; 
-  right: 2mm; 
-  bottom: 2mm; 
-  display:flex; 
-  gap: 2mm; 
-}
-.mini { 
-  border: 0.35pt solid #000; 
-  padding: 1mm 2.6mm; 
-  font-size: 7.4pt; 
-  height: 7.2mm; 
-  line-height: 1; 
-  display:inline-block; 
-}
-.mini .val { 
-  display:block; 
-  font-size: 7.2pt; 
-  margin-top: 0.4mm; 
-  white-space: nowrap; 
-  overflow: hidden; 
-  text-overflow: ellipsis; 
-}
-.mini-tech { min-width: 34mm; }
-.mini-cert { min-width: 30mm; }
-.mini-hh   { min-width: 22mm; text-align: right; }
-
-.half.empty { border-width: 0.25pt; opacity: 0.9; }
-.mini.empty { border-width: 0.25pt; opacity: 0.9; }
-
-// ======= SECCIÓN A / B ======= //
-.ab { 
-  display: grid; 
-  grid-template-columns: 12mm 1fr; 
-  gap: 2mm; 
-  height: 23mm; 
-  margin: 2mm 0; 
-}
-.ab .half-container {
-  height: 100%;
-}
-
-  // Fecha de cierre (aire suficiente) //
-  .close-row { grid-template-columns: 1fr 55mm 0; margin-top: 6mm; }
-
-  // Firma //
-  .sig { height: 100%; display: flex; flex-direction: column; }
-  .sig .line { margin-top: auto; border-top: 0.35pt solid #000; text-align: center; font-size: 7.5pt; padding-top: 1mm; }
-
-  .footer { margin-top: 6mm; display:flex; justify-content: space-between; font-size:8.8pt; }
-</style>
-
-</head>
-<body>
-
-<div class="hdr">
-  ${logoData ? `<img class="logo" src="${logoData}">` : ''}
-  <div class="meta">
-    <div>Capítulo: 9</div>
-    <div>Fecha: ${escapeHTML(fmtUY(new Date()))}</div>
-    <div class="ca">CA-29</div>
-  </div>
-  <div class="h1">SOLICITUD - ORDEN DE TRABAJO&nbsp;&nbsp;DISCREPANCIAS</div>
-</div>
-
-<div class="topline"></div>
-
-<!-- 1-3 -->
-<div class="row" style="margin-top: 3mm;">
-  <div class="box"><div class="label">1 Matrícula</div><div class="mono">${escapeHTML(matricula || '-')}</div></div>
-  <div class="box"><div class="label">2 Fecha solicitud</div><div class="mono">${escapeHTML(fechaSolicitud || '-')}</div></div>
-  <div class="box"><div class="label">3 O/T Nro.</div><div class="mono">${escapeHTML(otNro)}</div></div>
-</div>
-
-<!-- 4-5 -->
-<div class="row" style="margin-top: 3mm; grid-template-columns: 1fr 55mm 0; gap: 3mm;">
-  <div class="box" style="height: 22mm;"><div class="label">4 Solicitud (descripción del trabajo)</div>
-    <div class="mono" style="line-height: 1.2;">${escapeHTML(solicitudBruta)}</div></div>
-  <div class="box" style="height: 26mm;">
-    <div class="label">5 Firma o email</div>
-    <div class="sig">
-      <div><b>Solicitó:</b> ${escapeHTML(propName || '-')}</div>
-      <div>${escapeHTML(propEmail || '')}</div>
-      <div class="line">Firma</div>
-    </div>
-  </div>
-</div>
-
-<!-- Texto intermedio -->
-<div style="margin: 4mm 0 3mm 0; font-size: 9pt; line-height:1.15;">
-  Autorizo a la OMA, la realización en la aeronave o componente de los trabajos detallados en la siguiente orden
-</div>
-
-<!-- 1-4 items -->
-<div class="items">
-  ${filas.map(f => {
-    const empty6 = isEmpty(f.reporte);
-    const empty7 = isEmpty(f.accion);
-    const empty8 = isEmpty(f.tecnico);
-    const empty9 = isEmpty(f.certificador);
-    const empty10 = isEmpty(f.hh);
-    return `
-    <div class="item">
-      <div class="num">${f.num}</div>
-      <div class="half-container">
-        <div class="half ${empty6 ? 'empty' : ''}">
-          <div class="label">6 Reporte</div>
-          <div class="mono" style="line-height:1.2;">${f.reporte}</div>
-          <div class="mini-wrap">
-            <div class="mini mini-tech ${empty8 ? 'empty' : ''}">8 Técnico<span class="val">${f.tecnico}</span></div>
-          </div>
-        </div>
-        <div class="half ${empty7 ? 'empty' : ''}">
-          <div class="label">7 Acción Tomada</div>
-          <div class="mono" style="line-height:1.2;">${f.accion}</div>
-          <div class="mini-wrap">
-            <div class="mini mini-cert ${empty9 ? 'empty' : ''}">9 Certific.<span class="val">${f.certificador}</span></div>
-            <div class="mini mini-hh ${empty10 ? 'empty' : ''}">10 H.H<span class="val">${f.hh}</span></div>
-          </div>
-        </div>
-      </div>
-    </div>`;
-  }).join('')}
-</div>
-
-<!-- A/B -->
-${[['A', A], ['B', B]].map(([tag, r], idx) => {
-  const empty11 = isEmpty(r?.texto);
-  const empty12 = isEmpty(r?.accion);
-  const empty8  = isEmpty(r?.tecnico);
-  const empty9  = isEmpty(r?.certificador);
-  const empty10 = isEmpty(r?.hh);
-  return `
-  <div class="ab">
-    <div class="num">${tag}</div>
-    <div class="half-container">
-      <div class="half ${empty11 ? 'empty' : ''}">
-        <div class="label">11 Discrepancias encontradas</div>
-        <div class="mono" style="line-height:1.2;">${r?.texto || ''}</div>
-        <div class="mini-wrap">
-          <div class="mini mini-tech ${empty8 ? 'empty' : ''}">8 Técnico<span class="val">${r?.tecnico || ''}</span></div>
-        </div>
-      </div>
-      <div class="half ${empty12 ? 'empty' : ''}">
-        <div class="label">12 Acción Tomada</div>
-        <div class="mono" style="line-height:1.2;">${r?.accion || ''}</div>
-        <div class="mini-wrap">
-          <div class="mini mini-cert ${empty9 ? 'empty' : ''}">9 Certific.<span class="val">${r?.certificador || ''}</span></div>
-          <div class="mini mini-hh ${empty10 ? 'empty' : ''}">10 H.H<span class="val">${r?.hh || ''}</span></div>
-        </div>
-      </div>
-    </div>
-  </div>`;
-}).join('')}
-
-<!-- 13 Fecha de cierre (con margen extra) -->
-<div class="row close-row">
-  <div></div>
-  <div class="box" style="height: 12mm;">
-    <div class="label">13 Fecha de cierre</div>
-    <div class="mono" style="font-weight:700;">${escapeHTML(fechaCierreTexto || '')}</div>
-  </div>
-</div>
-
-<div class="footer">
-  <div>Manual de la Organización de Mantenimiento – MOM</div>
-  <div>Aprobado por: CELCOL AVIATION</div>
-</div>
-
-</body>
-</html>`;
-
-    // Render
-    const browser = await puppeteer.launch({
-      headless: 'new',
-      args: ['--no-sandbox', '--disable-setuid-sandbox']
-    });
-    const page = await browser.newPage();
-    await page.setContent(html, { waitUntil: 'networkidle0' });
-
-    const pdf = await page.pdf({
-      format: 'A4',
-      printBackground: true,
-      margin: { top: '0mm', bottom: '0mm', left: '0mm', right: '0mm' }
-    });
-
-    await page.close();
-    await browser.close();
-
-    const filename = `OT-${orden.numero ?? orden.id}.pdf`;
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
-    return res.send(pdf);
-  } catch (error) {
-    console.error('Error al generar PDF de OT (Puppeteer):', error);
-    if (!res.headersSent) return res.status(500).json({ error: 'Error al generar el PDF' });
-  }
+const mapAccion = (r) => {
+  const empleadoNombre = [r?.empleado?.nombre, r?.empleado?.apellido]
+    .filter(Boolean)
+    .join(' ')
+    .trim();
+  return {
+    descripcion: r?.trabajoRealizado || r?.detalle || r?.descripcion || '',
+    empleado: empleadoNombre,
+    rol: String(r?.rol || ''),           // <- rol del registro, no del empleado
+    horas: (r?.horas ?? r?.cantidadHoras ?? '') + '',
+  };
 };
-*/
 
+const accionesTecnico = regs
+  .filter((r) => String(r?.rol || '').toUpperCase() === 'TECNICO')
+  .map(mapAccion);
 
+const accionesCertificador = regs
+  .filter((r) => String(r?.rol || '').toUpperCase() === 'CERTIFICADOR')
+  .map(mapAccion);
 
+// Fallback: si no hay técnicos, usar bullets de solicitud (máx. 4) como acciones "técnicas" vacías
+if (accionesTecnico.length === 0 && solicitudBullets.length > 0) {
+  solicitudBullets.slice(0, 4).forEach((bullet) => {
+    accionesTecnico.push({ descripcion: bullet, empleado: '', rol: 'TECNICO', horas: '' });
+  });
+}
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// src/controllers/ordenTrabajo.descarga.controller.js (ESM)
-import { PrismaClient } from '@prisma/client';
-import path from 'path';
-import fs from 'fs';
-import puppeteer from 'puppeteer';
-
-const prisma = new PrismaClient();
-
-export const descargarOrdenPDF = async (req, res) => {
-  const id = Number.parseInt(req.params.id, 10);
-
-  // Helpers
-  const fmtUY = (d) => {
-    if (!d) return '';
-    const dt = new Date(d);
-    if (isNaN(dt)) return '';
-    const dd = String(dt.getDate()).padStart(2, '0');
-    const mm = String(dt.getMonth() + 1).padStart(2, '0');
-    const yyyy = dt.getFullYear();
-    return `${dd}/${mm}/${yyyy}`;
-  };
-  const normalizeSnap = (val) => {
-    if (!val) return null;
-    if (typeof val === 'string') {
-      try { return JSON.parse(val) ?? null; } catch { return null; }
-    }
-    return val;
-  };
-  const escapeHTML = (s) =>
-    String(s ?? '')
-      .replace(/&/g, '&amp;').replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-  const nombrePropietario = (p) => {
-    if (!p) return '-';
-    const tipo = (p.tipoPropietario || '').toUpperCase();
-    if (tipo === 'INSTITUCION') return p.nombreEmpresa || '-';
-    const full = [p.nombre, p.apellido].filter(Boolean).join(' ').trim();
-    return full || '-';
-  };
-  const emailPropietario = (p) => (p?.email || p?.correo || p?.mail || '');
-  const splitBullets = (txt) => {
-    if (!txt) return [];
-    const s = String(txt).replace(/\r/g, '\n');
-    return s
-      .split(/\n+|(?:^\s*[*•-]\s*)/gm)
-      .map(x => String(x).trim())
-      .filter(Boolean);
-  };
-  const isEmpty = (v) => !v || !String(v).trim();
-
-  try {
-    if (!id) return res.status(400).json({ error: 'ID inválido' });
-
-    const orden = await prisma.ordenTrabajo.findUnique({
-      where: { id },
-      include: {
-        empleadosAsignados: { include: { empleado: true } },
-        registrosTrabajo:   { orderBy: { fecha: 'asc' }, include: { empleado: true } },
-        avion: { include: { propietarios: { include: { propietario: true } } } },
-        componente: { include: { propietario: true } }
-      }
-    });
-    if (!orden) return res.status(404).json({ error: 'Orden no encontrada' });
-
-    const estado = orden.estadoOrden || '';
-    if (!['CERRADA', 'CANCELADA'].includes(estado)) {
-      return res.status(400).json({ error: 'Solo disponible para órdenes CERRADAS o CANCELADAS' });
-    }
-
-    // Snapshots y cabecera
-    const avSnap   = normalizeSnap(orden.datosAvionSnapshot);
-    const compSnap = normalizeSnap(orden.datosComponenteSnapshot);
-    const propSnap = normalizeSnap(orden.datosPropietarioSnapshot);
-    const discrep  = normalizeSnap(orden.discrepanciasSnapshot) || {};
-
-    const matricula = (avSnap?.matricula) || (orden.avion?.matricula) || (compSnap?.matricula) || '';
-    const fechaSolicitud = fmtUY(orden.fechaApertura); // usar apertura
-    const otNro = String(orden.numero ?? orden.id);
-
-    const propName =
-      (propSnap ? nombrePropietario(propSnap) : '') ||
-      (orden?.componente?.propietario ? nombrePropietario(orden.componente.propietario) : '') ||
-      (orden?.avion?.propietarios?.[0]?.propietario ? nombrePropietario(orden.avion.propietarios[0].propietario) : '') ||
-      (orden.solicitadoPor || '');
-    const propEmail =
-      (propSnap ? emailPropietario(propSnap) : '') ||
-      (orden?.componente?.propietario ? emailPropietario(orden.componente.propietario) : '') || '';
-
-    const solicitudBruta = orden.OTsolicitud || orden.solicitud || orden.descripcionTrabajo || orden.descripcion || '';
-    const solicitudBullets = splitBullets(solicitudBruta);
-    const observBullets = splitBullets(orden.observaciones || '');
-
-    // Personal
-    const toNombre = (emp) => {
-      const n = emp?.nombre ?? emp?.empleado?.nombre;
-      const a = emp?.apellido ?? emp?.empleado?.apellido;
-      return [n, a].filter(Boolean).join(' ').trim();
-    };
-    const tecnicos = (orden.empleadosAsignados || [])
-      .filter(e => (e?.rol || '').toUpperCase() === 'TECNICO')
-      .map(toNombre);
-    const certificadores = (orden.empleadosAsignados || [])
-      .filter(e => (e?.rol || '').toUpperCase() === 'CERTIFICADOR')
-      .map(toNombre);
-
-    // Filas 1–4 - NUEVA ESTRUCTURA
-    const regs = Array.isArray(orden.registrosTrabajo) ? orden.registrosTrabajo : [];
-    const filas = [];
-    for (let i = 0; i < Math.min(4, regs.length); i++) {
-      const r = regs[i];
-      const nombre = [r?.empleado?.nombre, r?.empleado?.apellido].filter(Boolean).join(' ').trim();
-      const rep = r?.trabajoRealizado || r?.detalle || r?.descripcion || '';
-      const hh  = String(r?.horas ?? r?.cantidadHoras ?? '');
-      filas.push({
-        num: i + 1,
-        // Campo 1: Reporte solamente
-        reporte: rep,
-        // Campo 2: Acción Tomada (toma el mismo valor por ahora)
-        accion: rep,
-        tecnico: nombre || (tecnicos[0] || ''),
-        certificador: certificadores[0] || '',
-        hh
-      });
-    }
-    for (let i = 0; i < 4; i++) {
-      if (!filas[i]) filas[i] = { num: i + 1, reporte: '', accion: '', tecnico: '', certificador: '', hh: '' };
-      if (isEmpty(filas[i].reporte) && solicitudBullets[i]) {
-        const b = solicitudBullets[i];
-        filas[i].reporte = b;
-        filas[i].accion  = b;
-      }
-      // Escapar
-      filas[i].reporte = escapeHTML(filas[i].reporte);
-      filas[i].accion  = escapeHTML(filas[i].accion);
-      filas[i].tecnico = escapeHTML(filas[i].tecnico);
-      filas[i].certificador = escapeHTML(filas[i].certificador);
-      filas[i].hh = escapeHTML(filas[i].hh);
-    }
-
-    // A/B (Discrepancias)
-    const A = Object.assign({ texto: '', accion: '', tecnico: '', certificador: '', hh: '' }, discrep?.A || {});
-    const B = Object.assign({ texto: '', accion: '', tecnico: '', certificador: '', hh: '' }, discrep?.B || {});
-    if (isEmpty(A.texto) && observBullets[0]) A.texto = observBullets[0];
-    if (isEmpty(B.texto) && observBullets[1]) B.texto = observBullets[1];
-    ['texto','accion','tecnico','certificador','hh'].forEach(k => { A[k] = escapeHTML(A[k] || ''); B[k] = escapeHTML(B[k] || ''); });
-
+    const discrepanciaTexto = discrep?.A?.texto || discrep?.B?.texto || observBullets[0] || '';
     const fechaCierreTexto = estado === 'CERRADA' ? fmtUY(orden.fechaCierre) : fmtUY(orden.fechaCancelacion);
-
     // Logo embebido
     let logoData = '';
     try {
@@ -605,7 +138,7 @@ export const descargarOrdenPDF = async (req, res) => {
       }
     } catch {}
 
-    // HTML/CSS
+    // Construcción de HTML
     const html = `<!doctype html>
 <html>
 <head>
@@ -613,207 +146,142 @@ export const descargarOrdenPDF = async (req, res) => {
 <title>CA-29 OT ${escapeHTML(otNro)}</title>
 <style>
   @page { size: A4; margin: 12mm; }
-  * { box-sizing: border-box; }
-  body { font-family: Arial, Helvetica, sans-serif; font-size: 9.5pt; color: #000; }
-
-  .row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 3mm; }
-  .box { border: 0.35pt solid #000; padding: 2mm; position: relative; }
-  .label { position:absolute; top: -3mm; left: 2mm; background:#fff; padding: 0 1mm; font-size: 8pt; font-weight: 700; }
-  .half .label { top: -1.4mm; }
-
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Arial, Helvetica, sans-serif; color: #000; line-height: 1.25; position: relative; min-height: 270mm; font-size: 9.5pt; }
   /* Header */
-  .hdr { position:relative; height: 23mm; margin-bottom: 2mm; }
-  .logo { position:absolute; left:0; top:1mm; width:30mm; }
-  .meta { position: absolute; top: 0; right: 0; width: 55mm; height: 18mm; border: 0.35pt solid #000; padding: 2mm; font-size: 8.5pt; }
-  .meta .ca { position: absolute; top: 2mm; right: 3mm; font-weight: 700; }
-  .h1 { position:absolute; top: 6mm; left: 34mm; right: 58mm; font-weight: 700; font-size: 13.5pt; line-height: 1.05; margin: 0; }
-
-  .topline { border-top: 0.35pt solid #000; margin-top: 3mm; }
-  .mono { white-space: pre-wrap; }
-
-/* ======= ESTRUCTURA UNIFICADA PARA TODAS LAS FILAS ======= */
-.items { margin-top: 5mm; }
-.item { 
-  display: grid; 
-  grid-template-columns: 12mm 1fr 1fr; 
-  gap: 2mm; 
-  height: 26mm; 
-  margin-bottom: 2mm; 
-}
-.item .num { 
-  border: 0.35pt solid #000; 
-  display:flex; 
-  align-items:center; 
-  justify-content:center; 
-  font-weight:700; 
-}
-
-.half { 
-  border: 0.35pt solid #000;
-  position: relative; 
-  padding: 3mm 2mm 8.5mm 2mm;
-}
-
-.half .label { 
-  position:absolute; 
-  top: -3mm; 
-  left: 2mm; 
-  background:#fff; 
-  padding: 0 1mm; 
-  font-size: 8pt; 
-  font-weight: 700; 
-}
-
-.mini-wrap { 
-  position:absolute; 
-  right: 2mm; 
-  bottom: 2mm; 
-  display:flex; 
-  gap: 2mm; 
-}
-.mini { 
-  border: 0.35pt solid #000; 
-  padding: 1mm 2.6mm; 
-  font-size: 7.4pt; 
-  height: 7.2mm; 
-  line-height: 1; 
-  display:inline-block; 
-}
-.mini .val { 
-  display:block; 
-  font-size: 7.2pt; 
-  margin-top: 0.4mm; 
-  white-space: nowrap; 
-  overflow: hidden; 
-  text-overflow: ellipsis; 
-}
-.mini-tech { min-width: 34mm; }
-.mini-cert { min-width: 30mm; }
-.mini-hh   { min-width: 22mm; text-align: right; }
-
-.half.empty { border-width: 0.25pt; opacity: 0.9; }
-.mini.empty { border-width: 0.25pt; opacity: 0.9; }
-
-/* ======= SECCIÓN A / B ======= */
-.ab { 
-  display: grid; 
-  grid-template-columns: 12mm 1fr 1fr; 
-  gap: 2mm; 
-  height: 23mm; 
-  margin: 2mm 0; 
-}
-
-  /* Fecha de cierre (aire suficiente) */
-  .close-row { grid-template-columns: 1fr 55mm 0; margin-top: 6mm; }
-
-  /* Firma */
-  .sig { height: 100%; display: flex; flex-direction: column; }
-  .sig .line { margin-top: auto; border-top: 0.35pt solid #000; text-align: center; font-size: 7.5pt; padding-top: 1mm; }
-
-  .footer { margin-top: 6mm; display:flex; justify-content: space-between; font-size:8.8pt; }
+  .header { position: relative; margin-bottom: 6mm; height: 28mm; }
+  .logo { position: absolute; left: 0; top: 0; width: 40mm; height: auto; }
+  .header-content { margin-left: 45mm; text-align: center; }
+  .header h1 { font-size: 14pt; font-weight: bold; margin-bottom: 2mm; }
+  .header-fecha { position: absolute; top: 12mm; right: 0; font-size: 9pt; }
+  /* Grid principal */
+  .grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 2.5mm; margin-bottom: 2.5mm; }
+  .field { border: 0.5pt solid #000; padding: 2mm; position: relative; min-height: 12mm; }
+  .field-label { position: absolute; top: -3mm; left: 2mm; background: #fff; padding: 0 2mm; font-size: 7.5pt; font-weight: bold; }
+  /* Sección 4-5 */
+  .section-45 { display: grid; grid-template-columns: 1fr 40mm; gap: 2.5mm; margin-bottom: 2.5mm; }
+  .solicitud, .firma { border: 0.5pt solid #000; padding: 2mm; position: relative; min-height: 25mm; }
+  /* Discrepancias */
+  .discrepancias { border: 0.5pt solid #000; padding: 2mm; margin-bottom: 2.5mm; position: relative; min-height: 15mm; }
+  .discrepancias-label { position: absolute; top: -3mm; left: 2mm; background: #fff; padding: 0 2mm; font-size: 7.5pt; font-weight: bold; }
+  /* Autorización */
+  .autorizacion { text-align: center; font-size: 8.5pt; margin: 3mm 0; padding: 0 5mm; }
+  .autorizacion strong { font-weight: bold; }
+  /* Secciones */
+  .seccion { border: 0.5pt solid #000; padding: 2mm; margin-bottom: 2.5mm; position: relative; }
+  .seccion-label { position: absolute; top: -3mm; left: 2mm; background: #fff; padding: 0 2mm; font-size: 7.5pt; font-weight: bold; }
+  .seccion-contenido { margin-top: 2mm; }
+  .page-break { page-break-inside: avoid; }
+  /* Lista de acciones */
+  .lista-acciones { margin-top: 1.5mm; }
+  .accion-item { margin-bottom: 2.5mm; padding-bottom: 2mm; border-bottom: 0.3pt solid #ccc; page-break-inside: avoid; }
+  .accion-desc { margin-bottom: 1.5mm; }
+  .accion-datos { display: flex; gap: 2.5mm; font-size: 8pt; }
+  .dato-box { border: 0.5pt solid #000; padding: 1mm 2mm; min-width: 28mm; }
+  /* Fila de certificado y cierre */
+  .cierre-cert-row { display: grid; grid-template-columns: 3fr 1fr; gap: 2.5mm; margin-top: 4mm; }
+  .cert-section { border: 0.5pt solid #000; padding: 2mm; position: relative; min-height: 20mm; }
+  .cert-section-label { position: absolute; top: -3mm; left: 2mm; background: #fff; padding: 0 2mm; font-size: 7.5pt; font-weight: bold; }
+  .fecha-cierre { border: 0.5pt solid #000; padding: 2mm; position: relative; min-height: 20mm; }
+  /* Footer */
+  .footer { position: absolute; bottom: 5mm; left: 0; right: 0; display: flex; justify-content: space-between; font-size: 7.5pt; border-top: 0.5pt solid #000; padding-top: 2mm; margin-top: 8mm; }
+  .mono { white-space: pre-wrap; font-family: monospace; }
+  .bold { font-weight: bold; }
 </style>
-
 </head>
 <body>
-
-<div class="hdr">
+<div class="header">
   ${logoData ? `<img class="logo" src="${logoData}">` : ''}
-  <div class="meta">
-    <div>Capítulo: 9</div>
-    <div>Fecha: ${escapeHTML(fmtUY(new Date()))}</div>
-    <div class="ca">CA-29</div>
+  <div class="header-fecha">Fecha: ${escapeHTML(fmtUY(new Date()))}</div>
+  <div class="header-content">
+    <h1>SOLICITUD - ORDEN DE TRABAJO DISCREPANCIAS</h1>
   </div>
-  <div class="h1">SOLICITUD - ORDEN DE TRABAJO&nbsp;&nbsp;DISCREPANCIAS</div>
 </div>
-
-<div class="topline"></div>
-
-<!-- 1-3 -->
-<div class="row" style="margin-top: 3mm;">
-  <div class="box"><div class="label">1 Matrícula</div><div class="mono">${escapeHTML(matricula || '-')}</div></div>
-  <div class="box"><div class="label">2 Fecha solicitud</div><div class="mono">${escapeHTML(fechaSolicitud || '-')}</div></div>
-  <div class="box"><div class="label">3 O/T Nro.</div><div class="mono">${escapeHTML(otNro)}</div></div>
+<div class="grid">
+  <div class="field">
+    <div class="field-label">1 Matrícula</div>
+    <div class="mono">${escapeHTML(matricula || '')}</div>
+  </div>
+  <div class="field">
+    <div class="field-label">2 Fecha solicitud</div>
+    <div class="mono">${escapeHTML(fechaSolicitud || '')}</div>
+  </div>
+  <div class="field">
+    <div class="field-label">3 O/T Nro.</div>
+    <div class="mono">${escapeHTML(otNro)}</div>
+  </div>
 </div>
-
-<!-- 4-5 -->
-<div class="row" style="margin-top: 3mm; grid-template-columns: 1fr 55mm 0; gap: 3mm;">
-  <div class="box" style="height: 22mm;"><div class="label">4 Solicitud (descripción del trabajo)</div>
-    <div class="mono" style="line-height: 1.2;">${escapeHTML(solicitudBruta)}</div></div>
-  <div class="box" style="height: 26mm;">
-    <div class="label">5 Firma o email</div>
-    <div class="sig">
-      <div><b>Solicitó:</b> ${escapeHTML(propName || '-')}</div>
+<div class="section-45">
+  <div class="solicitud">
+    <div class="field-label">4 Solicitud (descripción del trabajo)</div>
+    <div class="mono" style="margin-top: 1mm;">${escapeHTML(solicitudBruta)}</div>
+  </div>
+  <div class="firma">
+    <div class="field-label">5 Firma o email</div>
+    <div style="margin-top: 1mm;">
+      <div class="bold">Solicitó:</div>
+      <div>${escapeHTML(propName || '')}</div>
       <div>${escapeHTML(propEmail || '')}</div>
-      <div class="line">Firma</div>
+      <div style="margin-top: 8mm; border-top: 0.5pt solid #000; text-align: center; padding-top: 1mm;">Firma</div>
     </div>
   </div>
 </div>
-
-<!-- Texto intermedio -->
-<div style="margin: 4mm 0 3mm 0; font-size: 9pt; line-height:1.15;">
-  Autorizo a la OMA, la realización en la aeronave o componente de los trabajos detallados en la siguiente orden
+<div class="discrepancias">
+  <div class="discrepancias-label">6 Discrepancias encontradas</div>
+  <div class="mono" style="margin-top: 1mm;">${escapeHTML(discrepanciaTexto)}</div>
 </div>
-
-<!-- 1-4 items - NUEVA ESTRUCTURA -->
-<div class="items">
-  ${filas.map(f => {
-    const empty1 = isEmpty(f.reporte);
-    const empty2 = isEmpty(f.accion);
-    const emptyTecnico = isEmpty(f.tecnico);
-    const emptyCertificador = isEmpty(f.certificador);
-    const emptyHH = isEmpty(f.hh);
-    return `
-    <div class="item">
-      <div class="num">${f.num}</div>
-      <div class="half ${empty1 ? 'empty' : ''}">
-        <div class="label">1 Reporte</div>
-        <div class="mono" style="line-height:1.2;">${f.reporte}</div>
-      </div>
-      <div class="half ${empty2 ? 'empty' : ''}">
-        <div class="label">2 Acción Tomada</div>
-        <div class="mono" style="line-height:1.2;">${f.accion}</div>
-        <div class="mini-wrap">
-          <div class="mini mini-tech ${emptyTecnico ? 'empty' : ''}">Técnico<span class="val">${f.tecnico}</span></div>
-          <div class="mini mini-cert ${emptyCertificador ? 'empty' : ''}">Certific.<span class="val">${f.certificador}</span></div>
-          <div class="mini mini-hh ${emptyHH ? 'empty' : ''}">H.H<span class="val">${f.hh}</span></div>
+<div class="autorizacion"><strong>Autorizo a la OMA, la realización en la aeronave o componente de los trabajos detallados en la siguiente orden</strong></div>
+<div class="seccion page-break">
+  <div class="seccion-label">1 Reporte</div>
+  <div class="mono seccion-contenido">
+     ${escapeHTML(orden.accionTomada || '')}
+  </div>
+</div>
+<div class="seccion page-break">
+  <div class="seccion-label">2 Acciones tomadas</div>
+  <div class="lista-acciones">
+    ${accionesTecnico.map((accion) => `
+      <div class="accion-item">
+        <div class="accion-desc">${escapeHTML(accion.descripcion)}</div>
+        <div class="accion-datos">
+          <div class="dato-box">${escapeHTML(accion.rol)}</div>
+          <div class="dato-box">${escapeHTML(accion.empleado)}</div>
+          <div class="dato-box">H.H: ${escapeHTML(accion.horas)}</div>
         </div>
       </div>
-    </div>`;
-  }).join('')}
+    `).join('')}
+    ${accionesTecnico.length === 0 ? `
+      <div class="accion-item">
+        <div class="accion-desc"></div>
+        <div class="accion-datos">
+          <div class="dato-box">TECNICO</div>
+          <div class="dato-box"></div>
+          <div class="dato-box">H.H:</div>
+        </div>
+      </div>
+    ` : ''}
+  </div>
 </div>
 
-<!-- A/B - NUEVA ESTRUCTURA -->
-${[['A', A], ['B', B]].map(([tag, r], idx) => {
-  const empty1 = isEmpty(r?.texto);
-  const empty2 = isEmpty(r?.accion);
-  const emptyTecnico = isEmpty(r?.tecnico);
-  const emptyCertificador = isEmpty(r?.certificador);
-  const emptyHH = isEmpty(r?.hh);
-  return `
-  <div class="ab">
-    <div class="num">${tag}</div>
-    <div class="half ${empty1 ? 'empty' : ''}">
-      <div class="label">1 Discrepancias encontradas</div>
-      <div class="mono" style="line-height:1.2;">${r?.texto || ''}</div>
+<div class="cierre-cert-row page-break">
+  <div class="cert-section">
+    <div class="cert-section-label">3 Certificado</div>
+    <div class="lista-acciones">
+      ${accionesCertificador.length > 0 ? accionesCertificador.map((accion) => `
+        <div class="accion-item">
+          <div class="accion-desc">${escapeHTML(accion.descripcion)}</div>
+          <div class="accion-datos">
+            <div class="dato-box">${escapeHTML(accion.rol)}</div>
+            <div class="dato-box">${escapeHTML(accion.empleado)}</div>
+            <div class="dato-box">H.H: ${escapeHTML(accion.horas)}</div>
+          </div>
+        </div>
+      `).join('') : '<div class="accion-item"><div class="accion-desc">-</div></div>'}
     </div>
-    <div class="half ${empty2 ? 'empty' : ''}">
-      <div class="label">2 Acción Tomada</div>
-      <div class="mono" style="line-height:1.2;">${r?.accion || ''}</div>
-      <div class="mini-wrap">
-        <div class="mini mini-tech ${emptyTecnico ? 'empty' : ''}">Técnico<span class="val">${r?.tecnico || ''}</span></div>
-        <div class="mini mini-cert ${emptyCertificador ? 'empty' : ''}">Certific.<span class="val">${r?.certificador || ''}</span></div>
-        <div class="mini mini-hh ${emptyHH ? 'empty' : ''}">H.H<span class="val">${r?.hh || ''}</span></div>
-      </div>
-    </div>
-  </div>`;
-}).join('')}
-
-<!-- 3 Fecha de cierre (con margen extra) -->
-<div class="row close-row">
-  <div></div>
-  <div class="box" style="height: 12mm;">
-    <div class="label">3 Fecha de cierre</div>
-    <div class="mono" style="font-weight:700;">${escapeHTML(fechaCierreTexto || '')}</div>
+  </div>
+  <div class="fecha-cierre">
+    <div class="field-label">4 Fecha de cierre</div>
+    <div class="mono bold" style="margin-top: 1mm; text-align: center;">${escapeHTML(fechaCierreTexto || '')}</div>
   </div>
 </div>
 
@@ -821,40 +289,22 @@ ${[['A', A], ['B', B]].map(([tag, r], idx) => {
   <div>Manual de la Organización de Mantenimiento – MOM</div>
   <div>Aprobado por: CELCOL AVIATION</div>
 </div>
-
 </body>
 </html>`;
-
-    // Render
-    const browser = await puppeteer.launch({
-      headless: 'new',
-      args: ['--no-sandbox', '--disable-setuid-sandbox']
-    });
+    // Renderizado
+    const browser = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox', '--disable-setuid-sandbox'] });
     const page = await browser.newPage();
     await page.setContent(html, { waitUntil: 'networkidle0' });
-
-    const pdf = await page.pdf({
-      format: 'A4',
-      printBackground: true,
-      margin: { top: '0mm', bottom: '0mm', left: '0mm', right: '0mm' }
-    });
-
+    const pdfBuffer = await page.pdf({ format: 'A4', printBackground: true, margin: { top: '0mm', bottom: '0mm', left: '0mm', right: '0mm' } });
     await page.close();
     await browser.close();
-
-    const filename = `OT-${orden.numero ?? orden.id}.pdf`;
+    const baseName = `OT-${orden.numero ?? orden.id}`;
+    const filename = `${baseName}.pdf`;
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
-    return res.send(pdf);
+    return res.send(pdfBuffer);
   } catch (error) {
     console.error('Error al generar PDF de OT (Puppeteer):', error);
     if (!res.headersSent) return res.status(500).json({ error: 'Error al generar el PDF' });
   }
 };
-
-
-
-
-
-
-
