@@ -129,7 +129,7 @@
   html, body { height: 100%; }
   body { font-family: Arial, Helvetica, sans-serif; color: #000; line-height: 1.25; min-height: 270mm; font-size: 9.5pt; background: #fff; }
 
-  /* Vista en pantalla: centrar hoja con sombra sutil */
+  /* Hoja A4 centrada en pantalla */
   .page {
     width: 210mm;
     min-height: 297mm;
@@ -159,9 +159,17 @@
 
   /* Header */
   .header { position: relative; margin-bottom: 6mm; height: 28mm; }
-  .logo { position: absolute; left: 0; top: 0; width: 40mm; height: auto; display: none; }
-  .header-content { margin-left: 45mm; text-align: center; }
-  .header h1 { font-size: 14pt; font-weight: bold; margin-bottom: 2mm; }
+  .header-row {
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;  /* centra logo + título como bloque */
+    gap: 6mm;
+    padding: 0 36mm; /* deja espacio lateral para la fecha a la derecha */
+    text-align: center;
+  }
+  .logo { height: 14mm; width: auto; display: none; } /* se muestra si llega ?logo= */
+  .header-row h1 { font-size: 14pt; font-weight: bold; line-height: 1.1; }
   .header-fecha { position: absolute; top: 12mm; right: 0; font-size: 9pt; }
 
   /* Grid principal */
@@ -200,6 +208,20 @@
   .cert-section-label { position: absolute; top: -3mm; left: 2mm; background: #fff; padding: 0 2mm; font-size: 7.5pt; font-weight: bold; }
   .fecha-cierre { border: 0.5pt solid #000; padding: 2mm; position: relative; min-height: 20mm; }
 
+  /* Footer pegado abajo con línea divisoria y contenido L/R */
+  .footer {
+    position: absolute;
+    left: 0; right: 0;
+    bottom: 4mm;            /* más cerca del borde inferior */
+    display: flex;
+    justify-content: space-between;
+    gap: 8mm;
+    font-size: 7.5pt;
+    border-top: 0.5pt solid #000; /* línea divisoria */
+    padding-top: 2mm;
+    margin-top: 8mm;
+  }
+
   /* Ayuda visual para edición en pantalla (no afecta impresión) */
   [contenteditable="true"] { outline: 0; }
   @media screen {
@@ -218,11 +240,11 @@
 
   <div class="page">
     <div class="header">
-      <img class="logo" id="logo-el" alt="logo">
-      <div class="header-fecha">Fecha: <em contenteditable>__/__/____</em></div>
-      <div class="header-content">
+      <div class="header-row">
+        <img class="logo" id="logo-el" alt="logo">
         <h1>SOLICITUD - ORDEN DE TRABAJO DISCREPANCIAS</h1>
       </div>
+      <div class="header-fecha">Fecha: <em contenteditable>__/__/____</em></div>
     </div>
 
     <div class="grid">
