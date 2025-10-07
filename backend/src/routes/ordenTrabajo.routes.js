@@ -15,6 +15,7 @@ import {
   cerrarOrden,
   cancelarOrden,
   archivarOrden,
+  descargarPlantillaEnBlanco
 } from '../controllers/ordenTrabajo.controller.js';
 import { descargarOrdenPDF } from '../controllers/ordenTrabajo.descarga.controller.js';
 import { descargarConformidadPDF } from '../controllers/ccm.controller.js'
