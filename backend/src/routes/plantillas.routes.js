@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { descargarPlantillaEnBlanco } from '../controllers/ordenTrabajo.controller.js';
+import { descargarPlantillaEnBlanco } from '../controllers/plantillas.controller.js';
 
 const router = Router();
 router.get('/:tipo', descargarPlantillaEnBlanco);
