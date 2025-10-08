@@ -1,5 +1,5 @@
 // src/lib/ccm.ts
-import { fetchJson } from '@/services/api';
+/*import { fetchJson } from '@/services/api';
 
 type SignedUrlResp = { url: string };
 
@@ -8,3 +8,4 @@ export async function getSignedCcmUrl(otId: number, opts?: { preview?: boolean }
   const { url } = await fetchJson<SignedUrlResp>(`/ordenes-trabajo/${otId}/conformidad-pdf-url${q}`);
   return url;
 }
+*/

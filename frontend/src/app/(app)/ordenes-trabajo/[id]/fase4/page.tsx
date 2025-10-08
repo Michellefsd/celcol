@@ -5,10 +5,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { api, fetchJson } from '@/services/api';
 import SubirArchivo from '@/components/Asignaciones/SubirArchivo';
-import IconButton from '@/components/IconButton';
-import { IconVer } from '@/components/ui/Icons';
-import { openPreviewCcm } from '@/lib/pdf';
-import { openPreviewPdf } from '@/lib/pdf';
+
 
 
 
@@ -834,15 +831,6 @@ return (
 
         </div>
       </section>
-<section className="flex flex-col sm:flex-row gap-3 justify-between items-center">
- <IconButton
-      icon={IconVer}
-      title="PDF prevew"
-      label="Vista previa PDF"
-      onClick={() => openPreviewPdf(orden.id)}
-    />
-
-</section>
      
       <section className="flex flex-col sm:flex-row gap-3 justify-between items-center">
         <button

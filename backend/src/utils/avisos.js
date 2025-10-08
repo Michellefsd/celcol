@@ -1,5 +1,7 @@
 // src/utils/avisos.js (ESM)
 
+
+// HERRAMIENTA
 // Crea un aviso si la herramienta está próxima a vencerse (<= 30 días)
 export async function crearAvisoPorVencimientoHerramienta(herramienta, prisma) {
   console.log(`🔍 Revisando herramienta ${herramienta.nombre}`);
@@ -55,6 +57,9 @@ export async function revisarTodasLasHerramientas(prisma) {
   console.log('✅ Revisión de herramientas completada.');
 }
 
+
+
+// AVION
 // Crea/actualiza/elimina el aviso si el avión no tiene propietarios
 export async function crearAvisoPorAvionSinPropietario(avion, prisma) {
   if (!avion || !avion.id) return;
@@ -91,57 +96,87 @@ export async function revisarAvionesSinPropietario(prisma) {
   console.log('✅ Revisión de aeronaves completada.');
 }
 
-// Revisa si la licencia del personal esta por vencer o vencida (sin relación en Aviso)
-export async function revisarLicenciasPersonal(prisma) {
-  const hoy = new Date();
 
+
+/// PERSONAL LICENCIA
+// ————————————————————————————————————————————————————————————————
+// Reglas:
+// 1) Un aviso por empleado y estado (POR_VENCER | VENCIDA) usando clave única (tipo, empleadoId)
+// 2) Limpia el otro estado si cambia (para no duplicar avisos del mismo empleado)
+// 3) Borra avisos si la licencia es null o está > 30 días
+// 4) No depende de `leido` para evitar duplicados
+//
+// Esquema recomendado en Prisma (modelo Aviso):
+// @@unique([tipo, empleadoId])   // además de los que ya tengas para herramienta/avión
+
+// Helper: truncar a medianoche (evita off-by-one por horas)
+const truncarFecha = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+
+/**
+ * Crea/actualiza/limpia avisos para la licencia de un empleado.
+ * Requiere índice único: @@unique([tipo, empleadoId]) en Aviso
+ */
+export async function crearAvisoPorLicenciaEmpleado(e, prisma) {
+  // Si no hay licencia, borrar cualquier aviso previo del empleado
+  if (!e?.vencimientoLicencia) {
+    await prisma.aviso.deleteMany({
+      where: { empleadoId: e.id, tipo: { in: ['LICENCIA_POR_VENCER', 'LICENCIA_VENCIDA'] } },
+    });
+    return;
+  }
+
+  const hoy = truncarFecha(new Date());
+  const vence = truncarFecha(new Date(e.vencimientoLicencia));
+  const dias = Math.ceil((vence - hoy) / (1000 * 60 * 60 * 24));
+
+  const etiquetaLic = e.numeroLicencia ? ` ${e.numeroLicencia}` : '';
+  const persona = `${e.nombre ?? ''} ${e.apellido ?? ''}`.trim();
+  const fechaUY = new Date(e.vencimientoLicencia).toLocaleDateString('es-UY');
+
+  // Fuera de ventana (>30 días): borrar avisos del empleado
+  if (dias > 30) {
+    await prisma.aviso.deleteMany({
+      where: { empleadoId: e.id, tipo: { in: ['LICENCIA_POR_VENCER', 'LICENCIA_VENCIDA'] } },
+    });
+    return;
+  }
+
+  const tipo = dias < 0 ? 'LICENCIA_VENCIDA' : 'LICENCIA_POR_VENCER';
+  const mensaje =
+    dias < 0
+      ? `La licencia${etiquetaLic} de ${persona} venció el ${fechaUY}.`
+      : `La licencia${etiquetaLic} de ${persona} vence el ${fechaUY}.`;
+
+  // Limpiar el “otro” estado si existiera
+  const otroTipo = tipo === 'LICENCIA_POR_VENCER' ? 'LICENCIA_VENCIDA' : 'LICENCIA_POR_VENCER';
+  await prisma.aviso.deleteMany({
+    where: { empleadoId: e.id, tipo: otroTipo },
+  });
+
+  // Upsert por (tipo, empleadoId)
+  await prisma.aviso.upsert({
+    where: { tipo_empleadoId: { tipo, empleadoId: e.id } }, // requiere @@unique([tipo, empleadoId])
+    create: { tipo, mensaje, empleadoId: e.id, leido: false },
+    update: { mensaje, creadoEn: new Date(), leido: false },
+  });
+}
+
+/**
+ * Revisa todas las licencias del personal y crea/actualiza/limpia avisos sin duplicar.
+ */
+export async function revisarLicenciasPersonal(prisma) {
   const empleados = await prisma.empleado.findMany({
-    where: { archivado: false, vencimientoLicencia: { not: null } },
-    select: { id: true, nombre: true, apellido: true, numeroLicencia: true, vencimientoLicencia: true },
+    where: { archivado: false }, // no filtramos por vencimiento null para también limpiar avisos
+    select: {
+      id: true,
+      nombre: true,
+      apellido: true,
+      numeroLicencia: true,
+      vencimientoLicencia: true,
+    },
   });
 
   for (const e of empleados) {
-    const vence = new Date(e.vencimientoLicencia);
-    const dias = Math.floor(
-      (new Date(vence.setHours(0,0,0,0)) - new Date(hoy.setHours(0,0,0,0))) / (1000*60*60*24)
-    );
-
-    const etiquetaLic = e.numeroLicencia ? ` ${e.numeroLicencia}` : '';
-    const persona = `${e.nombre} ${e.apellido}`.trim();
-    const fechaUY = new Date(e.vencimientoLicencia).toLocaleDateString('es-UY');
-
-    if (dias >= 0 && dias <= 30) {
-      const mensaje = `La licencia${etiquetaLic} de ${persona} vence el ${fechaUY}.`;
-
-      const existe = await prisma.aviso.findFirst({
-        where: { tipo: 'LICENCIA_POR_VENCER', leido: false /* sin empleadoId */ },
-        select: { id: true },
-      });
-
-      if (!existe) {
-        await prisma.aviso.create({ data: { tipo: 'LICENCIA_POR_VENCER', mensaje, leido: false } });
-      } else {
-        await prisma.aviso.update({ where: { id: existe.id }, data: { mensaje, creadoEn: new Date() } });
-      }
-    } else if (dias < 0) {
-      const mensaje = `La licencia${etiquetaLic} de ${persona} venció el ${fechaUY}.`;
-
-      // cerrar “por vencer”
-      await prisma.aviso.updateMany({
-        where: { tipo: 'LICENCIA_POR_VENCER', leido: false /* sin empleadoId */ },
-        data: { leido: true },
-      });
-
-      const existe = await prisma.aviso.findFirst({
-        where: { tipo: 'LICENCIA_VENCIDA', leido: false /* sin empleadoId */ },
-        select: { id: true },
-      });
-
-      if (!existe) {
-        await prisma.aviso.create({ data: { tipo: 'LICENCIA_VENCIDA', mensaje, leido: false } });
-      } else {
-        await prisma.aviso.update({ where: { id: existe.id }, data: { mensaje, creadoEn: new Date() } });
-      }
-    }
+    await crearAvisoPorLicenciaEmpleado(e, prisma);
   }
 }
