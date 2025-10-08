@@ -37,10 +37,10 @@ async function onSubmit(e: React.FormEvent) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        fecha: form.fecha,       // "YYYY-MM-DD"
+        fecha: form.fecha,       
         lugar: form.lugar,
-        aeronave: form.aeronave, // debajo del primer recuadro
-        motor: form.motor        // recuadro inferior
+        aeronave: form.aeronave, 
+        motor: form.motor        
       }),
     });
 
@@ -119,7 +119,7 @@ async function onSubmit(e: React.FormEvent) {
                     name="lugar"
                     value={form.lugar}
                     onChange={onChange}
-                    placeholder="Montevideo, Uruguay"
+                    placeholder="SUAA"
                     className="rounded-xl border border-slate-300 px-3 py-2 outline-none focus:ring-2 focus:ring-slate-300"
                     required
                   />
@@ -133,7 +133,7 @@ async function onSubmit(e: React.FormEvent) {
                   name="aeronave"
                   value={form.aeronave}
                   onChange={onChange}
-                  placeholder="Ej.: Cessna 172, matrícula CX-ABC"
+                  placeholder="Ej: Inspección Anual"
                   className="rounded-xl border border-slate-300 px-3 py-2 outline-none focus:ring-2 focus:ring-slate-300"
                   required
                 />
@@ -148,7 +148,7 @@ async function onSubmit(e: React.FormEvent) {
                   name="motor"
                   value={form.motor}
                   onChange={onChange}
-                  placeholder="Ej.: Lycoming O-320, S/N 12345"
+                  placeholder="Chequeo de compresión, limpieza de bujías, etc."
                   className="min-h-[88px] rounded-xl border border-slate-300 px-3 py-2 outline-none focus:ring-2 focus:ring-slate-300"
                   required
                 />
