@@ -126,9 +126,7 @@ export default function AvisosPage() {
                       {!a.leido && (
                         <button
                           onClick={() => marcarComoLeido(a.id)}
-                          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-500 text-white
-                                     hover:bg-blue-600 transform hover:scale-105 transition-all duration-200
-                                     text-sm font-medium shadow-sm"
+                          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-500 text-white hover:bg-blue-600 transform hover:scale-105 transition-all duration-200 text-sm font-medium shadow-sm"
                         >
                           <span>✓</span>
                           Marcar como leído
@@ -136,10 +134,7 @@ export default function AvisosPage() {
                       )}
                       <button
                         onClick={() => eliminarAviso(a.id)}
-                        className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-red-300 
-                                   text-red-600 hover:bg-red-50 hover:border-red-400 
-                                   transform hover:scale-105 transition-all duration-200
-                                   text-sm font-medium"
+                        className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-red-300 text-red-600 hover:bg-red-50 hover:border-red-400 transform hover:scale-105 transition-all duration-200 text-sm font-medium"
                       >
                         <span>🗑️</span>
                         Eliminar

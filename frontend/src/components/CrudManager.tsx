@@ -406,10 +406,7 @@ return (
               <input
                 type="text"
                 placeholder="Buscar registros..."
-                className="w-full sm:w-80 rounded-xl border border-slate-300 bg-white pl-10 pr-3 py-2
-                           text-slate-800 placeholder:text-slate-400
-                           focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500
-                           transition-all duration-200 hover:border-slate-400"
+                className="w-full sm:w-80 rounded-xl border border-slate-300 bg-white pl-10 pr-3 py-2 text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 hover:border-slate-400"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
@@ -421,13 +418,7 @@ return (
       {/* CTA principal con mejor diseño */}
       <div className="mb-8">
         <button
-          className="inline-flex items-center justify-center rounded-xl
-                     bg-gradient-to-r from-[#597BFF] to-[#4a6ee0] text-white
-                     font-semibold text-base px-8 py-3 shadow-lg
-                     hover:from-[#4a6ee0] hover:to-[#3658d4]
-                     hover:shadow-xl hover:brightness-110
-                     transform hover:scale-[1.03] transition-all duration-300
-                     border border-blue-500/20"
+          className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-[#597BFF] to-[#4a6ee0] text-white font-semibold text-base px-8 py-3 shadow-lg hover:from-[#4a6ee0] hover:to-[#3658d4] hover:shadow-xl hover:brightness-110 transform hover:scale-[1.03] transition-all duration-300 border border-blue-500/20"
           onClick={() => openModal()}
         >
           <span className="mr-2">✨</span>
@@ -443,9 +434,7 @@ return (
               {columns.map((col) => (
                 <th
                   key={String(col)}
-                  className="px-4 py-3 text-left font-semibold text-slate-700 border-b border-slate-200 
-                             cursor-pointer hover:bg-slate-100 transition-colors duration-200
-                             first:rounded-tl-2xl last:rounded-tr-2xl"
+                  className="px-4 py-3 text-left font-semibold text-slate-700 border-b border-slate-200 cursor-pointer hover:bg-slate-100 transition-colors duration-200 first:rounded-tl-2xl last:rounded-tr-2xl"
                   onClick={() => handleSort(col)}
                   aria-sort={sortField === col ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none'}
                 >
@@ -459,9 +448,7 @@ return (
                   </div>
                 </th>
               ))}
-              <th className="px-4 py-3 text-left font-semibold text-slate-700 border-b border-slate-200
-                             sticky right-0 z-20 bg-gradient-to-r from-slate-50 to-slate-100 
-                             border-l border-slate-200 rounded-tr-2xl">
+              <th className="px-4 py-3 text-left font-semibold text-slate-700 border-b border-slate-200 sticky right-0 z-20 bg-gradient-to-r from-slate-50 to-slate-100 border-l border-slate-200 rounded-tr-2xl">
                 Acciones
               </th>
             </tr>
@@ -517,8 +504,7 @@ return (
 
 {showModal && (
   <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 backdrop-blur-sm p-4">
-    <div className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white shadow-2xl flex flex-col
-                   transform transition-all duration-300 scale-100">
+    <div className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white shadow-2xl flex flex-col transform transition-all duration-300 scale-100">
       {/* Header mejorado */}
       <div className="px-6 pt-6 pb-4 bg-gradient-to-r from-slate-50 to-slate-100 rounded-t-2xl">
         <div className="flex items-center gap-3">
@@ -586,9 +572,7 @@ return (
       name={field.name}
       value={form[field.name as keyof T]?.toString() ?? ''}
       onChange={handleChange}
-      className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-800
-                 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500
-                 transition-all duration-200 hover:border-slate-400"
+      className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 hover:border-slate-400"
       aria-required={field.required ? 'true' : 'false'}
     >
       <option value="">Seleccionar...</option>
@@ -606,9 +590,7 @@ return (
     value={field.type === 'checkbox' ? undefined : form[field.name as keyof T]?.toString() ?? ''}
     checked={field.type === 'checkbox' ? Boolean(form[field.name as keyof T]) : undefined}
     onChange={handleChange}
-    className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-800
-               focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500
-               transition-all duration-200 hover:border-slate-400"
+    className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 hover:border-slate-400"
     aria-required={field.required ? 'true' : 'false'}
   />
 )}
@@ -617,26 +599,17 @@ return (
       </div>
 
       {/* Footer mejorado */}
-      <div className="px-6 pb-6 pt-4 border-t border-slate-200 bg-gradient-to-r from-slate-50 to-slate-100 
-                     rounded-b-2xl flex justify-end gap-3">
+      <div className="px-6 pb-6 pt-4 border-t border-slate-200 bg-gradient-to-r from-slate-50 to-slate-100 rounded-b-2xl flex justify-end gap-3">
         <button
           onClick={() => setShowModal(false)}
-          className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white
-                     px-6 py-3 text-slate-700 hover:bg-slate-50 hover:border-slate-400
-                     transform hover:scale-[1.02] transition-all duration-200 font-medium"
+          className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-6 py-3 text-slate-700 hover:bg-slate-50 hover:border-slate-400 transform hover:scale-[1.02] transition-all duration-200 font-medium"
         >
           Cancelar
         </button>
 
         <button
           onClick={handleSubmit}
-          className="inline-flex items-center justify-center rounded-xl
-                     bg-gradient-to-r from-[#597BFF] to-[#4a6ee0] text-white
-                     font-semibold px-8 py-3 shadow-lg
-                     hover:from-[#4a6ee0] hover:to-[#3658d4]
-                     hover:shadow-xl hover:brightness-110
-                     transform hover:scale-[1.03] transition-all duration-300
-                     border border-blue-500/20"
+          className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-[#597BFF] to-[#4a6ee0] text-white font-semibold px-8 py-3 shadow-lg hover:from-[#4a6ee0] hover:to-[#3658d4] hover:shadow-xl hover:brightness-110 transform hover:scale-[1.03] transition-all duration-300 border border-blue-500/20"
         >
           <span className="mr-2">{editing ? '💾' : '✨'}</span>
           {editing ? 'Actualizar' : 'Crear'}

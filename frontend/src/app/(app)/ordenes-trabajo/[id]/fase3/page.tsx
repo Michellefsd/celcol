@@ -509,8 +509,7 @@ async function descargarSolicitudArchivo(key?: string) {
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Reporte</label>
             <textarea
-              className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-800
-                         focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
+              className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
               rows={2}
               value={accionTomada}
               onChange={(e) => setAccionTomada(e.target.value)}
@@ -522,8 +521,7 @@ async function descargarSolicitudArchivo(key?: string) {
     Discrepancias
   </label>
   <textarea
-    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-800
-               focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
+    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
     rows={3}
     value={observaciones}
     onChange={(e) => setObservaciones(e.target.value)}
@@ -732,9 +730,7 @@ async function descargarSolicitudArchivo(key?: string) {
           <div className="mt-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <button
               onClick={() => router.push(`/ordenes-trabajo/${id}/fase2`)}
-              className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white
-                           px-6 py-3 text-slate-700 hover:bg-slate-50 hover:border-slate-400
-                           transform hover:scale-[1.02] transition-all duration-200 font-medium"
+              className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-6 py-3 text-slate-700 hover:bg-slate-50 hover:border-slate-400 transform hover:scale-[1.02] transition-all duration-200 font-medium"
             >
               <span className="mr-2">←</span>
               Fase anterior
@@ -743,18 +739,14 @@ async function descargarSolicitudArchivo(key?: string) {
             <div className="flex gap-3 justify-end">
               <button
                 onClick={handleGuardar}
-                className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-green-500 to-emerald-500 text-white
-                           font-semibold px-6 py-3 shadow-lg hover:from-green-600 hover:to-emerald-600
-                           hover:shadow-xl hover:brightness-110 transform hover:scale-[1.03] transition-all duration-300"
+                className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-green-500 to-emerald-500 text-white font-semibold px-6 py-3 shadow-lg hover:from-green-600 hover:to-emerald-600 hover:shadow-xl hover:brightness-110 transform hover:scale-[1.03] transition-all duration-300"
               >
                 <span className="mr-2">💾</span>
                 Guardar cambios
               </button>
               <button
                 onClick={() => router.push(`/ordenes-trabajo/${id}/fase4`)}
-                className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-blue-500 to-indigo-500 text-white
-                           font-semibold px-6 py-3 shadow-lg hover:from-blue-600 hover:to-indigo-600
-                           hover:shadow-xl hover:brightness-110 transform hover:scale-[1.03] transition-all duration-300"
+                className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-blue-500 to-indigo-500 text-white font-semibold px-6 py-3 shadow-lg hover:from-blue-600 hover:to-indigo-600 hover:shadow-xl hover:brightness-110 transform hover:scale-[1.03] transition-all duration-300"
               >
                 Fase siguiente
                 <span className="ml-2">→</span>

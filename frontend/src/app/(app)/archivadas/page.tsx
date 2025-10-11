@@ -279,9 +279,7 @@ return (
             <select
               value={tipo}
               onChange={handleTipoChange}
-              className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-800
-                         focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500
-                         transition-all duration-200 hover:border-slate-400"
+              className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 hover:border-slate-400"
             >
               <option value="ordenes">Órdenes de Trabajo</option>
               <option value="empleados">Empleados</option>
