@@ -384,108 +384,131 @@ if (aDateLike && bDateLike) {
   });
 
 return (
-  <div className="min-h-screen bg-slate-100">
-    <div className="mx-auto w-full lg:w-[80%] max-w-[1800px] px-4 md:px-6 lg:px-8 py-6">
-      {/* Título + búsqueda */}
-
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-5">
-        <h1 className="text-2xl font-semibold text-slate-900">{title}</h1>
-        <input
-          type="text"
-          placeholder="Buscar..."
-          className="w-full sm:w-auto rounded-xl border border-slate-300 bg-white px-3 py-2
-                     text-slate-800 placeholder:text-slate-400
-                     focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-        />
+  <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+    <div className="mx-auto w-full lg:w-[80%] max-w-[1800px] px-4 md:px-6 lg:px-8 py-8">
+      {/* Header con animación */}
+      <div className="relative overflow-hidden mb-8">
+        <div className="absolute inset-0 bg-gradient-to-r from-blue-600/5 to-indigo-600/5 rounded-2xl"></div>
+        <div className="relative p-6">
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+            <div>
+              <h1 className="text-3xl md:text-4xl font-bold text-slate-900 mb-2 animate-fade-in">
+                {title}
+              </h1>
+              <p className="text-slate-600 animate-fade-in-delay">
+                Gestiona y administra los registros de {title.toLowerCase()}
+              </p>
+            </div>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <span className="text-slate-400 text-sm">🔍</span>
+              </div>
+              <input
+                type="text"
+                placeholder="Buscar registros..."
+                className="w-full sm:w-80 rounded-xl border border-slate-300 bg-white pl-10 pr-3 py-2
+                           text-slate-800 placeholder:text-slate-400
+                           focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500
+                           transition-all duration-200 hover:border-slate-400"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* CTA principal */}
-
-      <div className="mb-6">
+      {/* CTA principal con mejor diseño */}
+      <div className="mb-8">
         <button
           className="inline-flex items-center justify-center rounded-xl
                      bg-gradient-to-r from-[#597BFF] to-[#4a6ee0] text-white
-                     font-semibold text-base px-6 py-3 shadow-sm
+                     font-semibold text-base px-8 py-3 shadow-lg
                      hover:from-[#4a6ee0] hover:to-[#3658d4]
-                     hover:shadow-lg hover:brightness-110
-                     transform hover:scale-[1.03] transition-all duration-300"
+                     hover:shadow-xl hover:brightness-110
+                     transform hover:scale-[1.03] transition-all duration-300
+                     border border-blue-500/20"
           onClick={() => openModal()}
         >
-          Crear nuevo
+          <span className="mr-2">✨</span>
+          Crear nuevo {title.toLowerCase()}
         </button>
       </div>
 
-      {/* Tabla */}
+      {/* Tabla mejorada */}
+      <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-lg">
+        <table className="w-full min-w-max text-sm">
+          <thead className="sticky top-0 z-10 bg-gradient-to-r from-slate-50 to-slate-100">
+            <tr>
+              {columns.map((col) => (
+                <th
+                  key={String(col)}
+                  className="px-4 py-3 text-left font-semibold text-slate-700 border-b border-slate-200 
+                             cursor-pointer hover:bg-slate-100 transition-colors duration-200
+                             first:rounded-tl-2xl last:rounded-tr-2xl"
+                  onClick={() => handleSort(col)}
+                  aria-sort={sortField === col ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none'}
+                >
+                  <div className="inline-flex items-center gap-2">
+                    <span className="text-slate-800">{columnLabels?.[String(col)] ?? String(col)}</span>
+                    {sortField === col && (
+                      <span className="text-blue-500 text-xs">
+                        {sortDirection === 'asc' ? '▲' : '▼'}
+                      </span>
+                    )}
+                  </div>
+                </th>
+              ))}
+              <th className="px-4 py-3 text-left font-semibold text-slate-700 border-b border-slate-200
+                             sticky right-0 z-20 bg-gradient-to-r from-slate-50 to-slate-100 
+                             border-l border-slate-200 rounded-tr-2xl">
+                Acciones
+              </th>
+            </tr>
+          </thead>
 
-      <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
-       <table className="w-full min-w-max text-sm">
-       <thead className="sticky top-0 z-10 bg-slate-50">
-  <tr>
-    {columns.map((col) => (
-      <th
-        key={String(col)}
-        className="px-3 py-2 text-left font-semibold text-slate-700 border-b border-slate-200 cursor-pointer hover:bg-slate-100"
-        onClick={() => handleSort(col)}
-        aria-sort={sortField === col ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none'}
-      >
-        <div className="inline-flex items-center gap-1">
-          {/* usa el label si existe; si no, muestra la key */}
-          <span>{columnLabels?.[String(col)] ?? String(col)}</span>
-          {sortField === col && (
-            <span className="text-slate-500">{sortDirection === 'asc' ? '▲' : '▼'}</span>
-          )}
-        </div>
-      </th>
-    ))}
-    <th
-   className="px-3 py-2 text-left font-semibold text-slate-700 border-b border-slate-200
-              sticky right-0 z-20 bg-slate-50 border-l border-slate-200"
- >
-   Acciones
- </th>
-  </tr>
-</thead>
+          <tbody className="divide-y divide-slate-200">
+            {sortedData.map((item, idx) => (
+              <tr
+                key={item.id}
+                className={`group ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'} 
+                           hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 
+                           transition-all duration-200 hover:shadow-sm ${rowClassName?.(item) || ''}`}
+                style={{ animationDelay: `${idx * 0.05}s` }}
+              >
+                {columns.map((col) => {
+                  const custom = renderCell?.(col as any, item);
+                  return (
+                    <td key={String(col)} className="px-4 py-3 text-slate-800 font-medium">
+                      {custom !== undefined ? custom : renderValue(item, col)}
+                    </td>
+                  );
+                })}
 
-<tbody className="divide-y divide-slate-200">
-  {sortedData.map((item, idx) => (
-<tr
-   key={item.id}
-   className={`group ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'} hover:bg-slate-50 transition-colors ${rowClassName?.(item) || ''}`}
- >
-      {columns.map((col) => {
-        const custom = renderCell?.(col as any, item);
-        return (
-          <td key={String(col)} className="px-3 py-2 text-slate-800">
-            {custom !== undefined ? custom : renderValue(item, col)}
-          </td>
-        );
-      })}
-
-      <td
-   className={`px-3 py-2 sticky right-0 z-10 border-l border-slate-200
-               ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'} group-hover:bg-slate-50`}
- >
-   <div className="flex flex-wrap gap-2">
-          <IconButton
-            icon={IconEditar}
-            title="Editar"
-            className="text-slate-700 hover:text-slate-900"
-            onClick={() => (onEditClick ? onEditClick(item) : openModal(item))}
-          />
-          <IconButton
-            icon={IconEliminar}
-            title="Eliminar"
-            className="text-rose-600 hover:text-rose-700"
-            onClick={() => handleDelete(item.id)}
-          />
-          {extraActions && extraActions(item)}
-        </div>
-      </td>
-    </tr>
-  ))}
-</tbody>
+                <td className={`px-4 py-3 sticky right-0 z-10 border-l border-slate-200
+                               ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'} 
+                               group-hover:bg-gradient-to-r group-hover:from-blue-50 group-hover:to-indigo-50`}>
+                  <div className="flex flex-wrap gap-2">
+                    <IconButton
+                      icon={IconEditar}
+                      title="Editar"
+                      className="text-blue-600 hover:text-blue-800 hover:bg-blue-100 
+                                 transform hover:scale-105 transition-all duration-200"
+                      onClick={() => (onEditClick ? onEditClick(item) : openModal(item))}
+                    />
+                    <IconButton
+                      icon={IconEliminar}
+                      title="Eliminar"
+                      className="text-rose-600 hover:text-rose-800 hover:bg-rose-100
+                                 transform hover:scale-105 transition-all duration-200"
+                      onClick={() => handleDelete(item.id)}
+                    />
+                    {extraActions && extraActions(item)}
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
 
         </table>
       </div>
@@ -494,13 +517,20 @@ return (
 
 {showModal && (
   <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 backdrop-blur-sm p-4">
-    <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white shadow-xl flex flex-col">
-      {/* Header */}
-
-      <div className="px-6 pt-6">
-        <h2 className="text-xl font-semibold text-slate-900">
-          {editing ? 'Editar' : 'Crear'} {title}
-        </h2>
+    <div className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white shadow-2xl flex flex-col
+                   transform transition-all duration-300 scale-100">
+      {/* Header mejorado */}
+      <div className="px-6 pt-6 pb-4 bg-gradient-to-r from-slate-50 to-slate-100 rounded-t-2xl">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-lg flex items-center justify-center">
+            <span className="text-white text-sm font-bold">
+              {editing ? '✏️' : '✨'}
+            </span>
+          </div>
+          <h2 className="text-xl font-semibold text-slate-900">
+            {editing ? 'Editar' : 'Crear'} {title}
+          </h2>
+        </div>
       </div>
 
       {/* Body scrolleable */}
@@ -515,10 +545,10 @@ return (
             return true;
           })
           .map((field) => (
-            <div key={field.name} className="mb-4">
-              <label className="block text-sm font-medium text-slate-700 mb-1">
+            <div key={field.name} className="mb-5">
+              <label className="block text-sm font-semibold text-slate-800 mb-2">
                 {field.label}
-                {field.required && <span className="text-rose-600 ml-1">*</span>}
+                {field.required && <span className="text-rose-500 ml-1">*</span>}
               </label>
 
 {field.type === 'select' ? (
@@ -556,8 +586,9 @@ return (
       name={field.name}
       value={form[field.name as keyof T]?.toString() ?? ''}
       onChange={handleChange}
-      className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-800
-                 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
+      className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-800
+                 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500
+                 transition-all duration-200 hover:border-slate-400"
       aria-required={field.required ? 'true' : 'false'}
     >
       <option value="">Seleccionar...</option>
@@ -575,8 +606,9 @@ return (
     value={field.type === 'checkbox' ? undefined : form[field.name as keyof T]?.toString() ?? ''}
     checked={field.type === 'checkbox' ? Boolean(form[field.name as keyof T]) : undefined}
     onChange={handleChange}
-    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-800
-               focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
+    className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-800
+               focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500
+               transition-all duration-200 hover:border-slate-400"
     aria-required={field.required ? 'true' : 'false'}
   />
 )}
@@ -584,14 +616,14 @@ return (
           ))}
       </div>
 
-      {/* Footer fijo */}
-
-      <div className="px-6 pb-6 pt-2 border-t border-slate-200 flex justify-end gap-2">
+      {/* Footer mejorado */}
+      <div className="px-6 pb-6 pt-4 border-t border-slate-200 bg-gradient-to-r from-slate-50 to-slate-100 
+                     rounded-b-2xl flex justify-end gap-3">
         <button
           onClick={() => setShowModal(false)}
           className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white
-                     px-5 py-2.5 text-slate-700 hover:bg-slate-50 hover:border-slate-400
-                     transform hover:scale-[1.02] transition-all duration-200"
+                     px-6 py-3 text-slate-700 hover:bg-slate-50 hover:border-slate-400
+                     transform hover:scale-[1.02] transition-all duration-200 font-medium"
         >
           Cancelar
         </button>
@@ -600,12 +632,14 @@ return (
           onClick={handleSubmit}
           className="inline-flex items-center justify-center rounded-xl
                      bg-gradient-to-r from-[#597BFF] to-[#4a6ee0] text-white
-                     font-semibold px-6 py-2.5 shadow-sm
+                     font-semibold px-8 py-3 shadow-lg
                      hover:from-[#4a6ee0] hover:to-[#3658d4]
-                     hover:shadow-lg hover:brightness-110
-                     transform hover:scale-[1.03] transition-all duration-300"
+                     hover:shadow-xl hover:brightness-110
+                     transform hover:scale-[1.03] transition-all duration-300
+                     border border-blue-500/20"
         >
-          Guardar
+          <span className="mr-2">{editing ? '💾' : '✨'}</span>
+          {editing ? 'Actualizar' : 'Crear'}
         </button>
       </div>
     </div>
@@ -613,6 +647,26 @@ return (
 )}
 
     </div>
+
+    <style jsx>{`
+      @keyframes fade-in {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      
+      @keyframes fade-in-delay {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      
+      .animate-fade-in {
+        animation: fade-in 0.8s ease-out;
+      }
+      
+      .animate-fade-in-delay {
+        animation: fade-in-delay 0.8s ease-out 0.2s both;
+      }
+    `}</style>
   </div>
 );
 

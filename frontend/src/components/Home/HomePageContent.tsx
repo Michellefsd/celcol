@@ -86,30 +86,6 @@ export default function HomePageContent() {
                 </div>
               </div>
             </div>
-
-            {/* Card de información adicional */}
-            <div className="rounded-2xl border border-slate-200 bg-white shadow-lg p-6 transform transition-all duration-300 hover:shadow-xl">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-lg flex items-center justify-center">
-                  <span className="text-white text-sm font-bold">ℹ️</span>
-                </div>
-                <h3 className="text-lg font-semibold text-slate-900">Información</h3>
-              </div>
-              <div className="space-y-3 text-sm text-slate-600">
-                <div className="flex items-start gap-2">
-                  <span className="text-blue-500 mt-1">•</span>
-                  <span>Las plantillas incluyen el logo oficial de Celcol</span>
-                </div>
-                <div className="flex items-start gap-2">
-                  <span className="text-blue-500 mt-1">•</span>
-                  <span>Son completamente editables y listas para imprimir</span>
-                </div>
-                <div className="flex items-start gap-2">
-                  <span className="text-blue-500 mt-1">•</span>
-                  <span>Compatible con todos los navegadores modernos</span>
-                </div>
-              </div>
-            </div>
           </div>
         </div>
       </div>
