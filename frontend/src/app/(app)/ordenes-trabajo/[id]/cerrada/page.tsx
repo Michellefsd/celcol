@@ -620,9 +620,7 @@ const registrosEmpleado = registrosTrabajo.filter((r) => {
 
     <button
       onClick={() => setMostrarSubirFactura(true)}
-      className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white
-                 px-4 py-2 text-slate-700 hover:bg-slate-50 hover:border-slate-400
-                 transform hover:scale-[1.02] transition-all duration-200"
+      className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2 text-slate-700 hover:bg-slate-50 hover:border-slate-400 transform hover:scale-[1.02] transition-all duration-200"
     >
       {orden.archivoFactura?.storageKey ? 'Reemplazar' : 'Subir archivo de factura'}
     </button>

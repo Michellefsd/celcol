@@ -663,9 +663,7 @@ return (
     <h2 className="text-lg font-semibold text-slate-900">Registro de trabajo</h2>
     <button
       onClick={agregarFila}
-      className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-[#597BFF] to-[#4a6ee0] text-white
-                 font-semibold px-4 py-2 shadow-sm hover:from-[#4a6ee0] hover:to-[#3658d4]
-                 hover:shadow-lg hover:brightness-110 transform hover:scale-[1.03] transition-all duration-300"
+      className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-[#597BFF] to-[#4a6ee0] text-white font-semibold px-4 py-2 shadow-sm hover:from-[#4a6ee0] hover:to-[#3658d4] hover:shadow-lg hover:brightness-110 transform hover:scale-[1.03] transition-all duration-300"
     >
       + Agregar fila
     </button>
@@ -746,8 +744,7 @@ return (
           <button
             onClick={() => guardarRegistro(i)}
             title="Guardar registro"
-            className="inline-flex items-center justify-center rounded-xl bg-emerald-600 text-white px-3 py-2
-                       hover:bg-emerald-700 transition shadow-sm"
+            className="inline-flex items-center justify-center rounded-xl bg-emerald-600 text-white px-3 py-2 hover:bg-emerald-700 transition shadow-sm"
           >
             💾
           </button>
@@ -756,8 +753,7 @@ return (
           <button
             onClick={() => eliminarFila(i)}
             title="Eliminar fila"
-            className="inline-flex items-center justify-center rounded-xl bg-rose-600 text-white px-3 py-2
-                       hover:bg-rose-700 transition shadow-sm"
+            className="inline-flex items-center justify-center rounded-xl bg-rose-600 text-white px-3 py-2 hover:bg-rose-700 transition shadow-sm"
           >
             🗑
           </button>
@@ -848,9 +844,7 @@ return (
       <section className="flex flex-col sm:flex-row gap-3 justify-between items-center">
         <button
           onClick={() => (window.location.href = `/ordenes-trabajo/${id}/fase3`)}
-          className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white
-                     px-5 py-2.5 text-slate-700 hover:bg-slate-50 hover:border-slate-400
-                     transform hover:scale-[1.02] transition-all duration-200"
+          className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-5 py-2.5 text-slate-700 hover:bg-slate-50 hover:border-slate-400 transform hover:scale-[1.02] transition-all duration-200"
         >
           ← Fase anterior
         </button>
@@ -868,9 +862,7 @@ return (
                 alert(e?.body?.error || 'Error al cancelar la orden');
               }
             }}
-            className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white
-                       px-5 py-2.5 text-slate-700 hover:bg-slate-50 hover:border-slate-400
-                       transform hover:scale-[1.02] transition-all duration-200"
+            className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-5 py-2.5 text-slate-700 hover:bg-slate-50 hover:border-slate-400 transform hover:scale-[1.02] transition-all duration-200"
           >
             Cancelar orden
           </button>
@@ -887,9 +879,7 @@ return (
                 alert(e?.body?.error || 'Error al cerrar la orden');
               }
             }}
-            className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 text-white
-                       font-semibold px-5 py-2.5 shadow-sm hover:from-emerald-600 hover:to-emerald-700
-                       hover:shadow-lg hover:brightness-110 transform hover:scale-[1.03] transition-all duration-300"
+            className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 text-white font-semibold px-5 py-2.5 shadow-sm hover:from-emerald-600 hover:to-emerald-700 hover:shadow-lg hover:brightness-110 transform hover:scale-[1.03] transition-all duration-300"
           >
             Cerrar orden de trabajo
           </button>

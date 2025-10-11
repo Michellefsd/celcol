@@ -225,9 +225,7 @@ return (
       <input
         ref={dateInputRef}
         type="date"
-        className="rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-slate-800
-                   focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500
-                   text-sm"
+        className="rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 text-sm"
         value={fechaApertura}
         onChange={(e) => setFechaApertura(e.target.value)}
         onKeyDown={(e) => {
@@ -372,8 +370,7 @@ return (
             Descripción del trabajo solicitado <span className="text-rose-600">*</span>
           </label>
           <textarea
-            className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-800
-                       focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
+            className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
             rows={4}
             value={solicitud}
             onChange={(e) => setSolicitud(e.target.value)}
@@ -386,8 +383,7 @@ return (
   <div className="flex gap-2">
     <input
       type="text"
-      className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-800
-                 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
+      className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
       value={solicitadoPor}
       placeholder={sugerenciaSolicitadoPor || 'Ingresá nombre o empresa'}
       onChange={(e) => setSolicitadoPor(e.target.value)}
@@ -400,8 +396,7 @@ return (
           <label className="block text-sm font-medium text-slate-700 mb-1">N.º de OT previa (otro taller)</label>
           <input
             type="text"
-            className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-800
-                       focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
+            className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
             value={OTsolicitud}
             onChange={(e) => setOTsolicitud(e.target.value)}
           />
@@ -459,18 +454,14 @@ return (
           <div className="flex gap-3 justify-end">
             <button
               onClick={() => handleGuardar(false)}
-              className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-[#597BFF] to-[#4a6ee0] text-white
-                         font-semibold px-5 py-2.5 shadow-sm hover:from-[#4a6ee0] hover:to-[#3658d4]
-                         hover:shadow-lg hover:brightness-110 transform hover:scale-[1.03] transition-all duration-300"
+              className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-[#597BFF] to-[#4a6ee0] text-white font-semibold px-5 py-2.5 shadow-sm hover:from-[#4a6ee0] hover:to-[#3658d4] hover:shadow-lg hover:brightness-110 transform hover:scale-[1.03] transition-all duration-300"
             >
               Guardar
             </button>
 
             <button
               onClick={() => handleGuardar(true)}
-              className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white
-                         px-5 py-2.5 text-slate-700 hover:bg-slate-50 hover:border-slate-400
-                         transform hover:scale-[1.02] transition-all duration-200"
+              className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-5 py-2.5 text-slate-700 hover:bg-slate-50 hover:border-slate-400 transform hover:scale-[1.02] transition-all duration-200"
             >
               Fase siguiente →
             </button>
