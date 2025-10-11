@@ -301,9 +301,27 @@ async function descargarSolicitudArchivo(key?: string) {
 
 
   return (
-    <div className="min-h-screen bg-slate-100">
-      <main className="mx-auto w-full lg:w-[80%] max-w-[1800px] px-4 md:px-6 lg:px-8 py-6 space-y-6">
-        <h1 className="text-2xl font-semibold text-slate-900">Fase 3: Recepción y preparación</h1>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+      <main className="mx-auto w-full lg:w-[80%] max-w-[1800px] px-4 md:px-6 lg:px-8 py-8 space-y-8">
+        {/* Header con animación */}
+        <div className="relative overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-r from-blue-600/5 to-indigo-600/5 rounded-2xl"></div>
+          <div className="relative p-6">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-xl flex items-center justify-center">
+                <span className="text-white text-xl">📋</span>
+              </div>
+              <div>
+                <h1 className="text-3xl md:text-4xl font-bold text-slate-900 mb-2 animate-fade-in">
+                  Fase 3: Recepción y preparación
+                </h1>
+                <p className="text-slate-600 animate-fade-in-delay">
+                  Inspecciona el objeto y asigna recursos para el trabajo
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
 
         {/* Resumen del objeto */}
         <section className="rounded-2xl border border-slate-200 bg-white shadow-sm p-4 md:p-6">
@@ -514,184 +532,257 @@ async function descargarSolicitudArchivo(key?: string) {
 </div>
 
 
-          {/* Asignaciones */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="space-y-3">
-              <SelectorDinamico
-                label="Herramientas utilizadas"
-                opciones={(Array.isArray(herramientas) ? herramientas : []).map((h) => ({
-                  id: h.id,
-                  nombre: [h.nombre, h.marca, h.modelo].filter(Boolean).join(' '),
-                }))}
-                permitirDuplicados={false}
-                excluidos={herramientasSeleccionadas.map((h) => h.id)}
-                onChange={(nuevos) => setHerramientasSeleccionadas(nuevos)}
-              />
-
-              <AsignacionesActuales
-                titulo="Herramientas asignadas"
-                items={herramientasSeleccionadas}
-                editable
-                onEliminar={(index) => {
-                  const nuevos = [...herramientasSeleccionadas];
-                  nuevos.splice(index, 1);
-                  setHerramientasSeleccionadas(nuevos);
-                }}
-              />
+          {/* Asignaciones mejoradas */}
+          <div className="space-y-8">
+            {/* Herramientas */}
+            <div className="bg-gradient-to-r from-slate-50 to-slate-100 rounded-2xl p-6 border border-slate-200">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-8 h-8 bg-gradient-to-r from-green-500 to-emerald-500 rounded-lg flex items-center justify-center">
+                  <span className="text-white text-sm">🔧</span>
+                </div>
+                <h3 className="text-xl font-semibold text-slate-900">Herramientas</h3>
+              </div>
+              
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div>
+                  <SelectorDinamico
+                    label="Agregar herramientas"
+                    opciones={(Array.isArray(herramientas) ? herramientas : []).map((h) => ({
+                      id: h.id,
+                      nombre: [h.nombre, h.marca, h.modelo].filter(Boolean).join(' '),
+                    }))}
+                    permitirDuplicados={false}
+                    excluidos={herramientasSeleccionadas.map((h) => h.id)}
+                    onChange={(nuevos) => setHerramientasSeleccionadas(nuevos)}
+                  />
+                </div>
+                
+                <div>
+                  <AsignacionesActuales
+                    titulo="Herramientas asignadas"
+                    items={herramientasSeleccionadas}
+                    editable
+                    onEliminar={(index) => {
+                      const nuevos = [...herramientasSeleccionadas];
+                      nuevos.splice(index, 1);
+                      setHerramientasSeleccionadas(nuevos);
+                    }}
+                  />
+                </div>
+              </div>
             </div>
 
-            <div className="space-y-3">
-              <SelectorDinamico
-                label="Stock utilizado"
-                opciones={stock
-                  .filter((s) => s.cantidad > 0 && !stockSeleccionado.some((sel) => sel.id === s.id))
-                  .map((s) => ({
-                    id: s.id,
-                    nombre: [s.nombre, s.marca, s.modelo].filter(Boolean).join(' '),
-                  }))}
-                conCantidad
-                maximos={stockMaximos}
-                permitirDuplicados={false}
-                onChange={(nuevos) => {
-                  const items = Array.isArray(nuevos) ? nuevos : [nuevos];
-                  setStockSeleccionado((prev) => {
-                    const map = new Map<number, SeleccionDinamica>(prev.map((it) => [it.id, it]));
-                    items.forEach((it) => {
-                      const anterior = map.get(it.id);
-                      const max = stockMaximos[it.id] ?? Infinity;
-                      const cantidadCruda = it.cantidad ?? anterior?.cantidad ?? 1;
-                      const cantidad = Math.max(1, Math.min(cantidadCruda, max));
-                      map.set(it.id, {
-                        id: it.id,
-                        nombre: it.nombre ?? anterior?.nombre ?? '',
-                        cantidad,
+            {/* Stock */}
+            <div className="bg-gradient-to-r from-slate-50 to-slate-100 rounded-2xl p-6 border border-slate-200">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-violet-500 rounded-lg flex items-center justify-center">
+                  <span className="text-white text-sm">📦</span>
+                </div>
+                <h3 className="text-xl font-semibold text-slate-900">Stock y Materiales</h3>
+              </div>
+              
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div>
+                  <SelectorDinamico
+                    label="Agregar stock"
+                    opciones={stock
+                      .filter((s) => s.cantidad > 0 && !stockSeleccionado.some((sel) => sel.id === s.id))
+                      .map((s) => ({
+                        id: s.id,
+                        nombre: [s.nombre, s.marca, s.modelo].filter(Boolean).join(' '),
+                      }))}
+                    conCantidad
+                    maximos={stockMaximos}
+                    permitirDuplicados={false}
+                    onChange={(nuevos) => {
+                      const items = Array.isArray(nuevos) ? nuevos : [nuevos];
+                      setStockSeleccionado((prev) => {
+                        const map = new Map<number, SeleccionDinamica>(prev.map((it) => [it.id, it]));
+                        items.forEach((it) => {
+                          const anterior = map.get(it.id);
+                          const max = stockMaximos[it.id] ?? Infinity;
+                          const cantidadCruda = it.cantidad ?? anterior?.cantidad ?? 1;
+                          const cantidad = Math.max(1, Math.min(cantidadCruda, max));
+                          map.set(it.id, {
+                            id: it.id,
+                            nombre: it.nombre ?? anterior?.nombre ?? '',
+                            cantidad,
+                          });
+                        });
+                        return Array.from(map.values());
                       });
+                    }}
+                  />
+                </div>
+                
+                <div>
+                  <AsignacionesActuales
+                    titulo="Stock asignado"
+                    items={stockSeleccionado}
+                    conCantidad
+                    editable
+                    onEliminar={(index) => {
+                      const nuevos = [...stockSeleccionado];
+                      const eliminado = nuevos.splice(index, 1)[0];
+                      setStockSeleccionado(nuevos);
+                      if (eliminado?.id && eliminado?.cantidad) {
+                        setStock((prev) =>
+                          prev.map((s) =>
+                            s.id === eliminado.id ? { ...s, cantidad: s.cantidad + eliminado.cantidad! } : s
+                          )
+                        );
+                      }
+                    }}
+                    onEditarCantidad={(index, nuevaCantidad) => {
+                      const nuevos = [...stockSeleccionado];
+                      nuevos[index].cantidad = nuevaCantidad;
+                      setStockSeleccionado(nuevos);
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Personal */}
+          <div className="bg-gradient-to-r from-slate-50 to-slate-100 rounded-2xl p-6 border border-slate-200">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-lg flex items-center justify-center">
+                <span className="text-white text-sm">👥</span>
+              </div>
+              <h3 className="text-xl font-semibold text-slate-900">Personal Asignado</h3>
+            </div>
+            
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              {/* Técnicos */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                  <h4 className="font-semibold text-slate-800">Técnicos</h4>
+                </div>
+                
+                <SelectorDinamico
+                  label="Agregar técnicos"
+                  opciones={personal
+                    .filter((p) => p.esTecnico)
+                    .map((p) => ({ id: p.id, nombre: `${p.nombre} ${p.apellido}` }))}
+                  permitirDuplicados={false}
+                  onChange={(nuevos) => {
+                    const n = Array.isArray(nuevos) ? nuevos : [nuevos];
+                    setTecnicosSeleccionados((prev) => {
+                      const combinados = [...prev, ...n];
+                      return combinados.filter(
+                        (item, index, self) => index === self.findIndex((i) => i.id === item.id)
+                      );
                     });
-                    return Array.from(map.values());
-                  });
-                }}
-              />
+                  }}
+                />
 
-              <AsignacionesActuales
-                titulo="Stock asignado"
-                items={stockSeleccionado}
-                conCantidad
-                editable
-                onEliminar={(index) => {
-                  const nuevos = [...stockSeleccionado];
-                  const eliminado = nuevos.splice(index, 1)[0];
-                  setStockSeleccionado(nuevos);
-                  if (eliminado?.id && eliminado?.cantidad) {
-                    setStock((prev) =>
-                      prev.map((s) =>
-                        s.id === eliminado.id ? { ...s, cantidad: s.cantidad + eliminado.cantidad! } : s
-                      )
-                    );
-                  }
-                }}
-                onEditarCantidad={(index, nuevaCantidad) => {
-                  const nuevos = [...stockSeleccionado];
-                  nuevos[index].cantidad = nuevaCantidad;
-                  setStockSeleccionado(nuevos);
-                }}
-              />
+                <AsignacionesActuales
+                  titulo="Técnicos asignados"
+                  items={tecnicosSeleccionados.map((t) => ({ ...t, meta: 'TECNICO' }))}
+                  editable
+                  onEliminar={(index) => {
+                    const nuevos = [...tecnicosSeleccionados];
+                    nuevos.splice(index, 1);
+                    setTecnicosSeleccionados(nuevos);
+                  }}
+                />
+              </div>
+
+              {/* Certificadores */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-indigo-500 rounded-full"></div>
+                  <h4 className="font-semibold text-slate-800">Certificadores</h4>
+                </div>
+                
+                <SelectorDinamico
+                  label="Agregar certificadores"
+                  opciones={personal
+                    .filter((p) => p.esCertificador)
+                    .map((p) => ({ id: p.id, nombre: `${p.nombre} ${p.apellido}` }))}
+                  permitirDuplicados={false}
+                  onChange={(nuevos) => {
+                    const n = Array.isArray(nuevos) ? nuevos : [nuevos];
+                    setCertificadoresSeleccionados((prev) => {
+                      const combinados = [...prev, ...n];
+                      return combinados.filter(
+                        (item, index, self) => index === self.findIndex((i) => i.id === item.id)
+                      );
+                    });
+                  }}
+                />
+
+                <AsignacionesActuales
+                  titulo="Certificadores asignados"
+                  items={certificadoresSeleccionados.map((c) => ({ ...c, meta: 'CERTIFICADOR' }))}
+                  editable
+                  onEliminar={(index) => {
+                    const nuevos = [...certificadoresSeleccionados];
+                    nuevos.splice(index, 1);
+                    setCertificadoresSeleccionados(nuevos);
+                  }}
+                />
+              </div>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="space-y-3">
-              <SelectorDinamico
-                label="Técnicos asignados"
-                opciones={personal
-                  .filter((p) => p.esTecnico)
-                  .map((p) => ({ id: p.id, nombre: `${p.nombre} ${p.apellido}` }))}
-                permitirDuplicados={false}
-                onChange={(nuevos) => {
-                  const n = Array.isArray(nuevos) ? nuevos : [nuevos];
-                  setTecnicosSeleccionados((prev) => {
-                    const combinados = [...prev, ...n];
-                    return combinados.filter(
-                      (item, index, self) => index === self.findIndex((i) => i.id === item.id)
-                    );
-                  });
-                }}
-              />
-
-              <AsignacionesActuales
-                titulo="Técnicos asignados"
-                items={tecnicosSeleccionados.map((t) => ({ ...t, meta: 'TECNICO' }))}
-                editable
-                onEliminar={(index) => {
-                  const nuevos = [...tecnicosSeleccionados];
-                  nuevos.splice(index, 1);
-                  setTecnicosSeleccionados(nuevos);
-                }}
-              />
-            </div>
-
-            <div className="space-y-3">
-              <SelectorDinamico
-                label="Certificadores asignados"
-                opciones={personal
-                  .filter((p) => p.esCertificador)
-                  .map((p) => ({ id: p.id, nombre: `${p.nombre} ${p.apellido}` }))}
-                permitirDuplicados={false}
-                onChange={(nuevos) => {
-                  const n = Array.isArray(nuevos) ? nuevos : [nuevos];
-                  setCertificadoresSeleccionados((prev) => {
-                    const combinados = [...prev, ...n];
-                    return combinados.filter(
-                      (item, index, self) => index === self.findIndex((i) => i.id === item.id)
-                    );
-                  });
-                }}
-              />
-
-              <AsignacionesActuales
-                titulo="Certificadores asignados"
-                items={certificadoresSeleccionados.map((c) => ({ ...c, meta: 'CERTIFICADOR' }))}
-                editable
-                onEliminar={(index) => {
-                  const nuevos = [...certificadoresSeleccionados];
-                  nuevos.splice(index, 1);
-                  setCertificadoresSeleccionados(nuevos);
-                }}
-              />
-            </div>
-          </div>
-
-          {/* Fases finales + acciones */}
-          <div className="mt-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          {/* Navegación y acciones */}
+          <div className="mt-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <button
               onClick={() => router.push(`/ordenes-trabajo/${id}/fase2`)}
               className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white
-                           px-5 py-2.5 text-slate-700 hover:bg-slate-50 hover:border-slate-400
-                           transform hover:scale-[1.02] transition-all duration-200"
+                           px-6 py-3 text-slate-700 hover:bg-slate-50 hover:border-slate-400
+                           transform hover:scale-[1.02] transition-all duration-200 font-medium"
             >
-              ← Fase anterior
+              <span className="mr-2">←</span>
+              Fase anterior
             </button>
 
             <div className="flex gap-3 justify-end">
               <button
                 onClick={handleGuardar}
-                className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-[#597BFF] to-[#4a6ee0] text-white
-                           font-semibold px-5 py-2.5 shadow-sm hover:from-[#4a6ee0] hover:to-[#3658d4]
-                           hover:shadow-lg hover:brightness-110 transform hover:scale-[1.03] transition-all duration-300"
+                className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-green-500 to-emerald-500 text-white
+                           font-semibold px-6 py-3 shadow-lg hover:from-green-600 hover:to-emerald-600
+                           hover:shadow-xl hover:brightness-110 transform hover:scale-[1.03] transition-all duration-300"
               >
-                Guardar
+                <span className="mr-2">💾</span>
+                Guardar cambios
               </button>
               <button
                 onClick={() => router.push(`/ordenes-trabajo/${id}/fase4`)}
-                className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white
-                           px-5 py-2.5 text-slate-700 hover:bg-slate-50 hover:border-slate-400
-                           transform hover:scale-[1.02] transition-all duración-200"
+                className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-blue-500 to-indigo-500 text-white
+                           font-semibold px-6 py-3 shadow-lg hover:from-blue-600 hover:to-indigo-600
+                           hover:shadow-xl hover:brightness-110 transform hover:scale-[1.03] transition-all duration-300"
               >
-                Fase siguiente →
+                Fase siguiente
+                <span className="ml-2">→</span>
               </button>
             </div>
           </div>
         </section>
       </main>
+
+      <style jsx>{`
+        @keyframes fade-in {
+          from { opacity: 0; transform: translateY(20px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        
+        @keyframes fade-in-delay {
+          from { opacity: 0; transform: translateY(20px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .animate-fade-in {
+          animation: fade-in 0.8s ease-out;
+        }
+        
+        .animate-fade-in-delay {
+          animation: fade-in-delay 0.8s ease-out 0.2s both;
+        }
+      `}</style>
     </div>
   );
 }

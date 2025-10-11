@@ -83,63 +83,94 @@ export default function SelectorDinamico({
 
   return (
     <div className="mb-6">
-      <label className="block font-medium mb-2">{label}</label>
-      <div className="flex items-center gap-2">
-        <select
-          className="border rounded px-2 py-1"
-          value={opcionActual ?? ''}
-          onChange={(e) => setOpcionActual(Number(e.target.value))}
-        >
-          <option value="">Seleccionar...</option>
-          {opciones
-  .filter((op) => !(excluidos ?? []).includes(op.id)) // ✅ Ocultar excluidos
-  .map((op) => (
+      <label className="block text-sm font-semibold text-slate-800 mb-3">{label}</label>
+      
+      {/* Selector mejorado */}
+      <div className="bg-gradient-to-r from-slate-50 to-slate-100 rounded-xl p-4 border border-slate-200">
+        <div className="flex items-center gap-3">
+          <select
+            className="flex-1 rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-800
+                       focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500
+                       transition-all duration-200 hover:border-slate-400"
+            value={opcionActual ?? ''}
+            onChange={(e) => setOpcionActual(Number(e.target.value))}
+          >
+            <option value="">Seleccionar {label.toLowerCase()}...</option>
+            {opciones
+              .filter((op) => !(excluidos ?? []).includes(op.id))
+              .map((op) => (
+                <option key={op.id} value={op.id}>
+                  {op.nombre}
+                </option>
+              ))}
+          </select>
 
-            <option key={op.id} value={op.id}>
-              {op.nombre}
-            </option>
-          ))}
-        </select>
+          {conCantidad && opcionActual !== null && (
+            <div className="flex items-center gap-2">
+              <label className="text-sm text-slate-600">Cantidad:</label>
+              <input
+                type="number"
+                min={1}
+                max={maximos[opcionActual] ?? undefined}
+                className="w-20 rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-800
+                           focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500
+                           transition-all duration-200"
+                value={cantidad}
+                onChange={(e) => setCantidad(Number(e.target.value))}
+              />
+            </div>
+          )}
 
-        {conCantidad && (
-          <input
-            type="number"
-            min={1}
-            max={opcionActual !== null ? maximos[opcionActual] ?? undefined : undefined}
-            className="border rounded px-2 py-1 w-20"
-            value={cantidad}
-            onChange={(e) => setCantidad(Number(e.target.value))}
-          />
+          <button
+            type="button"
+            className={`inline-flex items-center justify-center rounded-xl px-4 py-3 font-medium transition-all duration-200
+                       ${opcionActual !== null 
+                         ? 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white hover:from-blue-600 hover:to-indigo-600 transform hover:scale-105 shadow-lg' 
+                         : 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                       }`}
+            onClick={handleAgregar}
+            disabled={opcionActual === null}
+          >
+            <span className="mr-2">+</span>
+            Agregar
+          </button>
+        </div>
+
+        {/* Lista de seleccionados temporal */}
+        {seleccionados.length > 0 && (
+          <div className="mt-4 pt-4 border-t border-slate-200">
+            <h5 className="text-sm font-medium text-slate-700 mb-2">Seleccionados (pendientes de guardar):</h5>
+            <div className="space-y-2">
+              {seleccionados.map((item, index) => (
+                <div 
+                  key={`${item.id}-${index}`} 
+                  className="flex items-center justify-between bg-white border border-slate-200 rounded-lg px-3 py-2"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                    <span className="text-slate-800 font-medium">{item.nombre}</span>
+                    {conCantidad && (
+                      <span className="text-sm text-slate-500">
+                        x {item.cantidad}
+                      </span>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    className="text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg p-1 transition-colors duration-200"
+                    onClick={() => handleEliminar(index)}
+                  >
+                    <span className="text-sm">✕</span>
+                  </button>
+                </div>
+              ))}
+            </div>
+            <p className="text-xs text-slate-500 mt-2">
+              💡 Recuerda hacer clic en "Guardar" para confirmar estos cambios
+            </p>
+          </div>
         )}
-
-        <button
-          type="button"
-          className="bg-blue-600 text-white px-3 py-1 rounded"
-          onClick={handleAgregar}
-        >
-          +
-        </button>
       </div>
-
-      <ul className="mt-2 text-sm text-gray-700 space-y-1">
-        {seleccionados.map((item, index) => (
-          <li key={`${item.id}-${index}`} className="flex items-center justify-between border px-2 py-1 rounded">
-            <span className="flex items-center">
-              {item.nombre}
-              {conCantidad && (
-                <input
-                  type="number"
-                  min={1}
-                  max={maximos[item.id] ?? undefined}
-                  value={item.cantidad ?? 1}
-                  onChange={(e) => handleEditarCantidad(index, Number(e.target.value))}
-                  className="ml-2 border rounded px-1 w-16 text-center"
-                />
-              )}
-            </span>
-          </li>
-        ))}
-      </ul>
     </div>
   );
 }
