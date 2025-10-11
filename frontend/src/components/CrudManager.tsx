@@ -421,7 +421,6 @@ return (
           className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-[#597BFF] to-[#4a6ee0] text-white font-semibold text-base px-8 py-3 shadow-lg hover:from-[#4a6ee0] hover:to-[#3658d4] hover:shadow-xl hover:brightness-110 transform hover:scale-[1.03] transition-all duration-300 border border-blue-500/20"
           onClick={() => openModal()}
         >
-          <span className="mr-2">✨</span>
           Crear nuevo {title.toLowerCase()}
         </button>
       </div>

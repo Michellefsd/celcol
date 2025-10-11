@@ -45,13 +45,13 @@
     display: flex;
     align-items: center;
     justify-content: flex-start;  /* logo a la izquierda */
-    gap: 8mm;
-    padding: 0 36mm; /* deja espacio lateral para la fecha a la derecha */
+    gap: 10mm;
+    padding: 0 40mm; /* más espacio para la fecha a la derecha */
     text-align: left;
   }
-  .logo { height: 18mm; width: auto; display: none; } /* se muestra si llega ?logo= */
-  .header-row h1 { font-size: 14pt; font-weight: bold; line-height: 1.1; white-space: nowrap; }
-  .header-fecha { position: absolute; top: 12mm; right: 0; font-size: 9pt; }
+  .logo { height: 22mm; width: auto; display: none; } /* logo más grande */
+  .header-row h1 { font-size: 14pt; font-weight: bold; line-height: 1.1; white-space: nowrap; margin-left: -2mm; } /* título más a la izquierda */
+  .header-fecha { position: absolute; top: 16mm; right: 0; font-size: 9pt; } /* fecha más abajo */
 
   /* Grid principal */
   .grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 2.5mm; margin-bottom: 2.5mm; }

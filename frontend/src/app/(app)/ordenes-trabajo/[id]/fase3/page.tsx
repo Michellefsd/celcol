@@ -307,18 +307,13 @@ async function descargarSolicitudArchivo(key?: string) {
         <div className="relative overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-r from-blue-600/5 to-indigo-600/5 rounded-2xl"></div>
           <div className="relative p-6">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-xl flex items-center justify-center">
-                <span className="text-white text-xl">📋</span>
-              </div>
-              <div>
-                <h1 className="text-3xl md:text-4xl font-bold text-slate-900 mb-2 animate-fade-in">
-                  Fase 3: Recepción y preparación
-                </h1>
-                <p className="text-slate-600 animate-fade-in-delay">
-                  Inspecciona el objeto y asigna recursos para el trabajo
-                </p>
-              </div>
+            <div>
+              <h1 className="text-3xl md:text-4xl font-bold text-slate-900 mb-2 animate-fade-in">
+                Fase 3: Recepción y preparación
+              </h1>
+              <p className="text-slate-600 animate-fade-in-delay">
+                Inspecciona el objeto y asigna recursos para el trabajo
+              </p>
             </div>
           </div>
         </div>
@@ -534,10 +529,7 @@ async function descargarSolicitudArchivo(key?: string) {
           <div className="space-y-8">
             {/* Herramientas */}
             <div className="bg-gradient-to-r from-slate-50 to-slate-100 rounded-2xl p-6 border border-slate-200">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="w-8 h-8 bg-gradient-to-r from-green-500 to-emerald-500 rounded-lg flex items-center justify-center">
-                  <span className="text-white text-sm">🔧</span>
-                </div>
+              <div className="mb-6">
                 <h3 className="text-xl font-semibold text-slate-900">Herramientas</h3>
               </div>
               
@@ -572,10 +564,7 @@ async function descargarSolicitudArchivo(key?: string) {
 
             {/* Stock */}
             <div className="bg-gradient-to-r from-slate-50 to-slate-100 rounded-2xl p-6 border border-slate-200">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-violet-500 rounded-lg flex items-center justify-center">
-                  <span className="text-white text-sm">📦</span>
-                </div>
+              <div className="mb-6">
                 <h3 className="text-xl font-semibold text-slate-900">Stock y Materiales</h3>
               </div>
               
@@ -644,10 +633,7 @@ async function descargarSolicitudArchivo(key?: string) {
 
           {/* Personal */}
           <div className="bg-gradient-to-r from-slate-50 to-slate-100 rounded-2xl p-6 border border-slate-200">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-lg flex items-center justify-center">
-                <span className="text-white text-sm">👥</span>
-              </div>
+            <div className="mb-6">
               <h3 className="text-xl font-semibold text-slate-900">Personal Asignado</h3>
             </div>
             

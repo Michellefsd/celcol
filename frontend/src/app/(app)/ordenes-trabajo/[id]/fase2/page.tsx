@@ -188,11 +188,22 @@ async function descargarSolicitud(key?: string) {
 }
 
 return (
-  <div className="min-h-screen bg-slate-100">
-    <main className="mx-auto w-full lg:w-[80%] max-w-[1800px] px-4 md:px-6 lg:px-8 py-6 space-y-6">
-      <h1 className="text-2xl font-semibold text-slate-900">
-        Fase 2: Detalles de la orden #{orden.id}
-      </h1>
+  <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+    <main className="mx-auto w-full lg:w-[80%] max-w-[1800px] px-4 md:px-6 lg:px-8 py-8 space-y-8">
+      {/* Header con animación */}
+      <div className="relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-r from-blue-600/5 to-indigo-600/5 rounded-2xl"></div>
+        <div className="relative p-6">
+          <div>
+            <h1 className="text-3xl md:text-4xl font-bold text-slate-900 mb-2 animate-fade-in">
+              Fase 2: Detalles de la orden #{orden.id}
+            </h1>
+            <p className="text-slate-600 animate-fade-in-delay">
+              Configura los detalles y solicitud de la orden de trabajo
+            </p>
+          </div>
+        </div>
+      </div>
       {/* Fecha de apertura (sutil editable) */}
 <div className="flex items-center gap-3">
   <div className="min-w-44">
@@ -467,6 +478,26 @@ return (
         </div>
       </section>
     </main>
+
+    <style jsx>{`
+      @keyframes fade-in {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      
+      @keyframes fade-in-delay {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      
+      .animate-fade-in {
+        animation: fade-in 0.8s ease-out;
+      }
+      
+      .animate-fade-in-delay {
+        animation: fade-in-delay 0.8s ease-out 0.2s both;
+      }
+    `}</style>
   </div>
 );
 
