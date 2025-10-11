@@ -42,14 +42,12 @@ export default function HomePageContent() {
               <BaseButton 
                 variant="primary" 
                 onClick={() => router.push('/ordenes-trabajo/nueva')}
-                className="transform transition-all duration-200 hover:scale-105 hover:shadow-lg"
               >
                 ✨ Nuevo trabajo
               </BaseButton>
               <BaseButton 
                 variant="secondary" 
                 onClick={() => router.push('/archivadas')}
-                className="transform transition-all duration-200 hover:scale-105 hover:shadow-md"
               >
                 📁 Archivados
               </BaseButton>
