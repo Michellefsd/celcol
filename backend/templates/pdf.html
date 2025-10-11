@@ -44,13 +44,13 @@
     height: 100%;
     display: flex;
     align-items: center;
-    justify-content: center;  /* centra logo + título como bloque */
-    gap: 6mm;
+    justify-content: flex-start;  /* logo a la izquierda */
+    gap: 8mm;
     padding: 0 36mm; /* deja espacio lateral para la fecha a la derecha */
-    text-align: center;
+    text-align: left;
   }
-  .logo { height: 14mm; width: auto; display: none; } /* se muestra si llega ?logo= */
-  .header-row h1 { font-size: 14pt; font-weight: bold; line-height: 1.1; }
+  .logo { height: 18mm; width: auto; display: none; } /* se muestra si llega ?logo= */
+  .header-row h1 { font-size: 14pt; font-weight: bold; line-height: 1.1; white-space: nowrap; }
   .header-fecha { position: absolute; top: 12mm; right: 0; font-size: 9pt; }
 
   /* Grid principal */
