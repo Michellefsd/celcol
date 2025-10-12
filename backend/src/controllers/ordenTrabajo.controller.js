@@ -257,9 +257,11 @@ export const updateFase3 = async (req, res) => {
   // (Opcional) Validar aptitudes declaradas del empleado
   const empleadosIds = Array.from(new Set([...certificadoresUnicos, ...tecnicosUnicos]));
   if (empleadosIds.length) {
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
     const empleadosInfo = await prisma.empleado.findMany({
       where: { id: { in: empleadosIds } },
-      select: { id: true, nombre: true, apellido: true, esTecnico: true, esCertificador: true },
+      select: { id: true, nombre: true, apellido: true, esTecnico: true, esCertificador: true, vencimientoLicencia: true },
     });
     const infoMap = new Map(empleadosInfo.map((e) => [e.id, e]));
 
@@ -270,12 +272,24 @@ export const updateFase3 = async (req, res) => {
           error: `El empleado ${e ? `${e.nombre} ${e.apellido}` : eId} no está habilitado como TÉCNICO.`,
         });
       }
+      if (!e.vencimientoLicencia || new Date(e.vencimientoLicencia) <= hoy) {
+        const fechaLic = e.vencimientoLicencia ? new Date(e.vencimientoLicencia).toLocaleDateString('es-UY') : 'sin fecha';
+        return res.status(400).json({
+          error: `El empleado ${e.nombre} ${e.apellido} tiene la licencia vencida o sin vigencia (vence: ${fechaLic}).`,
+        });
+      }
     }
     for (const eId of certificadoresUnicos) {
       const e = infoMap.get(eId);
       if (!e || !e.esCertificador) {
         return res.status(400).json({
           error: `El empleado ${e ? `${e.nombre} ${e.apellido}` : eId} no está habilitado como CERTIFICADOR.`,
+        });
+      }
+      if (!e.vencimientoLicencia || new Date(e.vencimientoLicencia) <= hoy) {
+        const fechaLic = e.vencimientoLicencia ? new Date(e.vencimientoLicencia).toLocaleDateString('es-UY') : 'sin fecha';
+        return res.status(400).json({
+          error: `El empleado ${e.nombre} ${e.apellido} tiene la licencia vencida o sin vigencia (vence: ${fechaLic}).`,
         });
       }
     }
