@@ -43,7 +43,7 @@ export default function HomePageContent() {
                 variant="primary" 
                 onClick={() => router.push('/ordenes-trabajo/nueva')}
               >
-                ✨ Nuevo trabajo
+                Nuevo trabajo
               </BaseButton>
               <BaseButton 
                 variant="secondary" 
