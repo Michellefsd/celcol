@@ -35,10 +35,10 @@ type OrdenTrabajo = {
 
 function badgeClasses(estado: OrdenTrabajo['estadoOrden']) {
   switch (estado) {
-    case 'ABIERTA': return 'border-emerald-300 text-emerald-700';
-    case 'CERRADA': return 'border-rose-300 text-rose-700';
-    case 'CANCELADA': return 'border-slate-300 text-slate-700';
-    default: return 'border-slate-300 text-slate-700';
+    case 'ABIERTA': return 'border-emerald-300 text-emerald-700 bg-emerald-50 shadow-sm';
+    case 'CERRADA': return 'border-rose-300 text-rose-700 bg-rose-50 shadow-sm';
+    case 'CANCELADA': return 'border-slate-300 text-slate-700 bg-slate-50 shadow-sm';
+    default: return 'border-slate-300 text-slate-700 bg-slate-50 shadow-sm';
   }
 }
 
@@ -229,25 +229,33 @@ export default function TrabajoCard({ soloArchivadas = false }: { soloArchivadas
         </div>
       </div>
 
-      <div className="mb-4 mt-3">
+      <div className="mb-4 mt-3 relative">
+        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+          <span className="text-slate-400 text-sm">🔍</span>
+        </div>
         <input
           type="text"
           placeholder="Buscar por matrícula, tipo o ID..."
-          className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-800 placeholder:text-slate-400
-                     focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
+          className="w-full rounded-xl border border-slate-300 bg-white pl-10 pr-3 py-2 text-slate-800 placeholder:text-slate-400
+                     focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200
+                     hover:border-slate-400"
           value={busqueda}
           onChange={(e) => setBusqueda(e.target.value)}
         />
       </div>
 
       {ordenesFiltradas.length === 0 ? (
-        <div className="text-slate-500 italic">No se encontraron trabajos.</div>
+        <div className="text-center py-8">
+          <div className="text-4xl mb-2">🔍</div>
+          <div className="text-slate-500 italic">No se encontraron trabajos.</div>
+        </div>
       ) : (
-        <ul className="divide-y divide-slate-200 max-h-96 overflow-y-auto">
+        <ul className="divide-y divide-slate-200 max-h-96 overflow-y-auto space-y-2">
           {ordenesFiltradas.map((orden, idx) => (
             <li
               key={orden?.id ?? `orden-${idx}`}
-              className="py-3 flex items-center justify-between hover:bg-slate-50 px-2 rounded-lg transition"
+              className="py-3 flex items-center justify-between hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 px-3 rounded-xl transition-all duration-200 hover:shadow-md transform hover:scale-[1.02]"
+              style={{ animationDelay: `${idx * 0.1}s` }}
             >
               <div className="min-w-0">
                 <p className="text-sm font-medium text-slate-800 truncate">

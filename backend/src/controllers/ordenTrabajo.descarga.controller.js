@@ -252,11 +252,11 @@ if (accionesTecnico.length === 0 && solicitudBullets.length > 0) {
     `).join('')}
     ${accionesTecnico.length === 0 ? `
       <div class="accion-item">
-        <div class="accion-desc"></div>
+        <div class="accion-desc">vacío y -</div>
         <div class="accion-datos">
           <div class="dato-box">TECNICO</div>
-          <div class="dato-box"></div>
-          <div class="dato-box">H.H:</div>
+          <div class="dato-box">-</div>
+          <div class="dato-box">H.H: -</div>
         </div>
       </div>
     ` : ''}

@@ -34,123 +34,213 @@ const renderContenido = () => {
 
     case 'empleados':
       return (
-        <ul className="mt-4 text-sm">
+        <div className="space-y-3">
           {data.empleados?.length ? (
-            data.empleados.map((e: any) => (
-              <li key={e.id}>
+            data.empleados.map((e: any, index: number) => (
+              <div
+                key={e.id}
+                className="flex items-center gap-3 p-4 rounded-xl border border-slate-200 bg-gradient-to-r from-slate-50 to-slate-100
+                           hover:from-blue-50 hover:to-indigo-50 hover:border-blue-200 transition-all duration-200
+                           transform hover:scale-[1.02] hover:shadow-md"
+                style={{ animationDelay: `${index * 0.1}s` }}
+              >
+                <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-lg flex items-center justify-center">
+                  <span className="text-white text-sm">👤</span>
+                </div>
                 <Link
                   href={`/archivadas/empleados/${e.id}`}
-                  className="underline hover:no-underline"
+                  className="flex-1 text-slate-800 font-medium hover:text-blue-600 transition-colors duration-200"
                 >
                   {e.nombre} {e.apellido}
                 </Link>
-              </li>
+                <span className="text-slate-400 text-sm">→</span>
+              </div>
             ))
           ) : (
-            <li className="text-slate-500">No hay empleados archivados.</li>
+            <div className="text-center py-8">
+              <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                <span className="text-2xl">👥</span>
+              </div>
+              <p className="text-slate-500">No hay empleados archivados.</p>
+            </div>
           )}
-        </ul>
+        </div>
       );
 
     case 'herramientas':
       return (
-        <ul className="mt-4 text-sm">
+        <div className="space-y-3">
           {data.herramientas?.length ? (
-            data.herramientas.map((h: any) => (
-              <li key={h.id}>
+            data.herramientas.map((h: any, index: number) => (
+              <div
+                key={h.id}
+                className="flex items-center gap-3 p-4 rounded-xl border border-slate-200 bg-gradient-to-r from-slate-50 to-slate-100
+                           hover:from-blue-50 hover:to-indigo-50 hover:border-blue-200 transition-all duration-200
+                           transform hover:scale-[1.02] hover:shadow-md"
+                style={{ animationDelay: `${index * 0.1}s` }}
+              >
+                <div className="w-10 h-10 bg-gradient-to-r from-green-500 to-emerald-500 rounded-lg flex items-center justify-center">
+                  <span className="text-white text-sm">🔧</span>
+                </div>
                 <Link
                   href={`/archivadas/herramientas/${h.id}`}
-                  className="underline hover:no-underline"
+                  className="flex-1 text-slate-800 font-medium hover:text-blue-600 transition-colors duration-200"
                 >
                   {h.nombre} – {h.marca} {h.modelo}
                 </Link>
-              </li>
+                <span className="text-slate-400 text-sm">→</span>
+              </div>
             ))
           ) : (
-            <li className="text-slate-500">No hay herramientas archivadas.</li>
+            <div className="text-center py-8">
+              <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                <span className="text-2xl">🔧</span>
+              </div>
+              <p className="text-slate-500">No hay herramientas archivadas.</p>
+            </div>
           )}
-        </ul>
+        </div>
       );
 
     case 'stock':
       return (
-        <ul className="mt-4 text-sm">
+        <div className="space-y-3">
           {data.stock?.length ? (
-            data.stock.map((s: any) => (
-              <li key={s.id}>
+            data.stock.map((s: any, index: number) => (
+              <div
+                key={s.id}
+                className="flex items-center gap-3 p-4 rounded-xl border border-slate-200 bg-gradient-to-r from-slate-50 to-slate-100
+                           hover:from-blue-50 hover:to-indigo-50 hover:border-blue-200 transition-all duration-200
+                           transform hover:scale-[1.02] hover:shadow-md"
+                style={{ animationDelay: `${index * 0.1}s` }}
+              >
+                <div className="w-10 h-10 bg-gradient-to-r from-purple-500 to-violet-500 rounded-lg flex items-center justify-center">
+                  <span className="text-white text-sm">📦</span>
+                </div>
                 <Link
                   href={`/archivadas/stock/${s.id}`}
-                  className="underline hover:no-underline"
+                  className="flex-1 text-slate-800 font-medium hover:text-blue-600 transition-colors duration-200"
                 >
                   {s.nombre} ({s.tipoProducto})
                 </Link>
-              </li>
+                <span className="text-slate-400 text-sm">→</span>
+              </div>
             ))
           ) : (
-            <li className="text-slate-500">No hay productos de stock archivados.</li>
+            <div className="text-center py-8">
+              <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                <span className="text-2xl">📦</span>
+              </div>
+              <p className="text-slate-500">No hay productos de stock archivados.</p>
+            </div>
           )}
-        </ul>
+        </div>
       );
 
     case 'propietarios':
       return (
-        <ul className="mt-4 text-sm">
+        <div className="space-y-3">
           {data.propietarios?.length ? (
-            data.propietarios.map((p: any) => (
-              <li key={p.id}>
+            data.propietarios.map((p: any, index: number) => (
+              <div
+                key={p.id}
+                className="flex items-center gap-3 p-4 rounded-xl border border-slate-200 bg-gradient-to-r from-slate-50 to-slate-100
+                           hover:from-blue-50 hover:to-indigo-50 hover:border-blue-200 transition-all duration-200
+                           transform hover:scale-[1.02] hover:shadow-md"
+                style={{ animationDelay: `${index * 0.1}s` }}
+              >
+                <div className="w-10 h-10 bg-gradient-to-r from-orange-500 to-amber-500 rounded-lg flex items-center justify-center">
+                  <span className="text-white text-sm">🏢</span>
+                </div>
                 <Link
                   href={`/archivadas/propietarios/${p.id}`}
-                  className="underline hover:no-underline"
+                  className="flex-1 text-slate-800 font-medium hover:text-blue-600 transition-colors duration-200"
                 >
                   {p.nombre}
                 </Link>
-              </li>
+                <span className="text-slate-400 text-sm">→</span>
+              </div>
             ))
           ) : (
-            <li className="text-slate-500">No hay propietarios archivados.</li>
+            <div className="text-center py-8">
+              <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                <span className="text-2xl">🏢</span>
+              </div>
+              <p className="text-slate-500">No hay propietarios archivados.</p>
+            </div>
           )}
-        </ul>
+        </div>
       );
 
     case 'componentes':
       return (
-        <ul className="mt-4 text-sm">
+        <div className="space-y-3">
           {data.componentes?.length ? (
-            data.componentes.map((c: any) => (
-              <li key={c.id}>
+            data.componentes.map((c: any, index: number) => (
+              <div
+                key={c.id}
+                className="flex items-center gap-3 p-4 rounded-xl border border-slate-200 bg-gradient-to-r from-slate-50 to-slate-100
+                           hover:from-blue-50 hover:to-indigo-50 hover:border-blue-200 transition-all duration-200
+                           transform hover:scale-[1.02] hover:shadow-md"
+                style={{ animationDelay: `${index * 0.1}s` }}
+              >
+                <div className="w-10 h-10 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-lg flex items-center justify-center">
+                  <span className="text-white text-sm">⚙️</span>
+                </div>
                 <Link
                   href={`/archivadas/componentes/${c.id}`}
-                  className="underline hover:no-underline"
+                  className="flex-1 text-slate-800 font-medium hover:text-blue-600 transition-colors duration-200"
                 >
                   {c.tipo} – {c.marca} {c.modelo}
                 </Link>
-              </li>
+                <span className="text-slate-400 text-sm">→</span>
+              </div>
             ))
           ) : (
-            <li className="text-slate-500">No hay componentes externos archivados.</li>
+            <div className="text-center py-8">
+              <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                <span className="text-2xl">⚙️</span>
+              </div>
+              <p className="text-slate-500">No hay componentes externos archivados.</p>
+            </div>
           )}
-        </ul>
+        </div>
       );
 
     case 'aviones':
-  return (
-    <ul className="mt-4 text-sm">
-      {data.aviones?.length ? (
-        data.aviones.map((a: { id: number; matricula?: string; marca?: string; modelo?: string }) => (
-          <li key={a.id}>
-            <Link
-              href={`/archivadas/aviones/${a.id}`}
-              className="underline hover:no-underline"
-            >
-              {a.matricula} – {a.marca} {a.modelo}
-            </Link>
-          </li>
-        ))
-      ) : (
-        <li className="text-slate-500">No hay {titleFor('avion').toLowerCase()} archivadas.</li>
-      )}
-    </ul>
-  );
+      return (
+        <div className="space-y-3">
+          {data.aviones?.length ? (
+            data.aviones.map((a: { id: number; matricula?: string; marca?: string; modelo?: string }, index: number) => (
+              <div
+                key={a.id}
+                className="flex items-center gap-3 p-4 rounded-xl border border-slate-200 bg-gradient-to-r from-slate-50 to-slate-100
+                           hover:from-blue-50 hover:to-indigo-50 hover:border-blue-200 transition-all duration-200
+                           transform hover:scale-[1.02] hover:shadow-md"
+                style={{ animationDelay: `${index * 0.1}s` }}
+              >
+                <div className="w-10 h-10 bg-gradient-to-r from-sky-500 to-blue-500 rounded-lg flex items-center justify-center">
+                  <span className="text-white text-sm">✈️</span>
+                </div>
+                <Link
+                  href={`/archivadas/aviones/${a.id}`}
+                  className="flex-1 text-slate-800 font-medium hover:text-blue-600 transition-colors duration-200"
+                >
+                  {a.matricula} – {a.marca} {a.modelo}
+                </Link>
+                <span className="text-slate-400 text-sm">→</span>
+              </div>
+            ))
+          ) : (
+            <div className="text-center py-8">
+              <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                <span className="text-2xl">✈️</span>
+              </div>
+              <p className="text-slate-500">No hay {titleFor('avion').toLowerCase()} archivadas.</p>
+            </div>
+          )}
+        </div>
+      );
 
     default:
       return null;
@@ -158,63 +248,104 @@ const renderContenido = () => {
 };
 
 return (
-  <BaseCard>
-    <div className="flex flex-col gap-3">
-      <BaseHeading>Archivados</BaseHeading>
-
-      {/* Toolbar: select en mobile, segmentos en desktop */}
-      <div className="flex items-center justify-between gap-3">
-        {/* Mobile: Select */}
-        <label className="w-full md:hidden">
-          <span className="sr-only">Tipo de archivado</span>
-          <select
-            value={tipo}
-            onChange={handleTipoChange}
-            className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-800
-                       focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
-          >
-            <option value="ordenes">Órdenes de Trabajo</option>
-            <option value="empleados">Empleados</option>
-            <option value="herramientas">Herramientas</option>
-            <option value="stock">Stock</option>
-            <option value="propietarios">Propietarios</option>
-            <option value="componentes">Componentes Externos</option>
-            <option value="aviones">Aviones</option>
-          </select>
-        </label>
-
-        {/* Desktop: Segmentos */}
-        <div className="hidden md:flex flex-wrap gap-2">
-          {[
-            { v: 'ordenes', t: 'Órdenes' },
-            { v: 'empleados', t: 'Empleados' },
-            { v: 'herramientas', t: 'Herramientas' },
-            { v: 'stock', t: 'Stock' },
-            { v: 'propietarios', t: 'Propietarios' },
-            { v: 'componentes', t: 'Componentes' },
-            { v: 'aviones', t: 'Aviones' },
-          ].map((o) => {
-            const active = tipo === o.v;
-            return (
-              <button
-                key={o.v}
-                onClick={() => handleTipoChange({ target: { value: o.v } } as any)}
-                className={`rounded-xl border px-3 py-1.5 text-sm transition
-                           ${active
-                             ? 'bg-slate-900 text-white border-slate-900 shadow-sm'
-                             : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50 hover:border-slate-400'}`}
-              >
-                {o.t}
-              </button>
-            );
-          })}
+  <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+    <div className="mx-auto px-4 md:px-6 lg:px-8 py-8">
+      {/* Header con animación */}
+      <div className="relative overflow-hidden mb-8">
+        <div className="absolute inset-0 bg-gradient-to-r from-blue-600/5 to-indigo-600/5 rounded-2xl"></div>
+        <div className="relative p-6">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-gradient-to-r from-slate-500 to-slate-600 rounded-xl flex items-center justify-center">
+              <span className="text-white text-xl">📁</span>
+            </div>
+            <div>
+              <h1 className="text-3xl md:text-4xl font-bold text-slate-900 mb-2 animate-fade-in">
+                Registros Archivados
+              </h1>
+              <p className="text-slate-600 animate-fade-in-delay">
+                Gestiona y consulta los registros archivados del sistema
+              </p>
+            </div>
+          </div>
         </div>
       </div>
 
-      <div className="pt-2">
-        {renderContenido()}
+      <div className="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden">
+        {/* Toolbar mejorado */}
+        <div className="p-6 border-b border-slate-200 bg-gradient-to-r from-slate-50 to-slate-100">
+          {/* Mobile: Select */}
+          <label className="w-full md:hidden">
+            <span className="sr-only">Tipo de archivado</span>
+            <select
+              value={tipo}
+              onChange={handleTipoChange}
+              className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 hover:border-slate-400"
+            >
+              <option value="ordenes">Órdenes de Trabajo</option>
+              <option value="empleados">Empleados</option>
+              <option value="herramientas">Herramientas</option>
+              <option value="stock">Stock</option>
+              <option value="propietarios">Propietarios</option>
+              <option value="componentes">Componentes Externos</option>
+              <option value="aviones">Aviones</option>
+            </select>
+          </label>
+
+          {/* Desktop: Segmentos mejorados */}
+          <div className="hidden md:flex flex-wrap gap-3">
+            {[
+              { v: 'ordenes', t: 'Órdenes', icon: '📋' },
+              { v: 'empleados', t: 'Empleados', icon: '👥' },
+              { v: 'herramientas', t: 'Herramientas', icon: '🔧' },
+              { v: 'stock', t: 'Stock', icon: '📦' },
+              { v: 'propietarios', t: 'Propietarios', icon: '🏢' },
+              { v: 'componentes', t: 'Componentes', icon: '⚙️' },
+              { v: 'aviones', t: 'Aviones', icon: '✈️' },
+            ].map((o) => {
+              const active = tipo === o.v;
+              return (
+                <button
+                  key={o.v}
+                  onClick={() => handleTipoChange({ target: { value: o.v } } as any)}
+                  className={`inline-flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium transition-all duration-200
+                             ${active
+                               ? 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white border-blue-500 shadow-lg transform scale-105'
+                               : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50 hover:border-slate-400 hover:shadow-md transform hover:scale-105'}`}
+                >
+                  <span>{o.icon}</span>
+                  {o.t}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Contenido */}
+        <div className="p-6">
+          {renderContenido()}
+        </div>
       </div>
+
+      <style jsx>{`
+        @keyframes fade-in {
+          from { opacity: 0; transform: translateY(20px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        
+        @keyframes fade-in-delay {
+          from { opacity: 0; transform: translateY(20px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .animate-fade-in {
+          animation: fade-in 0.8s ease-out;
+        }
+        
+        .animate-fade-in-delay {
+          animation: fade-in-delay 0.8s ease-out 0.2s both;
+        }
+      `}</style>
     </div>
-  </BaseCard>
+  </div>
 );
 }

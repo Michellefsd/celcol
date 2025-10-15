@@ -1,5 +1,5 @@
 // src/lib/pdf.ts
-import { api, openInNewTab } from '@/services/api';
+/*import { api, openInNewTab } from '@/services/api';
 import { getSignedCcmUrl } from './ccm';
 
 
@@ -20,3 +20,4 @@ export async function openCcm(otId: number) {
   const url = await getSignedCcmUrl(otId, { preview: false });
   openInNewTab(url);
 }
+*/

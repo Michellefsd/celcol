@@ -18,9 +18,39 @@ export const descargarPlantillaEnBlanco = async (req, res) => {
     }
 
     const tplName = `${tipo}.html`; // ccm.html | pdf.html
-    const tplContent = safeReadTemplate(tplName);
+    let tplContent = safeReadTemplate(tplName);
     if (!tplContent) {
       return res.status(404).json({ error: `Falta templates/${tplName}` });
+    }
+
+    // Agregar logo de Celcol embebido
+    let logoData = '';
+    try {
+      const logoPath = path.join(process.cwd(), 'public', 'celcol-logo.jpeg');
+      if (fs.existsSync(logoPath)) {
+        const buf = fs.readFileSync(logoPath);
+        logoData = `data:image/jpeg;base64,${buf.toString('base64')}`;
+      }
+    } catch (e) {
+      console.warn('No se pudo cargar el logo:', e.message);
+    }
+
+    // Si hay logo, agregarlo como parámetro en la URL
+    if (logoData) {
+      const logoParam = encodeURIComponent(logoData);
+      tplContent = tplContent.replace(
+        '<script>',
+        `<script>
+    // Inyectar logo automáticamente
+    (function() {
+      const logoData = '${logoData}';
+      const $imgs = document.querySelectorAll('.logo-to-fill, #logo-el');
+      $imgs.forEach(img => {
+        img.src = logoData;
+        img.style.display = 'block';
+      });
+    })();`
+      );
     }
 
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
