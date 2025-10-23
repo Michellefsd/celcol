@@ -43,7 +43,7 @@ const formFields: Field[] = [
   { name: 'codigoBarras', label: 'Código de barras', type: 'text' },
   { name: 'notasInternas', label: 'Notas internas', type: 'text' },
   { name: 'marca', label: 'Marca', type: 'text' },
-  { name: 'modelo', label: 'Modelo', type: 'text' },
+  { name: 'modelo', label: 'Modelo o P/N', type: 'text' },
   { name: 'numeroSerie', label: 'Número de serie', type: 'text' },
   { name: 'puedeSerVendido', label: 'Puede ser vendido', type: 'checkbox' },
   { name: 'puedeSerComprado', label: 'Puede ser comprado', type: 'checkbox' },
@@ -105,7 +105,7 @@ export default function StockPage() {
             'cantidad', 'stockMinimo', 'puedeSerVendido', 'puedeSerComprado',
             'codigoBarras', 'fechaIngreso', 'precioVenta', 'coste', 'unidadMedida',
           ]}
-          columnLabels={{ imagen: ' ' }}
+          columnLabels={{ imagen: ' ', modelo: 'Modelo o P/N' }}
           formFields={formFields}
           rowClassName={rowClassName}
           renderCell={(key, item) => {

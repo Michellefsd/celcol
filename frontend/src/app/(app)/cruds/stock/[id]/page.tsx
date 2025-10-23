@@ -83,7 +83,7 @@ export default function DetalleStockPage() {
       const data = await fetchJson<FacturaStock[]>(`/stock/${id}/facturas`);
       setFacturas(data);
     } catch (err) {
-      console.error('❌ Error al cargar facturas:', err);
+      console.error('❌ Error al cargar documentos:', err);
     }
   };
 
@@ -95,7 +95,7 @@ export default function DetalleStockPage() {
     })();
   }, [id]);
 
-  // ===== Helpers URL firmada (imagen y facturas) =====
+  // ===== Helpers URL firmada (imagen y documentos) =====
 
 
   async function obtenerUrlFirmada(key: string, disposition: 'inline' | 'attachment') {
@@ -203,17 +203,17 @@ export default function DetalleStockPage() {
 
   // ===== Facturas: eliminar (ver/descargar lo harás en los botones usando archivo.storageKey) =====
   const eliminarFactura = async (facturaId: IdLike) => {
-    if (!confirm('¿Eliminar esta factura? Esta acción no se puede deshacer.')) return;
+    if (!confirm('¿Eliminar este documento? Esta acción no se puede deshacer.')) return;
     try {
       const res = await fetch(api(`/stock/facturas/${facturaId}`), {
         method: 'DELETE',
         credentials: 'include',
       });
-      if (!res.ok) throw new Error(`No se pudo eliminar la factura (${res.status})`);
+      if (!res.ok) throw new Error(`No se pudo eliminar el documento (${res.status})`);
       await cargarFacturas();
     } catch (err) {
-      console.error('❌ Error al eliminar factura:', err);
-      alert('No se pudo eliminar la factura.');
+      console.error('❌ Error al eliminar documento:', err);
+      alert('No se pudo eliminar el documento.');
     }
   };
 
@@ -287,7 +287,7 @@ export default function DetalleStockPage() {
               {item.tipoProducto && <p><span className="text-slate-500">Tipo:</span> {item.tipoProducto}</p>}
               {item.codigoBarras && <p><span className="text-slate-500">Código de barras:</span> {item.codigoBarras}</p>}
               {item.marca && <p><span className="text-slate-500">Marca:</span> {item.marca}</p>}
-              {item.modelo && <p><span className="text-slate-500">Modelo:</span> {item.modelo}</p>}
+              {item.modelo && <p><span className="text-slate-500">Modelo o P/N:</span> {item.modelo}</p>}
               {item.numeroSerie && <p><span className="text-slate-500">N° Serie:</span> {item.numeroSerie}</p>}
               <p><span className="text-slate-500">Puede venderse:</span> {item.puedeSerVendido ? 'Sí' : 'No'}</p>
               <p><span className="text-slate-500">Precio de venta:</span> {item.precioVenta != null ? `$${item.precioVenta.toFixed(2)}` : '-'}</p>
@@ -316,12 +316,12 @@ export default function DetalleStockPage() {
       onClick={() => setMostrarSubirFactura(true)}
       className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-[#597BFF] to-[#4a6ee0] text-white font-semibold px-4 py-2 shadow-sm hover:from-[#4a6ee0] hover:to-[#3658d4]"
     >
-      Agregar factura
+      Agregar documentación
     </button>
   </div>
 
   {facturas.length === 0 ? (
-    <p className="text-sm text-slate-500">Sin facturas registradas.</p>
+    <p className="text-sm text-slate-500">Sin documentos registrados.</p>
   ) : (
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
@@ -422,7 +422,7 @@ export default function DetalleStockPage() {
             open={mostrarSubirFactura}
             onClose={() => setMostrarSubirFactura(false)}
             url={api(`/stock/${item.id}/facturas`)}   // nuevo endpoint
-            label="Subir factura (PDF o imagen)"
+            label="Subir documento (PDF o imagen)"
             nombreCampo="archivo"
             onUploaded={async () => {
               setMostrarSubirFactura(false);
@@ -505,11 +505,11 @@ function EditFacturaModal({
           monto: form.monto === '' ? null : form.monto,
         }),
       });
-      if (!res.ok) throw new Error('No se pudo actualizar la factura');
+      if (!res.ok) throw new Error('No se pudo actualizar el documento');
       onSaved();
     } catch (e) {
       console.error(e);
-      alert('Error al actualizar la factura');
+      alert('Error al actualizar el documento');
     } finally {
       setSaving(false);
     }
@@ -519,7 +519,7 @@ function EditFacturaModal({
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4">
       <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white shadow-xl">
         <div className="p-6">
-          <h3 className="text-lg font-semibold mb-4">Editar factura</h3>
+          <h3 className="text-lg font-semibold mb-4">Editar documento</h3>
 
           <div className="grid gap-3">
             <div>

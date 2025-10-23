@@ -590,7 +590,7 @@ const registrosEmpleado = registrosTrabajo.filter((r) => {
         else window.open(url, '_blank');
       }}
     />
-<CCMButton ordenId={orden.id} />
+<CCMButton ordenId={orden.id} accionTomada={orden.accionTomada} />
 
 
 

@@ -102,14 +102,16 @@ export const descargarConformidadPDF = async (req, res) => {
     const licFull   = licNumero ? `${licNumero}${licVenc ? ` - Venc.: ${licVenc}` : ''}` : (licVenc ? `Venc.: ${licVenc}` : '');
 
     // ⬇️ NUEVAS VARIABLES desde el modal (POST JSON) o query (GET)
-    const fechaInput   = body.fecha ?? q.fecha ?? body.fechaEmision ?? q.fechaEmision ?? ''; // "YYYY-MM-DD" preferido
+    const fechaInput   = body.fecha ?? q.fecha ?? ''; // "YYYY-MM-DD" fecha del trabajo (para dentro de recuadros)
+    const fechaGeneracion = body.fechaGeneracion ?? q.fechaGeneracion ?? ''; // fecha de generación (para arriba a la derecha)
     const lugarInput   = body.lugar ?? q.lugar ?? '';
     const aeronaveTxt  = body.aeronave ?? q.aeronave ?? ''; // se imprime debajo del primer recuadro
     const motorTxt     = body.motor ?? q.motor ?? '';       // se imprime en el recuadro inferior
 
     const vars = {
       // Encabezado
-      fechaEmision: fmtUY(fechaInput) || fmtUY(new Date()),
+      fechaEmision: fmtUY(fechaGeneracion) || fmtUY(new Date()), // Fecha de hoy para arriba a la derecha
+      fechaTrabajo: fmtUY(fechaInput) || '', // Fecha del trabajo para dentro de recuadros
       empresaTitulo: q.empresaTitulo ?? body.empresaTitulo ?? 'CELCOL AVIATION',
       empresaLinea1: q.empresaLinea1 ?? body.empresaLinea1 ?? 'Camino Melilla Aeropuerto Ángel Adami',
       empresaLinea2: q.empresaLinea2 ?? body.empresaLinea2 ?? 'Sector CAMES – Hangar Nº 2 · OMA IR-158',
@@ -229,18 +231,6 @@ export const descargarConformidadPDF = async (req, res) => {
         ${logoData ? `<img src="${logoData}" alt="logo">` : ''}
         <div class="title">${escapeHTML(vars.empresaTitulo)}</div>
         <div class="address">${escapeHTML(vars.empresaLinea1)}<br>${escapeHTML(vars.empresaLinea2)}</div>
-        <div class="cert-title">CERTIFICADO DE CONFORMIDAD DE MANTENIMIENTO</div>
-      </div>
-      <div>
-        <table class="sheet">
-          <tr><td><strong>Fecha:</strong> </td></tr>
-          <tr><td><strong>Lugar:</strong> ${escapeHTML(vars.lugar)}</td></tr>
-          <tr><td><strong>Horas TT:</strong> ${escapeHTML(vars.horasTT)}</td></tr>
-          <tr><td><strong>OT:</strong> ${escapeHTML(String(vars.ot))}</td></tr>
-        </table>
-      </div>
-    </div>
-
     <div class="trabajos">
       <p style="font-weight:bold; text-align:center;">A la aeronave se le efectuaron los trabajos que a continuación se describen:</p>
       <!-- ⬇️ TEXTO LIBRE AERONAVE -->
@@ -281,7 +271,7 @@ export const descargarConformidadPDF = async (req, res) => {
       </div>
       <div>
         <table class="sheet">
-          <tr><td><strong>Fecha:</strong> </td></tr>
+          <tr><td><strong>Fecha:</strong> ${escapeHTML(vars.fechaTrabajo)}</td></tr>
           <tr><td><strong>Lugar:</strong> ${escapeHTML(vars.lugar)}</td></tr>
           <tr><td><strong>Horas TT:</strong> ${escapeHTML(vars.horasTT)}</td></tr>
           <tr><td><strong>OT:</strong> ${escapeHTML(String(vars.ot))}</td></tr>
