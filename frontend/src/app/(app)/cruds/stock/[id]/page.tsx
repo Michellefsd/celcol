@@ -311,7 +311,7 @@ export default function DetalleStockPage() {
 {/* Facturas */}
 <section className="rounded-2xl border border-slate-200 bg-white shadow-sm p-6">
   <div className="flex items-center justify-between mb-3">
-    <h3 className="text-lg font-semibold">Facturas</h3>
+    <h3 className="text-lg font-semibold">Documentos</h3>
     <button
       onClick={() => setMostrarSubirFactura(true)}
       className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-[#597BFF] to-[#4a6ee0] text-white font-semibold px-4 py-2 shadow-sm hover:from-[#4a6ee0] hover:to-[#3658d4]"
