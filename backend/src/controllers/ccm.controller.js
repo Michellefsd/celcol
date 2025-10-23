@@ -188,7 +188,7 @@ export const descargarConformidadPDF = async (req, res) => {
     align-items: center;
     justify-content: flex-start;
   }
-  .center img { height: 18mm; margin-bottom: 1mm; }
+  .center img { height: 22mm; margin-bottom: 1mm; }
   .title { font-weight: bold; font-size: 11pt; }
   .address { font-size: 8pt; line-height: 1.2; }
   .cert-title { font-size: 9.5pt; font-weight: bold; margin-top: 1mm; white-space: nowrap; }
@@ -204,7 +204,7 @@ export const descargarConformidadPDF = async (req, res) => {
   }
 
   .trabajos { margin-top: 3mm; font-size: 8pt; }
-  .texto-libre { margin-top: 2mm; min-height: 15mm; white-space: pre-wrap; }
+  .texto-libre { margin-top: 2mm; min-height: 20mm; white-space: pre-wrap; }
 
   .cert-table { width: 100%; border-collapse: collapse; margin-top: 3mm; font-size: 8pt; }
   .cert-table td { border: 0.5pt solid #000; padding: 1mm; vertical-align: top; }
@@ -231,6 +231,18 @@ export const descargarConformidadPDF = async (req, res) => {
         ${logoData ? `<img src="${logoData}" alt="logo">` : ''}
         <div class="title">${escapeHTML(vars.empresaTitulo)}</div>
         <div class="address">${escapeHTML(vars.empresaLinea1)}<br>${escapeHTML(vars.empresaLinea2)}</div>
+        <div class="cert-title">CERTIFICADO DE CONFORMIDAD DE MANTENIMIENTO</div>
+      </div>
+      <div>
+        <table class="sheet">
+          <tr><td><strong>Fecha:</strong> ${escapeHTML(vars.fechaTrabajo)}</td></tr>
+          <tr><td><strong>Lugar:</strong> ${escapeHTML(vars.lugar)}</td></tr>
+          <tr><td><strong>Horas TT:</strong> ${escapeHTML(vars.horasTT)}</td></tr>
+          <tr><td><strong>OT:</strong> ${escapeHTML(String(vars.ot))}</td></tr>
+        </table>
+      </div>
+    </div>
+
     <div class="trabajos">
       <p style="font-weight:bold; text-align:center;">A la aeronave se le efectuaron los trabajos que a continuación se describen:</p>
       <!-- ⬇️ TEXTO LIBRE AERONAVE -->
@@ -246,7 +258,7 @@ export const descargarConformidadPDF = async (req, res) => {
       </tr>
       <tr>
         <td>${escapeHTML(vars.certificadorNombre)}</td>
-        <td>MMA - ${escapeHTML(vars.certificadorLicString)}</td>
+        <td>${escapeHTML(vars.certificadorLicString)}</td>
         <td></td>
       </tr>
     </table>
@@ -309,7 +321,7 @@ export const descargarConformidadPDF = async (req, res) => {
       </tr>
       <tr>
         <td>${escapeHTML(vars.certificadorNombre)}</td>
-        <td>MMA - ${escapeHTML(vars.certificadorLicString)}</td>
+        <td>${escapeHTML(vars.certificadorLicString)}</td>
         <td></td>
       </tr>
     </table>

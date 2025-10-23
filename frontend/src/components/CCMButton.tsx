@@ -16,7 +16,7 @@ export default function CCMButton({ ordenId, accionTomada }: Props) {
   const [form, setForm] = useState({
     fecha: '',     
     lugar: '',
-    aeronave: '',  
+    aeronave: accionTomada || '',  // Usar el texto del reporte como valor inicial
     motor: '',     
   });
 
@@ -137,7 +137,7 @@ async function onSubmit(e: React.FormEvent) {
                   name="aeronave"
                   value={form.aeronave}
                   onChange={onChange}
-                  placeholder={accionTomada || "Ej: Inspección Anual"}
+                  placeholder="Ej: Inspección Anual"
                   className="rounded-xl border border-slate-300 px-3 py-2 outline-none focus:ring-2 focus:ring-slate-300"
                 />
                 <span className="text-xs text-slate-500">
