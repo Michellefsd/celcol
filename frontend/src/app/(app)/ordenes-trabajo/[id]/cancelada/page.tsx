@@ -101,7 +101,7 @@ interface RegistroTrabajo {
     accionTomada?: string;
     observaciones?: string;
     archivoFactura?: ArchivoRef | null;
-    estadoFactura?: 'NO_ENVIADA' | 'ENVIADA' | 'PAGA' | 'PENDIENTE' | '';
+    //estadoFactura?: 'NO_ENVIADA' | 'ENVIADA' | 'PAGA' | 'PENDIENTE' | '';
     numeroFactura?: string | null;
     fechaApertura?: string;
     fechaCierre?: string;         
@@ -550,25 +550,13 @@ const registrosEmpleado = registrosTrabajo.filter((r) => {
 
         {/* CARD — Factura (solo lectura en cancelada) */}
         <section className="rounded-2xl border border-slate-200 bg-white shadow-sm p-4 md:p-6">
-          <h2 className="text-lg font-semibold text-slate-900">Factura</h2>
+          <h2 className="text-lg font-semibold text-slate-900">Documentos</h2>
 
           <div className="mt-2 text-[15px] leading-7 space-y-1">
-            <p>
-              <span className="text-slate-500">Estado:</span>{' '}
-              <span className="font-medium">
-                {orden.estadoFactura === 'PAGA'
-                  ? 'Paga'
-                  : orden.estadoFactura === 'ENVIADA'
-                  ? 'Enviada'
-                  : orden.estadoFactura === 'NO_ENVIADA'
-                  ? 'No enviada'
-                  : orden.estadoFactura || '—'}
-              </span>
-            </p>
 
             {orden.numeroFactura && (
               <p>
-                <span className="text-slate-500">Número de factura:</span>{' '}
+                <span className="text-slate-500">Tipo de Documento</span>{' '}
                 {orden.numeroFactura}
               </p>
             )}
@@ -580,7 +568,7 @@ const registrosEmpleado = registrosTrabajo.filter((r) => {
                   onClick={() => verArchivo(orden.archivoFactura!.storageKey)}
                   className="inline-flex items-center gap-1 text-cyan-600 hover:text-cyan-800 underline underline-offset-2"
                 >
-                  👁️ Ver factura
+                  👁️ Ver documentación
                 </button>
                 <button
                   type="button"
@@ -591,7 +579,7 @@ const registrosEmpleado = registrosTrabajo.filter((r) => {
                 </button>
               </div>
             ) : (
-              <p className="text-slate-500">Sin archivo de factura.</p>
+              <p className="text-slate-500">Sin documentación.</p>
             )}
           </div>
         </section>

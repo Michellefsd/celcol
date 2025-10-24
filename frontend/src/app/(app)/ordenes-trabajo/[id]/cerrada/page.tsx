@@ -105,7 +105,7 @@ interface OrdenTrabajo {
   accionTomada?: string;
   observaciones?: string;
   archivoFactura?: ArchivoRef | null;
-  estadoFactura?: 'NO_ENVIADA' | 'ENVIADA' | 'PAGA' | 'PENDIENTE' | '';
+  //estadoFactura?: 'NO_ENVIADA' | 'ENVIADA' | 'PAGA' | 'PENDIENTE' | '';
   numeroFactura?: string | null;
   fechaApertura?: string;
   fechaCierre?: string;
@@ -167,7 +167,6 @@ useEffect(() => {
   fetchJson<OrdenTrabajo>(`/ordenes-trabajo/${id}${qs}`)
     .then((data) => {
       setOrden(data);
-      setEstadoFactura(data.estadoFactura ?? 'PENDIENTE');
       setNumeroFactura(data.numeroFactura ?? '');
     })
     .catch(err => console.error('Error al cargar orden:', err));
@@ -179,7 +178,7 @@ const handleGuardarFactura = async () => {
   try {
     await fetchJson(`/ordenes-trabajo/${id}/factura`, {
       method: 'PUT',
-      body: JSON.stringify({ estadoFactura, numeroFactura }),
+      body: JSON.stringify({ numeroFactura }),
     });
     alert('Factura actualizada');
     const qs = includeArchived ? '?includeArchived=1' : '';
@@ -590,39 +589,21 @@ const registrosEmpleado = registrosTrabajo.filter((r) => {
         else window.open(url, '_blank');
       }}
     />
-<CCMButton ordenId={orden.id} />
+<CCMButton ordenId={orden.id} accionTomada={orden.accionTomada} />
 
 
 
       {/* CARD — Factura */} 
      <section className="rounded-2xl border border-slate-200 bg-white shadow-sm p-4 md:p-6">
-  <h2 className="text-lg font-semibold text-slate-900">Factura</h2>
-
-  <label className="block text-sm font-medium text-slate-700 mt-4 mb-1">Estado de la factura</label>
-  <select
-    className="w-full rounded-xl border border-slate-300 px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
-    value={estadoFactura ?? ''}
-    onChange={(e) => setEstadoFactura(e.target.value)}
-  >
-    <option value="">— Seleccionar —</option>
-    <option value="NO_ENVIADA">No enviada</option>
-    <option value="ENVIADA">Enviada</option>
-    <option value="PAGA">Paga</option>
-  </select>
+  <h2 className="text-lg font-semibold text-slate-900">Documentación</h2>
 
   <div className="mt-4 flex flex-wrap gap-3">
-    <button
-      onClick={handleGuardarFactura}
-      className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-[#597BFF] to-[#4a6ee0] text-white font-semibold px-4 py-2 shadow-sm hover:from-[#4a6ee0] hover:to-[#3658d4] hover:shadow-lg hover:brightness-110 transform hover:scale-[1.03] transition-all duration-300"
-    >
-      Guardar estado
-    </button>
 
     <button
       onClick={() => setMostrarSubirFactura(true)}
       className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2 text-slate-700 hover:bg-slate-50 hover:border-slate-400 transform hover:scale-[1.02] transition-all duration-200"
     >
-      {orden.archivoFactura?.storageKey ? 'Reemplazar' : 'Subir archivo de factura'}
+      {orden.archivoFactura?.storageKey ? 'Reemplazar' : 'Subir archivo de documentación'}
     </button>
   </div>
 
@@ -631,7 +612,7 @@ const registrosEmpleado = registrosTrabajo.filter((r) => {
   open={mostrarSubirFactura}
   onClose={() => setMostrarSubirFactura(false)}
   url={`/ordenes-trabajo/${id}/factura`} // coincide con tu backend (POST /:id/factura)
-  label="Subir archivo de factura"
+  label="Subir archivo de documentación"
   nombreCampo="archivoFactura"
   onUploaded={async () => {
     setMostrarSubirFactura(false);
@@ -649,7 +630,7 @@ const registrosEmpleado = registrosTrabajo.filter((r) => {
         onClick={() => verArchivo(orden.archivoFactura!.storageKey)}
         className="inline-flex items-center gap-1 text-cyan-600 hover:text-cyan-800 underline underline-offset-2"
       >
-        👁️ Ver factura
+        👁️ Ver documentación
       </button>
       <button
         type="button"

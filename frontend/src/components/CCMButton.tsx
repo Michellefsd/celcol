@@ -5,15 +5,18 @@ import { IconDescargar } from '@/components/ui/Icons';
 import IconButton from '@/components/IconButton';
 import { api } from '@/services/api';
 
-type Props = { ordenId: string | number };
+type Props = { 
+  ordenId: string | number;
+  accionTomada?: string; // Contenido del campo "Reporte" para usar como sugerencia
+};
 
-export default function CCMButton({ ordenId }: Props) {
+export default function CCMButton({ ordenId, accionTomada }: Props) {
   const [open, setOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState({
     fecha: '',     
     lugar: '',
-    aeronave: '',  
+    aeronave: accionTomada || '',  // Usar el texto del reporte como valor inicial
     motor: '',     
   });
 
@@ -26,7 +29,7 @@ export default function CCMButton({ ordenId }: Props) {
 
 async function onSubmit(e: React.FormEvent) {
   e.preventDefault();
-  if (!form.fecha || !form.lugar || !form.aeronave || !form.motor) return;
+  if (!form.fecha || !form.lugar) return;
 
   setSubmitting(true);
   // Abrimos la pestaña en el click (anti popup blocker)
@@ -37,7 +40,8 @@ async function onSubmit(e: React.FormEvent) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        fecha: form.fecha,       
+        fechaGeneracion: new Date().toISOString().split('T')[0], // Fecha de hoy para arriba a la derecha
+        fecha: form.fecha,       // Fecha del popup para dentro de los recuadros
         lugar: form.lugar,
         aeronave: form.aeronave, 
         motor: form.motor        
@@ -92,16 +96,16 @@ async function onSubmit(e: React.FormEvent) {
             <div className="mb-4">
               <h2 className="text-lg font-semibold">Datos para el CCM</h2>
               <p className="text-sm text-slate-600">
-                Estos campos se insertarán en el PDF: la <b>Fecha</b> arriba a la derecha,
+                La <b>Fecha</b> se insertará en los recuadros (primer y segundo), 
                 el <b>Lugar</b> en el primer recuadro, el texto de <b>Aeronave</b> debajo del primer recuadro
-                y <b>Motor</b> en el recuadro inferior.
+                y <b>Motor</b> en el recuadro inferior. La fecha de generación se pondrá automáticamente arriba a la derecha.
               </p>
             </div>
 
             <form onSubmit={onSubmit} className="space-y-4">
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <label className="flex flex-col gap-1">
-                  <span className="text-sm font-medium">Fecha *</span>
+                  <span className="text-sm font-medium">Fecha del trabajo *</span>
                   <input
                     type="date"
                     name="fecha"
@@ -127,7 +131,7 @@ async function onSubmit(e: React.FormEvent) {
               </div>
 
               <label className="flex flex-col gap-1">
-                <span className="text-sm font-medium">Aeronave *</span>
+                <span className="text-sm font-medium">Aeronave</span>
                 <input
                   type="text"
                   name="aeronave"
@@ -135,7 +139,6 @@ async function onSubmit(e: React.FormEvent) {
                   onChange={onChange}
                   placeholder="Ej: Inspección Anual"
                   className="rounded-xl border border-slate-300 px-3 py-2 outline-none focus:ring-2 focus:ring-slate-300"
-                  required
                 />
                 <span className="text-xs text-slate-500">
                   Se imprime debajo del primer recuadro.
@@ -143,14 +146,13 @@ async function onSubmit(e: React.FormEvent) {
               </label>
 
               <label className="flex flex-col gap-1">
-                <span className="text-sm font-medium">Motor *</span>
+                <span className="text-sm font-medium">Motor</span>
                 <textarea
                   name="motor"
                   value={form.motor}
                   onChange={onChange}
                   placeholder="Chequeo de compresión, limpieza de bujías, etc."
                   className="min-h-[88px] rounded-xl border border-slate-300 px-3 py-2 outline-none focus:ring-2 focus:ring-slate-300"
-                  required
                 />
                 <span className="text-xs text-slate-500">
                   Se imprime en el recuadro inferior.

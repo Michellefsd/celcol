@@ -122,7 +122,7 @@ interface OrdenTrabajo {
   estadoOrden: 'ABIERTA' | 'CERRADA' | 'CANCELADA';
   archivoFactura?: ArchivoRef | null; 
   solicitudFirma?: ArchivoRef | null;  
-  estadoFactura?: 'NO_ENVIADA' | 'ENVIADA' | 'PAGA' | '';
+  //estadoFactura?: 'NO_ENVIADA' | 'ENVIADA' | 'PAGA' | '';
   numeroFactura?: string;
   registrosTrabajo?: RegistroTrabajo[];
   avion?: Avion;
@@ -146,7 +146,7 @@ export default function Fase4OrdenTrabajoPage() {
   const router = useRouter();
 
   const [orden, setOrden] = useState<OrdenTrabajo | null>(null);
-  const [estadoFactura, setEstadoFactura] = useState<OrdenTrabajo['estadoFactura']>('');
+//  const [estadoFactura, setEstadoFactura] = useState<OrdenTrabajo['estadoFactura']>('');
   const [numeroFactura, setNumeroFactura] = useState('');
   const [registros, setRegistros] = useState<RegistroTrabajo[]>([]);
   const [personal, setPersonal] = useState<Empleado[]>([]);
@@ -181,7 +181,6 @@ useEffect(() => {
 
       // ✅ Cargar datos en estado
       setOrden(data);
-      setEstadoFactura(data.estadoFactura ?? '');
       setNumeroFactura(data.numeroFactura ?? '');
 
       // ✅ Normalización de registros para el form
@@ -298,11 +297,11 @@ const agregarFila = () => {
     try {
       await fetchJson(`/ordenes-trabajo/${id}/factura`, {
         method: 'PUT',
-        body: JSON.stringify({ estadoFactura, numeroFactura }),
+        body: JSON.stringify({ numeroFactura }),
       });
-      alert('Factura guardada');
+      alert('Documento guardado');
     } catch (e: any) {
-      alert(e?.body?.error || 'Error al guardar factura');
+      alert(e?.body?.error || 'Error al guardar documento');
     }
   };
   if (!orden) return <p className="p-4">Cargando orden...</p>;
@@ -366,7 +365,7 @@ async function obtenerUrlFirmada(key: string, disposition: 'inline' | 'attachmen
   return fetchJson<{ url: string }>(`/archivos/url-firmada?${q}`);
 }
 
-async function verFactura(key?: string) {
+async function verDocumentacion(key?: string) {
   if (!key) return;
   const win = window.open('about:blank', '_blank'); // abre YA para evitar bloqueos
   try {
@@ -375,11 +374,11 @@ async function verFactura(key?: string) {
     setTimeout(() => win && (win.location.replace(url)), 60);
   } catch (e) {
     win?.close();
-    console.error('❌ No se pudo abrir la factura:', e);
+    console.error('❌ No se pudo abrir la documentación:', e);
   }
 }
 
-async function descargarFactura(key?: string) {
+async function descargarDocumentacion(key?: string) {
   if (!key) return;
   const win = window.open('about:blank', '_blank');
   try {
@@ -388,7 +387,7 @@ async function descargarFactura(key?: string) {
     setTimeout(() => win && (win.location.replace(url)), 60);
   } catch (e) {
     win?.close();
-    console.error('❌ No se pudo descargar la factura:', e);
+    console.error('❌ No se pudo descargar la documentación:', e);
   }
 }
 
@@ -433,10 +432,10 @@ return (
         <div className="relative p-6">
           <div>
             <h1 className="text-3xl md:text-4xl font-bold text-slate-900 mb-2 animate-fade-in">
-              Fase 4: Cierre y factura
+              Fase 4: Cierre y documentación
             </h1>
             <p className="text-slate-600 animate-fade-in-delay">
-              Registra el trabajo realizado y genera la facturación
+              Registra el trabajo realizado y gestiona la documentación
             </p>
           </div>
         </div>
@@ -778,40 +777,28 @@ return (
 
 
       <section className="rounded-2xl border border-slate-200 bg-white shadow-sm p-4 md:p-6">
-        <h2 className="text-lg font-semibold text-slate-900">Factura</h2>
+        <h2 className="text-lg font-semibold text-slate-900">Documentación</h2>
 
-        <label className="block text-sm font-medium text-slate-700 mt-4 mb-1">Número de factura</label>
+        <label className="block text-sm font-medium text-slate-700 mt-4 mb-1">Tipo de documento</label>
         <input
           className="w-full rounded-xl border border-slate-300 px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
           value={numeroFactura}
           onChange={(e) => setNumeroFactura(e.target.value)}
-        />
-
-        <label className="block text-sm font-medium text-slate-700 mt-4 mb-1">Estado de factura</label>
-        <select
-          className="w-full rounded-xl border border-slate-300 px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
-          value={estadoFactura}
-          onChange={(e) => setEstadoFactura(e.target.value as OrdenTrabajo['estadoFactura'])}
-        >
-          <option value="">— Seleccionar —</option>
-          <option value="NO_ENVIADA">No enviada</option>
-          <option value="ENVIADA">Enviada</option>
-          <option value="PAGA">Paga</option>
-        </select>
+        />      
 
         <div className="mt-6">
           <button
             onClick={() => setMostrarSubirFactura(true)}
             className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-[#597BFF] to-[#4a6ee0] text-white font-semibold px-4 py-2 shadow-sm hover:from-[#4a6ee0] hover:to-[#3658d4] hover:shadow-lg hover:brightness-110 transform hover:scale-[1.03] transition-all duration-300"
           >
-            Subir archivo de factura
+            Subir archivo de documentación
           </button>
 
           <SubirArchivo
             open={mostrarSubirFactura}
             onClose={() => setMostrarSubirFactura(false)}
             url={`/ordenes-trabajo/${id}/factura`}
-            label="Subir archivo de factura"
+            label="Subir archivo de documentación"
             nombreCampo="archivoFactura"
             onUploaded={() => {
               setMostrarSubirFactura(false);
@@ -823,14 +810,14 @@ return (
   <div className="mt-2 flex gap-3 items-center text-sm">
     <button
       type="button"
-      onClick={() => verFactura(orden.archivoFactura!.storageKey)}
+      onClick={() => verDocumentacion(orden.archivoFactura!.storageKey)}
       className="inline-flex items-center gap-1 text-cyan-600 hover:text-cyan-800 underline underline-offset-2"
     >
       👁️ Ver archivo
     </button>
     <button
       type="button"
-      onClick={() => descargarFactura(orden.archivoFactura!.storageKey)}
+      onClick={() => descargarDocumentacion(orden.archivoFactura!.storageKey)}
       className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-slate-700 hover:bg-slate-50"
     >
       Descargar
